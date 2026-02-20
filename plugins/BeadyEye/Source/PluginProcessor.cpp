@@ -321,11 +321,12 @@ void BeadyEyeAudioProcessor::spawnGrain (float timeParam,  float sizeParam,  flo
     float absSize = std::abs(sizeParam);
     g.reverse = (sizeParam < 0.0f);
 
-    float sizeSquared = absSize * absSize;
+    // Cubic curve: finer resolution near 0 (small/medium grains) where playability matters most
+    float sizeCurved = absSize * absSize * absSize;
     int minGrainSamples = static_cast<int>(currentSampleRate * 0.01);
     int maxGrainSamples = bufferLength / 2;
     g.grainLength = std::max(minGrainSamples,
-        minGrainSamples + static_cast<int>(sizeSquared * static_cast<float>(maxGrainSamples - minGrainSamples)));
+        minGrainSamples + static_cast<int>(sizeCurved * static_cast<float>(maxGrainSamples - minGrainSamples)));
 
     g.phaseIncrement = std::pow(2.0, static_cast<double>(pitchParam) / 12.0);
     if (g.reverse) g.phaseIncrement = -g.phaseIncrement;
@@ -400,7 +401,7 @@ void BeadyEyeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float pitchParam     = apvts.getRawParameterValue("pitch")->load();
     float shapeParam     = apvts.getRawParameterValue("shape")->load();
     float densityParam   = apvts.getRawParameterValue("density")->load();
-    float feedbackParam  = apvts.getRawParameterValue("feedback")->load() * 0.6f;  // Cap at 0.6 effective max
+    float feedbackParam  = apvts.getRawParameterValue("feedback")->load() * 0.75f;  // effective max 0.75
     float dryWetParam    = apvts.getRawParameterValue("dry_wet")->load();
     float reverbParam    = apvts.getRawParameterValue("reverb")->load();
     float outputVolParam = apvts.getRawParameterValue("output_vol")->load();
@@ -472,11 +473,10 @@ void BeadyEyeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         ? computeSyncedGrainInterval(densityParam, currentBpm)
         : computeGrainInterval(densityParam);
 
-    if (!densitySyncParam)
-    {
-        if (baseInterval < currentGrainInterval / 2 || baseInterval > currentGrainInterval * 2)
-            currentGrainInterval = baseInterval;
-    }
+    // Always update — if densitySyncParam is on and transport stops, free-mode fallback
+    // needs a valid interval (without this it stays at 999999 → no grains when frozen + stopped)
+    if (baseInterval < currentGrainInterval / 2 || baseInterval > currentGrainInterval * 2)
+        currentGrainInterval = baseInterval;
 
     // ---- Per-sample processing ----
     for (int i = 0; i < numSamples; ++i)
@@ -692,7 +692,7 @@ void BeadyEyeAudioProcessor::initReverb (double sr)
 
 std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR, float amount) noexcept
 {
-    const float decay = 0.5f + amount * 0.4f;
+    const float decay = 0.5f + amount * 0.35f;  // max 0.85 (was 0.9) — avoids extreme tail lengths
 
     // Damping: increased curve above 0.75 for more natural roll-off
     // Below 0.75: gentle (amount * 0.03), above 0.75: steeper ramp to 0.25
@@ -749,8 +749,10 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
                  - dl[2].at (rvTapR[6])
                  - apf[7].at (rvTapR[7]);
 
-    wetL *= 0.2f;   // reduced from 0.6: compensates for the 8-tap output sum gain
-    wetR *= 0.2f;
+    // tanh-limit output: prevents 8-tap sum from overloading regardless of tank state;
+    // scale 0.3 keeps reverb at ~0.7x input level at full wet, saturates gracefully above that
+    wetL = std::tanh(wetL * 0.3f);
+    wetR = std::tanh(wetR * 0.3f);
 
     return { inL + (wetL - inL) * amount,
              inR + (wetR - inR) * amount };
