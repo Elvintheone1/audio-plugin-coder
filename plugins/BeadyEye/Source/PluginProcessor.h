@@ -161,7 +161,7 @@ private:
         {
             int readIdx = (writeIdx - delayLen + static_cast<int>(buf.size())) % static_cast<int>(buf.size());
             float delayed = buf[static_cast<size_t>(readIdx)];
-            float out = -g * in + delayed + g * delayed; // allpass
+            float out = -g * in + delayed; // Schroeder allpass: H(z) = (-g + z^-D)/(1 - g*z^-D), gain=1 at all freqs
             buf[static_cast<size_t>(writeIdx)] = in + g * delayed;
             writeIdx = (writeIdx + 1) % static_cast<int>(buf.size());
             return out;
