@@ -481,10 +481,10 @@ void BeadyEyeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // ---- Per-sample processing ----
     for (int i = 0; i < numSamples; ++i)
     {
-        // Feedback crossfade: fb=0 → pure dry; fb=0.6 → mostly grain recycled
+        // Feedback: additive model — dry is always preserved, grain energy accumulates on top
         const float fb = feedbackParam;
-        const float writeL = std::tanh(dryL[i] * (1.0f - fb) + feedbackSampleL * fb);
-        const float writeR = std::tanh(dryR[i] * (1.0f - fb) + feedbackSampleR * fb);
+        const float writeL = std::tanh(dryL[i] + feedbackSampleL * fb);
+        const float writeR = std::tanh(dryR[i] + feedbackSampleR * fb);
         writeToCircularBuffer(writeL, writeR);
         totalSamplesWritten = std::min(totalSamplesWritten + 1, bufferLength);
 
@@ -534,16 +534,21 @@ void BeadyEyeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         float grainL = 0.0f, grainR = 0.0f;
         processGrains(grainL, grainR);
 
-        // ---- Store raw grain for feedback ----
-        feedbackSampleL = grainL;
-        feedbackSampleR = grainR;
+        // Normalize grain output to [-1,1]: prevents reverb and output stage from seeing
+        // large signals (up to 32 un-normalized grains), while preserving relative dynamics
+        const float grainLn = std::tanh(grainL);
+        const float grainRn = std::tanh(grainR);
+
+        // ---- Store normalized grain for next sample's feedback ----
+        feedbackSampleL = grainLn;
+        feedbackSampleR = grainRn;
 
         // ---- Dry/Wet mix (smoothed) ----
         const float dw = smoothedDryWet.getNextValue();
         const float dryGain = std::cos(dw * juce::MathConstants<float>::halfPi);
         const float wetGain = std::sin(dw * juce::MathConstants<float>::halfPi);
-        outL[i] = dryL[i] * dryGain + grainL * wetGain;
-        outR[i] = dryR[i] * dryGain + grainR * wetGain;
+        outL[i] = dryL[i] * dryGain + grainLn * wetGain;
+        outR[i] = dryR[i] * dryGain + grainRn * wetGain;
 
         // ---- Reverb ----
         if (reverbParam > 0.001f)
@@ -702,7 +707,10 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
     static constexpr float kIn    = 0.75f;
     static constexpr float kIn2   = 0.625f;
 
-    float x = (inL + inR) * 0.5f;
+    // Pre-scale input by (1-decay) so the tank's steady-state signal equals the input
+    // amplitude regardless of decay. Without this, tank gain = decay/(1-decay) * input
+    // which at decay=0.9 is 9x — causing the reverb to overload even at low settings.
+    float x = (inL + inR) * 0.5f * (1.0f - decay);
     x = apf[0].tick (x, kIn);
     x = apf[1].tick (x, kIn);
     x = apf[2].tick (x, kIn2);
@@ -741,8 +749,8 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
                  - dl[2].at (rvTapR[6])
                  - apf[7].at (rvTapR[7]);
 
-    wetL *= 0.6f;
-    wetR *= 0.6f;
+    wetL *= 0.2f;   // reduced from 0.6: compensates for the 8-tap output sum gain
+    wetR *= 0.2f;
 
     return { inL + (wetL - inL) * amount,
              inR + (wetR - inR) * amount };
