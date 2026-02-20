@@ -1,5 +1,5 @@
 # Session Handoff — BeadyEye
-**Last updated:** 2026-02-20
+**Last updated:** 2026-02-20 (session 2)
 **Branch:** `feat/next-iteration`
 **Machine:** macOS (original machine, Apple Silicon)
 
