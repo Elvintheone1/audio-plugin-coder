@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beady Eye</title>
+    <!-- JS inlined at bottom of body (module imports don't work with WKWebView resource provider) -->
+    <style>
+        :root {
+            --bg: #0A0A0F;
+            --surface: #1A1A22;
+            --surface-hi: #2A2A33;
+            --red: #E63946;
+            --blue: #2D5BFF;
+            --yellow: #FFB800;
+            --white: #F0F0F5;
+            --cyan: #00F5FF;
+            --text-dim: #808090;
+            --border: #333340;
+            --font: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--white);
+            font-family: var(--font);
+            width: 900px;
+            height: 550px;
+            overflow: hidden;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ---- HEADER ---- */
+        .header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+        .header-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+        }
+        .header-title .r { color: var(--red); }
+        .header-title .b { color: var(--blue); }
+        .header-title .y { color: var(--yellow); }
+        .header-sub {
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 0.15em;
+        }
+
+        /* ---- FOOTER ---- */
+        .footer {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            z-index: 10;
+        }
+
+        /* ---- KNOB (absolute positioned) ---- */
+        .knob-wrap {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transform: translate(-50%, -50%);
+        }
+        .knob-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+        .knob-value {
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--white);
+            opacity: 0.6;
+            font-variant-numeric: tabular-nums;
+            min-height: 13px;
+        }
+        .knob-svg { cursor: pointer; }
+        .knob-track { fill: none; stroke: var(--surface-hi); stroke-linecap: round; }
+        .knob-arc { fill: none; stroke-linecap: round; transition: stroke-dashoffset 60ms ease-out; }
+        .knob-atten { fill: none; stroke-linecap: round; opacity: 0.25; }
+        .knob-indicator { fill: none; stroke-linecap: round; }
+
+        /* ---- DENSITY MODE LABELS ---- */
+        .density-labels {
+            position: absolute;
+            display: flex;
+            justify-content: space-between;
+            width: 140px;
+            transform: translateX(-50%);
+        }
+        .density-labels span {
+            font-size: 7px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            color: var(--text-dim);
+            opacity: 0.5;
+        }
+
+        /* ---- GRAIN VIZ ---- */
+        .grain-viz {
+            position: absolute;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: rgba(10, 10, 15, 0.6);
+            overflow: hidden;
+        }
+        .grain-dot {
+            position: absolute;
+            border-radius: 50%;
+            transition: opacity 150ms;
+        }
+
+        /* ---- FREEZE ---- */
+        .freeze-wrap {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transform: translate(-50%, -50%);
+        }
+        .freeze-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: transparent;
+            cursor: pointer;
+            transition: all 120ms ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dim);
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font);
+        }
+        .freeze-btn.active {
+            background: var(--red);
+            border-color: var(--red);
+            box-shadow: 0 0 20px rgba(230, 57, 70, 0.4);
+            color: var(--white);
+        }
+
+        /* ---- METERS ---- */
+        .meters {
+            position: absolute;
+            display: flex;
+            gap: 3px;
+            flex-direction: column;
+            align-items: center;
+        }
+        .meter-pair {
+            display: flex;
+            gap: 3px;
+        }
+        .meter-bar {
+            width: 4px;
+            height: 70px;
+            background: var(--surface);
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+        .meter-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            border-radius: 2px;
+            transition: height 50ms;
+        }
+        .meter-label {
+            font-size: 7px;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            margin-top: 3px;
+        }
+
+        /* ---- OUTPUT ROW ---- */
+        .output-row {
+            position: absolute;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        .output-knob {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* ---- SYNC TOGGLE ---- */
+        .sync-toggle {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transform: translateX(-50%);
+        }
+        .sync-toggle-btn {
+            font-size: 8px;
+            font-weight: 700;
+            font-family: var(--font);
+            letter-spacing: 0.1em;
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 100ms;
+        }
+        .sync-toggle-btn.active {
+            background: var(--cyan);
+            border-color: var(--cyan);
+            color: var(--bg);
+        }
+        .sync-division {
+            font-size: 10px;
+            font-weight: 700;
+            font-family: var(--font);
+            color: var(--cyan);
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-title">
+            <span class="r">B</span><span class="b">E</span><span class="y">A</span>D<span class="r">Y</span>
+            &nbsp;
+            <span class="b">E</span><span class="y">Y</span>E
+        </div>
+        <div class="header-sub">GRANULAR TEXTURE PROCESSOR</div>
+    </div>
+
+    <!-- ============================================
+         DENSITY — Hero knob, top center (100px)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 450px; top: 115px;" id="density-control"
+         data-param="density" data-min="-1" data-max="1" data-default="0" data-bipolar="true">
+        <svg class="knob-svg" width="100" height="100" viewBox="0 0 100 100">
+            <path class="knob-track" d="M 17.7 82.3 A 40 40 0 1 1 82.3 82.3" stroke-width="6" />
+            <circle class="knob-arc" cx="50" cy="50" r="40" stroke="var(--cyan)" stroke-width="6"
+                stroke-dasharray="214" stroke-dashoffset="214" transform="rotate(135 50 50)" />
+            <line class="knob-indicator" x1="50" y1="50" x2="50" y2="14" stroke="var(--cyan)" stroke-width="2.5"
+                transform="rotate(-135 50 50)" />
+        </svg>
+        <span class="knob-label" style="font-size: 10px;">DENSITY</span>
+        <span class="knob-value" id="density-value">0.00</span>
+    </div>
+    <div class="density-labels" style="left: 450px; top: 178px;">
+        <span>RHYTHMIC</span>
+        <span>RANDOM</span>
+    </div>
+    <div class="sync-toggle" style="left: 450px; top: 192px;">
+        <button class="sync-toggle-btn" id="density-sync-btn">FREE</button>
+        <span class="sync-division" id="sync-division" style="display: none;">—</span>
+    </div>
+
+    <!-- ============================================
+         TIME — Left of center (80px, blue)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 180px; top: 210px;" id="time-control"
+         data-param="time" data-min="0" data-max="1" data-default="0.5" data-atten="time_atten">
+        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
+            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--blue)" stroke-width="3"
+                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="time_atten-ring" />
+            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
+            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--blue)" stroke-width="5"
+                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--blue)" stroke-width="2"
+                transform="rotate(0 40 40)" />
+        </svg>
+        <span class="knob-label">TIME</span>
+        <span class="knob-value" id="time-value">50%</span>
+    </div>
+
+    <!-- ============================================
+         SIZE — Center-left below (80px, red, bipolar)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 370px; top: 280px;" id="size-control"
+         data-param="size" data-min="-1" data-max="1" data-default="0.5" data-bipolar="true" data-atten="size_atten">
+        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
+            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--red)" stroke-width="3"
+                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="size_atten-ring" />
+            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
+            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--red)" stroke-width="5"
+                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--red)" stroke-width="2"
+                transform="rotate(0 40 40)" />
+        </svg>
+        <span class="knob-label">SIZE</span>
+        <span class="knob-value" id="size-value">50%</span>
+    </div>
+
+    <!-- ============================================
+         SHAPE — Center-right below (80px, white)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 530px; top: 280px;" id="shape-control"
+         data-param="shape" data-min="0" data-max="1" data-default="0.5" data-atten="shape_atten">
+        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
+            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--white)" stroke-width="3"
+                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="shape_atten-ring" />
+            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
+            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--white)" stroke-width="5"
+                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--white)" stroke-width="2"
+                transform="rotate(0 40 40)" />
+        </svg>
+        <span class="knob-label">SHAPE</span>
+        <span class="knob-value" id="shape-value">50%</span>
+    </div>
+
+    <!-- ============================================
+         PITCH — Right of center (80px, yellow, bipolar)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 720px; top: 210px;" id="pitch-control"
+         data-param="pitch" data-min="-24" data-max="24" data-default="0" data-bipolar="true" data-unit="st" data-atten="pitch_atten">
+        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
+            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--yellow)" stroke-width="3"
+                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="pitch_atten-ring" />
+            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
+            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--yellow)" stroke-width="5"
+                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--yellow)" stroke-width="2"
+                transform="rotate(0 40 40)" />
+        </svg>
+        <span class="knob-label">PITCH</span>
+        <span class="knob-value" id="pitch-value">0 st</span>
+    </div>
+
+    <!-- ============================================
+         GRAIN VISUALIZATION — Center below knobs
+         ============================================ -->
+    <div class="grain-viz" id="grain-viz" style="left: 320px; top: 360px; width: 260px; height: 90px;"></div>
+
+    <!-- ============================================
+         FREEZE — Bottom center-left
+         ============================================ -->
+    <div class="freeze-wrap" style="left: 180px; top: 440px;" id="freeze-control">
+        <button class="freeze-btn" id="freeze-btn">
+            <span style="font-size: 14px;">&#10052;</span>
+        </button>
+        <span class="knob-label">FREEZE</span>
+    </div>
+
+    <!-- ============================================
+         METERS — Bottom left
+         ============================================ -->
+    <div class="meters" style="left: 50px; top: 390px;">
+        <div class="meter-pair">
+            <div class="meter-bar"><div class="meter-fill" id="meter-in" style="height: 0%; background: var(--cyan);"></div></div>
+            <div class="meter-bar"><div class="meter-fill" id="meter-out" style="height: 0%; background: var(--cyan);"></div></div>
+        </div>
+        <div style="display: flex; gap: 3px;">
+            <span class="meter-label">I</span>
+            <span class="meter-label">O</span>
+        </div>
+    </div>
+
+    <!-- ============================================
+         OUTPUT ROW — Bottom right, horizontal strip
+         ============================================ -->
+    <div class="output-row" style="left: 600px; top: 440px;">
+
+        <!-- FEEDBACK -->
+        <div class="output-knob" id="feedback-control"
+             data-param="feedback" data-min="0" data-max="1" data-default="0">
+            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
+                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
+                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--red)" stroke-width="4"
+                    stroke-dasharray="107" stroke-dashoffset="107" transform="rotate(135 26 26)" />
+                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--red)" stroke-width="2"
+                    transform="rotate(-135 26 26)" />
+            </svg>
+            <span class="knob-label" style="font-size: 8px;">FDBK</span>
+            <span class="knob-value" style="font-size: 9px;" id="feedback-value">0%</span>
+        </div>
+
+        <!-- DRY/WET -->
+        <div class="output-knob" id="dry_wet-control"
+             data-param="dry_wet" data-min="0" data-max="1" data-default="0.5">
+            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
+                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
+                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--white)" stroke-width="4"
+                    stroke-dasharray="107" stroke-dashoffset="54" transform="rotate(135 26 26)" />
+                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--white)" stroke-width="2"
+                    transform="rotate(0 26 26)" />
+            </svg>
+            <span class="knob-label" style="font-size: 8px;">MIX</span>
+            <span class="knob-value" style="font-size: 9px;" id="dry_wet-value">50%</span>
+        </div>
+
+        <!-- REVERB -->
+        <div class="output-knob" id="reverb-control"
+             data-param="reverb" data-min="0" data-max="1" data-default="0">
+            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
+                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
+                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--blue)" stroke-width="4"
+                    stroke-dasharray="107" stroke-dashoffset="107" transform="rotate(135 26 26)" />
+                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--blue)" stroke-width="2"
+                    transform="rotate(-135 26 26)" />
+            </svg>
+            <span class="knob-label" style="font-size: 8px;">REVERB</span>
+            <span class="knob-value" style="font-size: 9px;" id="reverb-value">0%</span>
+        </div>
+
+        <!-- OUTPUT -->
+        <div class="output-knob" id="output_vol-control"
+             data-param="output_vol" data-min="0" data-max="1" data-default="0.75">
+            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
+                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
+                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--yellow)" stroke-width="4"
+                    stroke-dasharray="107" stroke-dashoffset="27" transform="rotate(135 26 26)" />
+                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--yellow)" stroke-width="2"
+                    transform="rotate(67.5 26 26)" />
+            </svg>
+            <span class="knob-label" style="font-size: 8px;">OUTPUT</span>
+            <span class="knob-value" style="font-size: 9px;" id="output_vol-value">75%</span>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <span>GRAINS: <span id="grain-count">0</span></span>
+        <span id="debug-status" style="color: #E63946;">INIT...</span>
+        <span>BEADY EYE v0.1</span>
+    </div>
+
+    <!-- ALL JS INLINED — WKWebView resource provider doesn't support ES module imports -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ============================================================
+        // JUCE LIBRARY (INLINED) — Adapted from CloudWash pattern
+        // ============================================================
+
+        var juceAvailable = typeof window.__JUCE__ !== 'undefined';
+
+        // Slider State Management
+        function SliderState(name) {
+            this.name = name;
+            this.identifier = "__juce__slider" + name;
+            this.scaledValue = 0;
+            this.properties = { start: 0, end: 1, skew: 1, name: "", label: "", numSteps: 100, interval: 0, parameterIndex: -1 };
+            this.valueChangedListeners = [];
+
+            var self = this;
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.addEventListener(this.identifier, function(event) { self.handleEvent(event); });
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "requestInitialUpdate" });
+            }
+        }
+        SliderState.prototype.setNormalisedValue = function(newValue) {
+            this.scaledValue = this.snapToLegalValue(this.normalisedToScaledValue(newValue));
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "valueChanged", value: this.scaledValue });
+            }
+        };
+        SliderState.prototype.sliderDragStarted = function() {
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" });
+            }
+        };
+        SliderState.prototype.sliderDragEnded = function() {
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" });
+            }
+        };
+        SliderState.prototype.handleEvent = function(event) {
+            if (event.eventType === "valueChanged") {
+                this.scaledValue = event.value;
+                this.valueChangedListeners.forEach(function(fn) { fn(); });
+            }
+            if (event.eventType === "propertiesChanged") {
+                var props = {};
+                for (var k in event) { if (k !== "eventType") props[k] = event[k]; }
+                this.properties = props;
+            }
+        };
+        SliderState.prototype.getScaledValue = function() { return this.scaledValue; };
+        SliderState.prototype.getNormalisedValue = function() {
+            return Math.pow(
+                (this.scaledValue - this.properties.start) / (this.properties.end - this.properties.start),
+                this.properties.skew
+            );
+        };
+        SliderState.prototype.normalisedToScaledValue = function(normalisedValue) {
+            return Math.pow(normalisedValue, 1 / this.properties.skew) *
+                (this.properties.end - this.properties.start) + this.properties.start;
+        };
+        SliderState.prototype.snapToLegalValue = function(value) {
+            var interval = this.properties.interval;
+            if (interval === 0) return value;
+            var start = this.properties.start;
+            var snapped = start + interval * Math.floor((value - start) / interval + 0.5);
+            return Math.max(this.properties.start, Math.min(this.properties.end, snapped));
+        };
+        SliderState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
+
+        // Toggle State Management
+        function ToggleState(name) {
+            this.name = name;
+            this.identifier = "__juce__toggle" + name;
+            this.value = false;
+            this.valueChangedListeners = [];
+
+            var self = this;
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.addEventListener(this.identifier, function(event) { self.handleEvent(event); });
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "requestInitialUpdate" });
+            }
+        }
+        ToggleState.prototype.getValue = function() { return this.value; };
+        ToggleState.prototype.setValue = function(newValue) {
+            this.value = newValue;
+            if (juceAvailable && window.__JUCE__.backend) {
+                window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "valueChanged", value: this.value });
+            }
+        };
+        ToggleState.prototype.handleEvent = function(event) {
+            if (event.eventType === "valueChanged") {
+                this.value = event.value;
+                this.valueChangedListeners.forEach(function(fn) { fn(); });
+            }
+        };
+        ToggleState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
+
+        // Caches & Public API
+        var sliderStates = {};
+        var toggleStates = {};
+
+        window.Juce = window.Juce || {};
+        window.Juce.getSliderState = function(name) {
+            if (!sliderStates[name]) sliderStates[name] = new SliderState(name);
+            return sliderStates[name];
+        };
+        window.Juce.getToggleState = function(name) {
+            if (!toggleStates[name]) toggleStates[name] = new ToggleState(name);
+            return toggleStates[name];
+        };
+
+        // ============================================================
+        // BEADY EYE — Parameter binding & UI controls
+        // ============================================================
+
+        console.log("BeadyEye WebView UI Loading...");
+
+        // Parameter state management — 10 main + 4 attenurandomizers + 1 toggle
+        var parameterStates = {
+            time: null, size: null, pitch: null, shape: null, density: null,
+            feedback: null, dry_wet: null, reverb: null, output_vol: null,
+            freeze: null, density_sync: null,
+            time_atten: null, size_atten: null, pitch_atten: null, shape_atten: null
+        };
+
+        // Registry of knob update functions
+        var knobUpdaters = {};
+
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("=== BeadyEye Initialization Start ===");
+            console.log("JUCE Backend: " + (juceAvailable ? "Available" : "Not Available (preview mode)"));
+
+            // 1. Initialize visual controls (registers knob updaters)
+            initializeKnobs();
+            initializeFreezeButton();
+            initializeDensitySyncButton();
+            initializeGrainVisualization();
+            initializeMeters();
+
+            // Hook density knob to update sync division label
+            var origDensityUpdater = knobUpdaters['density'];
+            knobUpdaters['density'] = function(newValue, fromJuce) {
+                origDensityUpdater(newValue, fromJuce);
+                // Track normalized value for sync division display
+                if (fromJuce) {
+                    lastDensityNormalized = newValue;
+                } else {
+                    // newValue is raw density (-1 to 1), convert to normalized
+                    lastDensityNormalized = (newValue + 1) / 2;
+                }
+                updateSyncDivisionDisplay();
+            };
+
+            // 2. Connect JUCE parameters (after knobs exist)
+            if (juceAvailable) {
+                console.log("Connecting JUCE parameters...");
+                initializeParameterStates();
+                console.log("JUCE parameters connected");
+            }
+
+            // Update debug indicator
+            var dbg = document.getElementById('debug-status');
+            if (dbg) {
+                dbg.style.color = juceAvailable ? '#00FF00' : '#808090';
+                dbg.textContent = juceAvailable ? 'JUCE:OK' : 'PREVIEW';
+            }
+
+            console.log("=== BeadyEye Ready ===");
+        });
+
+        // ============================================================
+        // JUCE PARAMETER STATE INITIALIZATION
+        // ============================================================
+
+        function initializeParameterStates() {
+            for (var paramName in parameterStates) {
+                try {
+                    if (paramName === 'freeze' || paramName === 'density_sync') {
+                        parameterStates[paramName] = window.Juce.getToggleState(paramName);
+                    } else {
+                        parameterStates[paramName] = window.Juce.getSliderState(paramName);
+                    }
+
+                    // Attach JUCE→UI listener (state exists, knob updater registered)
+                    if (knobUpdaters[paramName] && parameterStates[paramName]) {
+                        (function(pName) {
+                            var state = parameterStates[pName];
+                            var updater = knobUpdaters[pName];
+                            var isToggle = (pName === 'freeze' || pName === 'density_sync');
+                            state.addValueChangedListener(function() {
+                                var normalizedValue = isToggle
+                                    ? (state.getValue() ? 1 : 0)
+                                    : state.getNormalisedValue();
+                                updater(normalizedValue, true);
+                            });
+                        })(paramName);
+                    }
+
+                    console.log("  param: " + paramName);
+                } catch (error) {
+                    console.warn("  failed: " + paramName + ": " + error.message);
+                }
+            }
+        }
+
+        // ============================================================
+        // KNOB INITIALIZATION
+        // ============================================================
+
+        function initializeKnobs() {
+            var knobWraps = document.querySelectorAll('.knob-wrap[data-param]');
+            var outputKnobs = document.querySelectorAll('.output-knob[data-param]');
+
+            console.log("Initializing " + knobWraps.length + " main knobs + " + outputKnobs.length + " output knobs...");
+
+            knobWraps.forEach(function(wrap) { setupKnob(wrap); });
+            outputKnobs.forEach(function(wrap) { setupKnob(wrap); });
+        }
+
+        function setupKnob(wrap) {
+            var paramName = wrap.dataset.param;
+            var min = parseFloat(wrap.dataset.min);
+            var max = parseFloat(wrap.dataset.max);
+            var defaultValue = parseFloat(wrap.dataset.default);
+            var isBipolar = wrap.dataset.bipolar === 'true';
+            var unit = wrap.dataset.unit || '';
+            var attenParamName = wrap.dataset.atten || null;
+
+            var value = defaultValue;
+            var isDragging = false;
+            var startY = 0;
+            var startValue = 0;
+
+            // Atten drag state
+            var attenValue = 0.0;
+            var isAttenDragging = false;
+            var attenStartY = 0;
+            var attenStartValue = 0;
+
+            var svg = wrap.querySelector('.knob-svg');
+            var arc = wrap.querySelector('.knob-arc');
+            var indicator = wrap.querySelector('.knob-indicator');
+            var valueDisplay = document.getElementById(paramName + '-value') || wrap.querySelector('.knob-value');
+            var attenRing = attenParamName ? document.getElementById(attenParamName + '-ring') : null;
+
+            if (!svg || !arc || !indicator) {
+                console.warn("Knob " + paramName + ": missing SVG elements");
+                return;
+            }
+
+            var svgSize = parseInt(svg.getAttribute('width'));
+            var center = svgSize / 2;
+            var arcRadius = parseFloat(arc.getAttribute('r'));
+            var circumference = 2 * Math.PI * arcRadius;
+            var arcSweep = circumference * (270 / 360);
+
+            // Full sweep for atten ring: read from HTML attribute (198 for 80px knobs)
+            var attenArcSweep = attenRing
+                ? parseFloat(attenRing.getAttribute('stroke-dasharray') || '198')
+                : 198;
+
+            function updateKnob(newValue, fromJuce) {
+                if (fromJuce) {
+                    value = min + (newValue * (max - min));
+                } else {
+                    value = Math.max(min, Math.min(max, newValue));
+                }
+
+                var normalized = (value - min) / (max - min);
+
+                // Arc visual
+                var dashOffset = arcSweep * (1 - normalized);
+                arc.setAttribute('stroke-dasharray', arcSweep.toFixed(1));
+                arc.setAttribute('stroke-dashoffset', dashOffset.toFixed(1));
+
+                // Indicator rotation: -135deg (min) to +135deg (max)
+                var angle = -135 + (normalized * 270);
+                indicator.setAttribute('transform', 'rotate(' + angle + ' ' + center + ' ' + center + ')');
+
+                // Value display
+                if (valueDisplay) {
+                    if (unit === 'st') {
+                        valueDisplay.textContent = value >= 0 ? '+' + value.toFixed(1) + ' st' : value.toFixed(1) + ' st';
+                    } else if (isBipolar) {
+                        valueDisplay.textContent = value.toFixed(2);
+                    } else {
+                        valueDisplay.textContent = Math.round(normalized * 100) + '%';
+                    }
+                }
+
+                // Update JUCE parameter (only from UI interaction)
+                if (!fromJuce && parameterStates[paramName]) {
+                    try {
+                        parameterStates[paramName].setNormalisedValue(normalized);
+                    } catch (error) {
+                        console.warn("Failed to update JUCE param " + paramName + ": " + error.message);
+                    }
+                }
+            }
+
+            function updateAttenRing(val, fromJuce) {
+                attenValue = Math.max(0, Math.min(1, val));
+                if (attenRing) {
+                    var offset = attenArcSweep * (1 - attenValue);
+                    attenRing.setAttribute('stroke-dashoffset', offset.toFixed(1));
+                    // Opacity: 0.25 at 0 → 0.8 at 1
+                    attenRing.style.opacity = (0.25 + attenValue * 0.55).toFixed(2);
+                }
+                if (!fromJuce && attenParamName && parameterStates[attenParamName]) {
+                    try {
+                        parameterStates[attenParamName].setNormalisedValue(attenValue);
+                    } catch (error) {
+                        console.warn("Failed to update JUCE param " + attenParamName + ": " + error.message);
+                    }
+                }
+            }
+
+            // Register updaters for JUCE→UI binding
+            knobUpdaters[paramName] = updateKnob;
+            if (attenParamName) {
+                knobUpdaters[attenParamName] = function(normalizedValue, fromJuce) {
+                    updateAttenRing(normalizedValue, fromJuce);
+                };
+            }
+
+            // Mouse drag — distance from center determines main knob vs atten ring
+            svg.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+
+                if (attenRing) {
+                    var rect = svg.getBoundingClientRect();
+                    var dx = e.clientX - rect.left - center;
+                    var dy = e.clientY - rect.top - center;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist >= 30) {
+                        // Outer ring hit: start atten drag
+                        isAttenDragging = true;
+                        attenStartY = e.clientY;
+                        attenStartValue = attenValue;
+                        if (attenParamName && parameterStates[attenParamName]) {
+                            try { parameterStates[attenParamName].sliderDragStarted(); } catch (err) {}
+                        }
+                        return;
+                    }
+                }
+
+                // Inner knob: main param drag
+                isDragging = true;
+                startY = e.clientY;
+                startValue = value;
+                if (parameterStates[paramName]) {
+                    try { parameterStates[paramName].sliderDragStarted(); } catch (err) {}
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isAttenDragging) {
+                    var deltaY = attenStartY - e.clientY;
+                    updateAttenRing(attenStartValue + deltaY * 0.005, false);
+                    return;
+                }
+                if (!isDragging) return;
+                var deltaY = startY - e.clientY;
+                var sensitivity = 0.005;
+                var newValue = startValue + deltaY * (max - min) * sensitivity;
+                updateKnob(newValue, false);
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isAttenDragging) {
+                    isAttenDragging = false;
+                    if (attenParamName && parameterStates[attenParamName]) {
+                        try { parameterStates[attenParamName].sliderDragEnded(); } catch (err) {}
+                    }
+                }
+                if (isDragging) {
+                    isDragging = false;
+                    if (parameterStates[paramName]) {
+                        try { parameterStates[paramName].sliderDragEnded(); } catch (err) {}
+                    }
+                }
+            });
+
+            // Double-click to reset
+            svg.addEventListener('dblclick', function(e) {
+                var rect = svg.getBoundingClientRect();
+                var dx = e.clientX - rect.left - center;
+                var dy = e.clientY - rect.top - center;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (attenRing && dist >= 30) {
+                    updateAttenRing(0, false);
+                } else {
+                    updateKnob(defaultValue, false);
+                }
+            });
+
+            // Initialize visual state
+            updateKnob(defaultValue, false);
+            if (attenRing) updateAttenRing(0, false);
+
+            console.log("  knob: " + paramName + (attenParamName ? " [atten:" + attenParamName + "]" : ""));
+        }
+
+        // ============================================================
+        // FREEZE BUTTON
+        // ============================================================
+
+        function initializeFreezeButton() {
+            var freezeBtn = document.getElementById('freeze-btn');
+            var freezeActive = false;
+
+            freezeBtn.addEventListener('click', function() {
+                freezeActive = !freezeActive;
+                freezeBtn.classList.toggle('active', freezeActive);
+
+                if (parameterStates.freeze) {
+                    try {
+                        parameterStates.freeze.setValue(freezeActive);
+                    } catch (error) {
+                        console.warn("Failed to set freeze: " + error.message);
+                    }
+                }
+            });
+
+            // Register freeze updater for JUCE→UI binding
+            knobUpdaters['freeze'] = function(normalizedValue, fromJuce) {
+                if (fromJuce) {
+                    var active = normalizedValue > 0.5;
+                    freezeActive = active;
+                    freezeBtn.classList.toggle('active', active);
+                }
+            };
+
+            console.log("  freeze button");
+        }
+
+        // ============================================================
+        // DENSITY SYNC TOGGLE
+        // ============================================================
+
+        // Division name lookup (matches C++ snap positions: 8 divisions)
+        var syncDivisionNames = ['/4', '/3', '/2', '/1', 'x1.5', 'x2', 'x3', 'x4'];
+        var densitySyncActive = false;
+
+        // Last known density normalized value (updated by knob)
+        var lastDensityNormalized = 0.5;
+
+        function getSyncDivisionName(densityNormalized) {
+            // densityNormalized is 0-1 mapped from knob. Density range is -1 to 1.
+            var densityValue = densityNormalized * 2 - 1;  // -1 to 1
+            var absDensity = Math.abs(densityValue);
+            if (absDensity < 0.05) return '—';
+            var pos = (absDensity - 0.05) / 0.95 * 7;
+            var idx = Math.max(0, Math.min(7, Math.round(pos)));
+            return syncDivisionNames[idx];
+        }
+
+        function updateSyncDivisionDisplay() {
+            var divEl = document.getElementById('sync-division');
+            if (!divEl) return;
+            divEl.style.display = densitySyncActive ? 'inline' : 'none';
+            if (densitySyncActive) {
+                divEl.textContent = getSyncDivisionName(lastDensityNormalized);
+            }
+        }
+
+        function initializeDensitySyncButton() {
+            var syncBtn = document.getElementById('density-sync-btn');
+
+            syncBtn.addEventListener('click', function() {
+                densitySyncActive = !densitySyncActive;
+                syncBtn.classList.toggle('active', densitySyncActive);
+                syncBtn.textContent = densitySyncActive ? 'SYNC' : 'FREE';
+                updateSyncDivisionDisplay();
+
+                if (parameterStates.density_sync) {
+                    try {
+                        parameterStates.density_sync.setValue(densitySyncActive);
+                    } catch (error) {
+                        console.warn("Failed to set density_sync: " + error.message);
+                    }
+                }
+            });
+
+            // Register updater for JUCE→UI binding
+            knobUpdaters['density_sync'] = function(normalizedValue, fromJuce) {
+                if (fromJuce) {
+                    var active = normalizedValue > 0.5;
+                    densitySyncActive = active;
+                    syncBtn.classList.toggle('active', active);
+                    syncBtn.textContent = active ? 'SYNC' : 'FREE';
+                    updateSyncDivisionDisplay();
+                }
+            };
+
+            console.log("  density sync button");
+        }
+
+        // ============================================================
+        // GRAIN VISUALIZATION
+        // ============================================================
+
+        function initializeGrainVisualization() {
+            var vizEl = document.getElementById('grain-viz');
+            if (!vizEl) return;
+
+            var colors = ['#E63946', '#2D5BFF', '#FFB800', '#F0F0F5', '#00F5FF'];
+            var dots = [];
+
+            function spawnGrain() {
+                if (dots.length > 24) {
+                    var old = dots.shift();
+                    if (old.parentNode) old.parentNode.removeChild(old);
+                }
+                var dot = document.createElement('div');
+                dot.className = 'grain-dot';
+                var s = 3 + Math.random() * 5;
+                dot.style.width = s + 'px';
+                dot.style.height = s + 'px';
+                dot.style.left = (Math.random() * 240 + 10) + 'px';
+                dot.style.top = (Math.random() * 70 + 10) + 'px';
+                dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+                dot.style.opacity = '0.8';
+                vizEl.appendChild(dot);
+                dots.push(dot);
+                setTimeout(function() { dot.style.opacity = '0'; }, 200 + Math.random() * 600);
+                setTimeout(function() {
+                    if (dot.parentNode) dot.parentNode.removeChild(dot);
+                    dots = dots.filter(function(d) { return d !== dot; });
+                }, 1000);
+            }
+
+            setInterval(function() {
+                var isFrozen = false;
+                try {
+                    if (parameterStates.freeze) {
+                        isFrozen = parameterStates.freeze.getValue() > 0.5;
+                    }
+                } catch (err) {
+                    isFrozen = document.getElementById('freeze-btn').classList.contains('active');
+                }
+
+                if (!isFrozen) {
+                    spawnGrain();
+                    document.getElementById('grain-count').textContent = Math.floor(Math.random() * 12 + 1);
+                }
+            }, 120);
+
+            console.log("  grain visualization");
+        }
+
+        // ============================================================
+        // METERS (updated from C++ via evaluateJavascript)
+        // ============================================================
+
+        function initializeMeters() {
+            window.updateMeters = function(inputLevel, outputLevel) {
+                var inEl = document.getElementById('meter-in');
+                var outEl = document.getElementById('meter-out');
+                if (inEl) inEl.style.height = (inputLevel * 100) + '%';
+                if (outEl) outEl.style.height = (outputLevel * 100) + '%';
+            };
+
+            window.updateGrainVisualization = function(activeGrains, density, shape) {
+                var grainCount = document.getElementById('grain-count');
+                if (grainCount) grainCount.textContent = activeGrains;
+            };
+
+            if (!juceAvailable) {
+                setInterval(function() {
+                    var inH = 20 + Math.random() * 40;
+                    var outH = 25 + Math.random() * 45;
+                    document.getElementById('meter-in').style.height = inH + '%';
+                    document.getElementById('meter-out').style.height = outH + '%';
+                }, 100);
+            }
+
+            console.log("  meters");
+        }
+
+    })();
+    </script>
+
+</body>
+</html>
+  
