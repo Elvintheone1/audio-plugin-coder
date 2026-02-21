@@ -166,6 +166,18 @@ private:
             writeIdx = (writeIdx + 1) % static_cast<int>(buf.size());
             return out;
         }
+        // Overload with variable delay for LFO modulation (tank APFs only)
+        float tick (float in, float g, int delay) noexcept
+        {
+            int sz = static_cast<int>(buf.size());
+            int d = juce::jlimit (1, sz - 1, delay);
+            int readIdx = (writeIdx - d + sz) % sz;
+            float delayed = buf[static_cast<size_t>(readIdx)];
+            float out = -g * in + delayed;
+            buf[static_cast<size_t>(writeIdx)] = in + g * delayed;
+            writeIdx = (writeIdx + 1) % sz;
+            return out;
+        }
         float at (int n) const noexcept
         {
             int sz = static_cast<int>(buf.size());
@@ -195,6 +207,12 @@ private:
     int   rvFullDly[4] {};
     int   rvTapL[8]    {};
     int   rvTapR[8]    {};
+
+    // LFO modulation for tank APFs (breaks up metallic resonances)
+    double rvLfoPhase1 = 0.0;
+    double rvLfoPhase2 = 0.0;
+    int    rvBaseDelay4 = 0;
+    int    rvBaseDelay6 = 0;
 
     void initReverb (double sr);
     std::pair<float, float> tickReverb (float inL, float inR, float amount) noexcept;

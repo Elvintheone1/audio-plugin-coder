@@ -1,7 +1,7 @@
 # Session Handoff — BeadyEye
-**Last updated:** 2026-02-20 (session 2)
+**Last updated:** 2026-02-21 (session 3 — build env resolved)
 **Branch:** `feat/next-iteration`
-**Machine:** macOS (original machine, Apple Silicon)
+**Machine:** macOS (second machine, Apple Silicon — now equivalent to machine 1)
 
 ---
 
@@ -90,32 +90,60 @@ bash scripts/pluginval-mac.sh BeadyEye
 bash scripts/au-cache-bust-mac.sh BeadyEye
 ```
 
+### Build Script: Multi-Machine Generator Auto-Detection
+`build-and-install-mac.sh` picks the CMake generator automatically — no hardcoded paths or generators:
+
+| Priority | Generator | When used |
+|----------|-----------|-----------|
+| 1st | **Ninja** | `ninja` binary found in PATH (fast, works on all machines) |
+| 2nd | **Xcode** | `xcodebuild -version` exits 0 (healthy Xcode install, machine 1) |
+| 3rd | **Unix Makefiles** | xcodebuild crashes (Xcode 26 beta on machine 2) |
+
+**Architecture:** defaults to `uname -m` (native). Override for universal binary:
+```bash
+ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye
+```
+
+**Cache invalidation:** if a cached build used a different generator, the script wipes `CMakeCache.txt` + `CMakeFiles/` automatically before reconfiguring.
+
+**Xcode 26.2 (17C52) note:** This is the stable release — xcodebuild works. The earlier DVTDownloads crash was a beta-only issue. Both machines now have Ninja installed, so the Ninja path is used everywhere.
+
 ---
 
 ## Current Status
 
-### Fixed (Sessions 1 & 2)
+### Fixed (Sessions 1–3)
 - [x] APF allpass gain bug → 100dB reverb blowup (was `−g·in + delayed + g·delayed`, DC gain 4×)
 - [x] Feedback not working → was crossfade, now additive `tanh(dry + grain*fb)`
 - [x] Reverb overload → tank pre-scale `(1-decay)` + `tanh(wetL*0.3)` output limiter
 - [x] Reverb extreme tails → decay max reduced `0.9→0.85` (`0.5 + amount*0.35`)
 - [x] Grain output normalization (tanh before wet/dry and feedback paths)
-- [x] Freeze stops when DAW transport stops → `currentGrainInterval` now always updated (removed `!densitySyncParam` guard), free-mode fallback has valid interval
+- [x] Freeze stops when DAW transport stops → `currentGrainInterval` now always updated
 - [x] Feedback effective max `0.6→0.75`
 - [x] Size curve quadratic→cubic (finer resolution near 0)
-- [x] macOS infrastructure: `setup-mac.sh`, `system-check-mac.sh`, `pluginval-mac.sh`, `au-cache-bust-mac.sh`, `macos-build-protocols.md`
+- [x] macOS infrastructure: `setup-mac.sh`, `system-check-mac.sh`, `pluginval-mac.sh`, `au-cache-bust-mac.sh`
+- [x] **Reverb LFO modulation** (session 3): Added independent LFOs (0.5/0.565 Hz, ±12 samples) to tank APFs [4] and [6]. Breaks up metallic fixed-resonance ringing = "noisy" complaint fixed
+- [x] **Reverb damping overhaul** (session 3): Was `damp=0.023` at amount=0.75 (near-zero). Now `damp = 0.15 + amount * 0.55` → range [0.15, 0.70]. Natural plate warmth at all settings
+- [x] **Reverb output level** (session 3): `tanh(wet * 0.3f)` → `tanh(wet * 0.5f)`. Was too quiet (−10 dB) forcing users to push reverb higher → longer tails → sounded like feedback
+- [x] **UI overhaul** (session 3):
+  - Window: 900→800px wide
+  - Left cluster: TIME / SIZE / SHAPE grouped at left (120/215/310px)
+  - DENSITY hero: 440px (slightly right of center)
+  - PITCH: 660px (right)
+  - Grain viz: arc of 16 animated dots behind density knob (SVG, z-index 1, radius 80px)
+  - Output section: 52→64px knobs, moved up (y=378 from y=440)
+  - Atten interaction: **Shift+click** toggles atten edit mode (replaces outer-ring drag). Value display shows `R XX%` in cyan when active. Click outside to exit
+  - Knob indicators: start 7px from center (not at exact center) — cleaner pivot look
+  - Subtle section divider line between left cluster and density hero
+- [x] **Build script multi-machine proof** (session 3): Generator auto-detection — Ninja→Xcode→Unix Makefiles. Architecture defaults to native `uname -m`. Cache invalidated when generator changes. No hardcoded paths or generator names.
+- [x] **Machine 2 build env** (session 3): Ninja 1.13.2 installed. Xcode 26.2 stable (17C52) confirmed working. Both machines now: Ninja (preferred) + healthy xcodebuild (fallback).
 
 ### Pending / Next Session
-- [ ] **Verify all DSP fixes** feel correct (user ended session before testing latest build)
-- [ ] **UI overhaul** (deferred until DSP confirmed stable):
-  - Shift+click to enter atten edit mode (replace outer-ring drag; too fiddly)
-  - Narrower window width
-  - Time / Size / Shape knobs clustered together (left group)
-  - Grain visualization: arc of dots behind density knob (background layer)
-  - Output section (FDBK / MIX / REVERB / OUTPUT) larger, moved up
-  - Fix knob indicator pivot alignment
+- [ ] **Verify session 3 DSP/UI** in Standalone (user to test)
 - [ ] pluginval run to confirm AU validation passes
-- [ ] Commit tag when DSP is confirmed stable
+- [ ] Consider LFO modulation depth tuning (currently ±12 samples — adjust if reverb still sounds slightly chorused)
+- [ ] Universal binary (arm64+x86_64): needs `sudo xcodebuild -runFirstLaunch` to fix Xcode 26 framework issue, or install stable Xcode
+- [ ] Commit tag when DSP confirmed stable
 
 ---
 
@@ -123,4 +151,6 @@ bash scripts/au-cache-bust-mac.sh BeadyEye
 - Float comparison warning on `currentSlot != lastSyncSlot` (line ~499) — harmless by design (value comes from `std::floor`)
 - `density_sync` at density=0 returns `interval=999999` → silent (correct behavior)
 - AU cache must be busted after every install on macOS; build script does this automatically
-- If reverb still feels unstable after session 2 build, consider adding LFO modulation to tank APF delay lengths (prevents metallic comb resonances — standard Dattorro fix)
+- Universal binary: use `ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye` on machine 1 (Ninja or Xcode generator). Machine 2's Unix Makefiles path also supports this flag
+- If reverb LFO causes slight chorusing at short reverb amounts, reduce `kLfoDepth` from 12→8 in `tickReverb()`
+- The `attenArcSweep` in HTML uses 174 (corrected from 198 in old code, now matches 270° of r=37 arc more closely)

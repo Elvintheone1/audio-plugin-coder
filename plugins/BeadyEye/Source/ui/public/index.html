@@ -26,7 +26,7 @@
             background: var(--bg);
             color: var(--white);
             font-family: var(--font);
-            width: 900px;
+            width: 800px;
             height: 550px;
             overflow: hidden;
             position: relative;
@@ -85,6 +85,7 @@
             align-items: center;
             gap: 4px;
             transform: translate(-50%, -50%);
+            z-index: 2;
         }
         .knob-label {
             font-size: 9px;
@@ -100,11 +101,20 @@
             opacity: 0.6;
             font-variant-numeric: tabular-nums;
             min-height: 13px;
+            min-width: 40px;
+            text-align: center;
+        }
+        /* Atten edit mode: value turns into atten display */
+        .knob-value.atten-mode {
+            color: var(--cyan);
+            opacity: 1.0;
         }
         .knob-svg { cursor: pointer; }
         .knob-track { fill: none; stroke: var(--surface-hi); stroke-linecap: round; }
         .knob-arc { fill: none; stroke-linecap: round; transition: stroke-dashoffset 60ms ease-out; }
-        .knob-atten { fill: none; stroke-linecap: round; opacity: 0.25; }
+        .knob-atten { fill: none; stroke-linecap: round; opacity: 0.25; transition: opacity 80ms; }
+        /* Atten ring brightens in atten edit mode */
+        .knob-atten.atten-active { opacity: 0.85; }
         .knob-indicator { fill: none; stroke-linecap: round; }
 
         /* ---- DENSITY MODE LABELS ---- */
@@ -114,6 +124,7 @@
             justify-content: space-between;
             width: 140px;
             transform: translateX(-50%);
+            z-index: 2;
         }
         .density-labels span {
             font-size: 7px;
@@ -123,18 +134,11 @@
             opacity: 0.5;
         }
 
-        /* ---- GRAIN VIZ ---- */
-        .grain-viz {
+        /* ---- GRAIN ARC VIZ (background behind density) ---- */
+        #grain-arc {
             position: absolute;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            background: rgba(10, 10, 15, 0.6);
-            overflow: hidden;
-        }
-        .grain-dot {
-            position: absolute;
-            border-radius: 50%;
-            transition: opacity 150ms;
+            z-index: 1;
+            pointer-events: none;
         }
 
         /* ---- FREEZE ---- */
@@ -145,6 +149,7 @@
             align-items: center;
             gap: 4px;
             transform: translate(-50%, -50%);
+            z-index: 2;
         }
         .freeze-btn {
             width: 36px;
@@ -176,6 +181,7 @@
             gap: 3px;
             flex-direction: column;
             align-items: center;
+            z-index: 2;
         }
         .meter-pair {
             display: flex;
@@ -207,8 +213,9 @@
         .output-row {
             position: absolute;
             display: flex;
-            gap: 8px;
+            gap: 12px;
             align-items: flex-start;
+            z-index: 2;
         }
         .output-knob {
             display: flex;
@@ -224,6 +231,7 @@
             align-items: center;
             gap: 6px;
             transform: translateX(-50%);
+            z-index: 2;
         }
         .sync-toggle-btn {
             font-size: 8px;
@@ -250,6 +258,28 @@
             color: var(--cyan);
             letter-spacing: 0.05em;
         }
+
+        /* ---- SECTION DIVIDERS (subtle vertical lines) ---- */
+        .section-divider {
+            position: absolute;
+            width: 1px;
+            background: var(--border);
+            opacity: 0.4;
+            z-index: 1;
+        }
+
+        /* ---- ATTEN HINT LABEL ---- */
+        .atten-hint {
+            position: absolute;
+            font-size: 7px;
+            color: var(--cyan);
+            letter-spacing: 0.1em;
+            opacity: 0;
+            transition: opacity 150ms;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .atten-hint.visible { opacity: 0.7; }
     </style>
 </head>
 <body>
@@ -264,78 +294,88 @@
         <div class="header-sub">GRANULAR TEXTURE PROCESSOR</div>
     </div>
 
+    <!-- Subtle section divider between left cluster and density -->
+    <div class="section-divider" style="left: 388px; top: 50px; height: 280px;"></div>
+
     <!-- ============================================
-         DENSITY — Hero knob, top center (100px)
+         GRAIN ARC VISUALIZATION — behind density knob
+         SVG 220×220 centered at density knob (440, 155)
          ============================================ -->
-    <div class="knob-wrap" style="left: 450px; top: 115px;" id="density-control"
+    <svg id="grain-arc" style="left: 330px; top: 45px;" width="220" height="220">
+        <!-- Dots injected by JS at radius ~80px from center (110,110) -->
+    </svg>
+
+    <!-- ============================================
+         DENSITY — Hero knob, center-right (100px)
+         ============================================ -->
+    <div class="knob-wrap" style="left: 440px; top: 155px;" id="density-control"
          data-param="density" data-min="-1" data-max="1" data-default="0" data-bipolar="true">
         <svg class="knob-svg" width="100" height="100" viewBox="0 0 100 100">
             <path class="knob-track" d="M 17.7 82.3 A 40 40 0 1 1 82.3 82.3" stroke-width="6" />
             <circle class="knob-arc" cx="50" cy="50" r="40" stroke="var(--cyan)" stroke-width="6"
                 stroke-dasharray="214" stroke-dashoffset="214" transform="rotate(135 50 50)" />
-            <line class="knob-indicator" x1="50" y1="50" x2="50" y2="14" stroke="var(--cyan)" stroke-width="2.5"
+            <line class="knob-indicator" x1="50" y1="43" x2="50" y2="14" stroke="var(--cyan)" stroke-width="2.5"
                 transform="rotate(-135 50 50)" />
         </svg>
         <span class="knob-label" style="font-size: 10px;">DENSITY</span>
         <span class="knob-value" id="density-value">0.00</span>
     </div>
-    <div class="density-labels" style="left: 450px; top: 178px;">
+    <div class="density-labels" style="left: 440px; top: 218px;">
         <span>RHYTHMIC</span>
         <span>RANDOM</span>
     </div>
-    <div class="sync-toggle" style="left: 450px; top: 192px;">
+    <div class="sync-toggle" style="left: 440px; top: 233px;">
         <button class="sync-toggle-btn" id="density-sync-btn">FREE</button>
         <span class="sync-division" id="sync-division" style="display: none;">—</span>
     </div>
 
     <!-- ============================================
-         TIME — Left of center (80px, blue)
+         LEFT CLUSTER: TIME / SIZE / SHAPE
+         Grouped together, ~90px spacing
          ============================================ -->
-    <div class="knob-wrap" style="left: 180px; top: 210px;" id="time-control"
+
+    <!-- TIME (80px, blue) -->
+    <div class="knob-wrap" style="left: 120px; top: 220px;" id="time-control"
          data-param="time" data-min="0" data-max="1" data-default="0.5" data-atten="time_atten">
         <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
             <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--blue)" stroke-width="3"
-                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="time_atten-ring" />
+                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="time_atten-ring" />
             <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
             <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--blue)" stroke-width="5"
-                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--blue)" stroke-width="2"
+                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--blue)" stroke-width="2"
                 transform="rotate(0 40 40)" />
         </svg>
         <span class="knob-label">TIME</span>
         <span class="knob-value" id="time-value">50%</span>
     </div>
 
-    <!-- ============================================
-         SIZE — Center-left below (80px, red, bipolar)
-         ============================================ -->
-    <div class="knob-wrap" style="left: 370px; top: 280px;" id="size-control"
+    <!-- SIZE (80px, red, bipolar) -->
+    <div class="knob-wrap" style="left: 215px; top: 220px;" id="size-control"
          data-param="size" data-min="-1" data-max="1" data-default="0.5" data-bipolar="true" data-atten="size_atten">
         <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
             <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--red)" stroke-width="3"
-                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="size_atten-ring" />
+                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="size_atten-ring" />
             <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
             <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--red)" stroke-width="5"
-                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--red)" stroke-width="2"
-                transform="rotate(0 40 40)" />
+                stroke-dasharray="151" stroke-dashoffset="37" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--red)" stroke-width="2"
+                transform="rotate(67.5 40 40)" />
         </svg>
         <span class="knob-label">SIZE</span>
         <span class="knob-value" id="size-value">50%</span>
     </div>
 
-    <!-- ============================================
-         SHAPE — Center-right below (80px, white)
-         ============================================ -->
-    <div class="knob-wrap" style="left: 530px; top: 280px;" id="shape-control"
+    <!-- SHAPE (80px, white) -->
+    <div class="knob-wrap" style="left: 310px; top: 220px;" id="shape-control"
          data-param="shape" data-min="0" data-max="1" data-default="0.5" data-atten="shape_atten">
         <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
             <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--white)" stroke-width="3"
-                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="shape_atten-ring" />
+                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="shape_atten-ring" />
             <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
             <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--white)" stroke-width="5"
-                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--white)" stroke-width="2"
+                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--white)" stroke-width="2"
                 transform="rotate(0 40 40)" />
         </svg>
         <span class="knob-label">SHAPE</span>
@@ -343,17 +383,17 @@
     </div>
 
     <!-- ============================================
-         PITCH — Right of center (80px, yellow, bipolar)
+         PITCH — Right side (80px, yellow, bipolar)
          ============================================ -->
-    <div class="knob-wrap" style="left: 720px; top: 210px;" id="pitch-control"
+    <div class="knob-wrap" style="left: 660px; top: 220px;" id="pitch-control"
          data-param="pitch" data-min="-24" data-max="24" data-default="0" data-bipolar="true" data-unit="st" data-atten="pitch_atten">
         <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
             <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--yellow)" stroke-width="3"
-                stroke-dasharray="198" stroke-dashoffset="198" transform="rotate(135 40 40)" id="pitch_atten-ring" />
+                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="pitch_atten-ring" />
             <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
             <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--yellow)" stroke-width="5"
-                stroke-dasharray="171" stroke-dashoffset="86" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="40" x2="40" y2="12" stroke="var(--yellow)" stroke-width="2"
+                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
+            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--yellow)" stroke-width="2"
                 transform="rotate(0 40 40)" />
         </svg>
         <span class="knob-label">PITCH</span>
@@ -361,14 +401,9 @@
     </div>
 
     <!-- ============================================
-         GRAIN VISUALIZATION — Center below knobs
+         FREEZE — Bottom left
          ============================================ -->
-    <div class="grain-viz" id="grain-viz" style="left: 320px; top: 360px; width: 260px; height: 90px;"></div>
-
-    <!-- ============================================
-         FREEZE — Bottom center-left
-         ============================================ -->
-    <div class="freeze-wrap" style="left: 180px; top: 440px;" id="freeze-control">
+    <div class="freeze-wrap" style="left: 120px; top: 430px;" id="freeze-control">
         <button class="freeze-btn" id="freeze-btn">
             <span style="font-size: 14px;">&#10052;</span>
         </button>
@@ -376,9 +411,9 @@
     </div>
 
     <!-- ============================================
-         METERS — Bottom left
+         METERS — Bottom far-left
          ============================================ -->
-    <div class="meters" style="left: 50px; top: 390px;">
+    <div class="meters" style="left: 45px; top: 380px;">
         <div class="meter-pair">
             <div class="meter-bar"><div class="meter-fill" id="meter-in" style="height: 0%; background: var(--cyan);"></div></div>
             <div class="meter-bar"><div class="meter-fill" id="meter-out" style="height: 0%; background: var(--cyan);"></div></div>
@@ -390,19 +425,20 @@
     </div>
 
     <!-- ============================================
-         OUTPUT ROW — Bottom right, horizontal strip
+         OUTPUT ROW — Larger (64px), moved up
+         FDBK / MIX / REVERB / OUTPUT
          ============================================ -->
-    <div class="output-row" style="left: 600px; top: 440px;">
+    <div class="output-row" style="left: 248px; top: 378px;">
 
         <!-- FEEDBACK -->
         <div class="output-knob" id="feedback-control"
              data-param="feedback" data-min="0" data-max="1" data-default="0">
-            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
-                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
-                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--red)" stroke-width="4"
-                    stroke-dasharray="107" stroke-dashoffset="107" transform="rotate(135 26 26)" />
-                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--red)" stroke-width="2"
-                    transform="rotate(-135 26 26)" />
+            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
+                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
+                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--red)" stroke-width="4"
+                    stroke-dasharray="113" stroke-dashoffset="113" transform="rotate(135 32 32)" />
+                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--red)" stroke-width="2"
+                    transform="rotate(-135 32 32)" />
             </svg>
             <span class="knob-label" style="font-size: 8px;">FDBK</span>
             <span class="knob-value" style="font-size: 9px;" id="feedback-value">0%</span>
@@ -411,12 +447,12 @@
         <!-- DRY/WET -->
         <div class="output-knob" id="dry_wet-control"
              data-param="dry_wet" data-min="0" data-max="1" data-default="0.5">
-            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
-                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
-                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--white)" stroke-width="4"
-                    stroke-dasharray="107" stroke-dashoffset="54" transform="rotate(135 26 26)" />
-                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--white)" stroke-width="2"
-                    transform="rotate(0 26 26)" />
+            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
+                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
+                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--white)" stroke-width="4"
+                    stroke-dasharray="113" stroke-dashoffset="56" transform="rotate(135 32 32)" />
+                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--white)" stroke-width="2"
+                    transform="rotate(0 32 32)" />
             </svg>
             <span class="knob-label" style="font-size: 8px;">MIX</span>
             <span class="knob-value" style="font-size: 9px;" id="dry_wet-value">50%</span>
@@ -425,12 +461,12 @@
         <!-- REVERB -->
         <div class="output-knob" id="reverb-control"
              data-param="reverb" data-min="0" data-max="1" data-default="0">
-            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
-                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
-                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--blue)" stroke-width="4"
-                    stroke-dasharray="107" stroke-dashoffset="107" transform="rotate(135 26 26)" />
-                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--blue)" stroke-width="2"
-                    transform="rotate(-135 26 26)" />
+            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
+                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
+                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--blue)" stroke-width="4"
+                    stroke-dasharray="113" stroke-dashoffset="113" transform="rotate(135 32 32)" />
+                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--blue)" stroke-width="2"
+                    transform="rotate(-135 32 32)" />
             </svg>
             <span class="knob-label" style="font-size: 8px;">REVERB</span>
             <span class="knob-value" style="font-size: 9px;" id="reverb-value">0%</span>
@@ -439,16 +475,17 @@
         <!-- OUTPUT -->
         <div class="output-knob" id="output_vol-control"
              data-param="output_vol" data-min="0" data-max="1" data-default="0.75">
-            <svg class="knob-svg" width="52" height="52" viewBox="0 0 52 52">
-                <path class="knob-track" d="M 9.3 42.7 A 20 20 0 1 1 42.7 42.7" stroke-width="4" />
-                <circle class="knob-arc" cx="26" cy="26" r="20" stroke="var(--yellow)" stroke-width="4"
-                    stroke-dasharray="107" stroke-dashoffset="27" transform="rotate(135 26 26)" />
-                <line class="knob-indicator" x1="26" y1="26" x2="26" y2="9" stroke="var(--yellow)" stroke-width="2"
-                    transform="rotate(67.5 26 26)" />
+            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
+                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
+                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--yellow)" stroke-width="4"
+                    stroke-dasharray="113" stroke-dashoffset="28" transform="rotate(135 32 32)" />
+                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--yellow)" stroke-width="2"
+                    transform="rotate(67.5 32 32)" />
             </svg>
             <span class="knob-label" style="font-size: 8px;">OUTPUT</span>
             <span class="knob-value" style="font-size: 9px;" id="output_vol-value">75%</span>
         </div>
+
     </div>
 
     <!-- FOOTER -->
@@ -597,18 +634,16 @@
             initializeKnobs();
             initializeFreezeButton();
             initializeDensitySyncButton();
-            initializeGrainVisualization();
+            initializeGrainArc();
             initializeMeters();
 
             // Hook density knob to update sync division label
             var origDensityUpdater = knobUpdaters['density'];
             knobUpdaters['density'] = function(newValue, fromJuce) {
                 origDensityUpdater(newValue, fromJuce);
-                // Track normalized value for sync division display
                 if (fromJuce) {
                     lastDensityNormalized = newValue;
                 } else {
-                    // newValue is raw density (-1 to 1), convert to normalized
                     lastDensityNormalized = (newValue + 1) / 2;
                 }
                 updateSyncDivisionDisplay();
@@ -694,8 +729,9 @@
             var startY = 0;
             var startValue = 0;
 
-            // Atten drag state
+            // Atten state (Shift+click to toggle edit mode)
             var attenValue = 0.0;
+            var attenEditMode = false;  // true = shift+click active, dragging adjusts atten
             var isAttenDragging = false;
             var attenStartY = 0;
             var attenStartValue = 0;
@@ -717,10 +753,10 @@
             var circumference = 2 * Math.PI * arcRadius;
             var arcSweep = circumference * (270 / 360);
 
-            // Full sweep for atten ring: read from HTML attribute (198 for 80px knobs)
+            // Atten ring sweep: read from HTML attribute
             var attenArcSweep = attenRing
-                ? parseFloat(attenRing.getAttribute('stroke-dasharray') || '198')
-                : 198;
+                ? parseFloat(attenRing.getAttribute('stroke-dasharray') || '174')
+                : 174;
 
             function updateKnob(newValue, fromJuce) {
                 if (fromJuce) {
@@ -740,9 +776,11 @@
                 var angle = -135 + (normalized * 270);
                 indicator.setAttribute('transform', 'rotate(' + angle + ' ' + center + ' ' + center + ')');
 
-                // Value display
+                // Value display — show atten% when in atten edit mode
                 if (valueDisplay) {
-                    if (unit === 'st') {
+                    if (attenEditMode) {
+                        valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
+                    } else if (unit === 'st') {
                         valueDisplay.textContent = value >= 0 ? '+' + value.toFixed(1) + ' st' : value.toFixed(1) + ' st';
                     } else if (isBipolar) {
                         valueDisplay.textContent = value.toFixed(2);
@@ -766,8 +804,11 @@
                 if (attenRing) {
                     var offset = attenArcSweep * (1 - attenValue);
                     attenRing.setAttribute('stroke-dashoffset', offset.toFixed(1));
-                    // Opacity: 0.25 at 0 → 0.8 at 1
                     attenRing.style.opacity = (0.25 + attenValue * 0.55).toFixed(2);
+                }
+                // Refresh value display if in atten mode
+                if (valueDisplay && attenEditMode) {
+                    valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
                 }
                 if (!fromJuce && attenParamName && parameterStates[attenParamName]) {
                     try {
@@ -778,6 +819,22 @@
                 }
             }
 
+            function enterAttenMode() {
+                attenEditMode = true;
+                if (attenRing) attenRing.classList.add('atten-active');
+                if (valueDisplay) valueDisplay.classList.add('atten-mode');
+                // Show current atten value
+                if (valueDisplay) valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
+            }
+
+            function exitAttenMode() {
+                attenEditMode = false;
+                if (attenRing) attenRing.classList.remove('atten-active');
+                if (valueDisplay) valueDisplay.classList.remove('atten-mode');
+                // Restore main value display
+                updateKnob(value, false);
+            }
+
             // Register updaters for JUCE→UI binding
             knobUpdaters[paramName] = updateKnob;
             if (attenParamName) {
@@ -786,29 +843,32 @@
                 };
             }
 
-            // Mouse drag — distance from center determines main knob vs atten ring
+            // Mouse down: Shift+click toggles atten mode; plain drag adjusts main/atten
             svg.addEventListener('mousedown', function(e) {
                 e.preventDefault();
 
-                if (attenRing) {
-                    var rect = svg.getBoundingClientRect();
-                    var dx = e.clientX - rect.left - center;
-                    var dy = e.clientY - rect.top - center;
-                    var dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist >= 30) {
-                        // Outer ring hit: start atten drag
-                        isAttenDragging = true;
-                        attenStartY = e.clientY;
-                        attenStartValue = attenValue;
-                        if (attenParamName && parameterStates[attenParamName]) {
-                            try { parameterStates[attenParamName].sliderDragStarted(); } catch (err) {}
-                        }
-                        return;
+                if (attenParamName && e.shiftKey) {
+                    // Shift+click: toggle atten edit mode
+                    if (attenEditMode) {
+                        exitAttenMode();
+                    } else {
+                        enterAttenMode();
                     }
+                    return;
                 }
 
-                // Inner knob: main param drag
+                if (attenEditMode && attenParamName) {
+                    // In atten mode: drag adjusts atten
+                    isAttenDragging = true;
+                    attenStartY = e.clientY;
+                    attenStartValue = attenValue;
+                    if (attenParamName && parameterStates[attenParamName]) {
+                        try { parameterStates[attenParamName].sliderDragStarted(); } catch (err) {}
+                    }
+                    return;
+                }
+
+                // Normal mode: drag adjusts main param
                 isDragging = true;
                 startY = e.clientY;
                 startValue = value;
@@ -845,24 +905,27 @@
                 }
             });
 
-            // Double-click to reset
+            // Double-click to reset (exits atten mode first if active)
             svg.addEventListener('dblclick', function(e) {
-                var rect = svg.getBoundingClientRect();
-                var dx = e.clientX - rect.left - center;
-                var dy = e.clientY - rect.top - center;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-                if (attenRing && dist >= 30) {
+                if (attenEditMode) {
                     updateAttenRing(0, false);
                 } else {
                     updateKnob(defaultValue, false);
                 }
             });
 
+            // Click outside any knob: exit atten mode
+            document.addEventListener('mousedown', function(e) {
+                if (attenEditMode && !svg.contains(e.target)) {
+                    exitAttenMode();
+                }
+            }, true);
+
             // Initialize visual state
             updateKnob(defaultValue, false);
             if (attenRing) updateAttenRing(0, false);
 
-            console.log("  knob: " + paramName + (attenParamName ? " [atten:" + attenParamName + "]" : ""));
+            console.log("  knob: " + paramName + (attenParamName ? " [atten:" + attenParamName + " | shift+click]" : ""));
         }
 
         // ============================================================
@@ -902,16 +965,12 @@
         // DENSITY SYNC TOGGLE
         // ============================================================
 
-        // Division name lookup (matches C++ snap positions: 8 divisions)
         var syncDivisionNames = ['/4', '/3', '/2', '/1', 'x1.5', 'x2', 'x3', 'x4'];
         var densitySyncActive = false;
-
-        // Last known density normalized value (updated by knob)
         var lastDensityNormalized = 0.5;
 
         function getSyncDivisionName(densityNormalized) {
-            // densityNormalized is 0-1 mapped from knob. Density range is -1 to 1.
-            var densityValue = densityNormalized * 2 - 1;  // -1 to 1
+            var densityValue = densityNormalized * 2 - 1;
             var absDensity = Math.abs(densityValue);
             if (absDensity < 0.05) return '—';
             var pos = (absDensity - 0.05) / 0.95 * 7;
@@ -946,7 +1005,6 @@
                 }
             });
 
-            // Register updater for JUCE→UI binding
             knobUpdaters['density_sync'] = function(normalizedValue, fromJuce) {
                 if (fromJuce) {
                     var active = normalizedValue > 0.5;
@@ -961,56 +1019,87 @@
         }
 
         // ============================================================
-        // GRAIN VISUALIZATION
+        // GRAIN ARC VISUALIZATION
+        // Arc of dots behind the density knob — driven by active grain count.
+        // SVG is 220×220 with center at (110,110), radius 80px from center.
         // ============================================================
 
-        function initializeGrainVisualization() {
-            var vizEl = document.getElementById('grain-viz');
-            if (!vizEl) return;
+        function initializeGrainArc() {
+            var arcSvg = document.getElementById('grain-arc');
+            if (!arcSvg) return;
 
-            var colors = ['#E63946', '#2D5BFF', '#FFB800', '#F0F0F5', '#00F5FF'];
+            var NUM_DOTS = 16;
+            var CX = 110, CY = 110, RADIUS = 80;
+            var colors = ['#00F5FF', '#E63946', '#2D5BFF', '#FFB800', '#00F5FF', '#F0F0F5',
+                          '#00F5FF', '#E63946', '#2D5BFF', '#FFB800', '#00F5FF', '#F0F0F5',
+                          '#E63946', '#00F5FF', '#FFB800', '#2D5BFF'];
             var dots = [];
 
-            function spawnGrain() {
-                if (dots.length > 24) {
-                    var old = dots.shift();
-                    if (old.parentNode) old.parentNode.removeChild(old);
-                }
-                var dot = document.createElement('div');
-                dot.className = 'grain-dot';
-                var s = 3 + Math.random() * 5;
-                dot.style.width = s + 'px';
-                dot.style.height = s + 'px';
-                dot.style.left = (Math.random() * 240 + 10) + 'px';
-                dot.style.top = (Math.random() * 70 + 10) + 'px';
-                dot.style.background = colors[Math.floor(Math.random() * colors.length)];
-                dot.style.opacity = '0.8';
-                vizEl.appendChild(dot);
-                dots.push(dot);
-                setTimeout(function() { dot.style.opacity = '0'; }, 200 + Math.random() * 600);
-                setTimeout(function() {
-                    if (dot.parentNode) dot.parentNode.removeChild(dot);
-                    dots = dots.filter(function(d) { return d !== dot; });
-                }, 1000);
+            // Create dots at evenly spaced angles around the circle
+            for (var i = 0; i < NUM_DOTS; i++) {
+                var angle = (i / NUM_DOTS) * 2 * Math.PI - Math.PI / 2; // start from top
+                var x = CX + RADIUS * Math.cos(angle);
+                var y = CY + RADIUS * Math.sin(angle);
+                var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                dot.setAttribute('cx', x.toFixed(1));
+                dot.setAttribute('cy', y.toFixed(1));
+                dot.setAttribute('r', '3.5');
+                dot.setAttribute('fill', colors[i]);
+                dot.setAttribute('opacity', '0');
+                arcSvg.appendChild(dot);
+                dots.push({ el: dot, phase: (i / NUM_DOTS) * 2 * Math.PI });
             }
 
-            setInterval(function() {
-                var isFrozen = false;
-                try {
-                    if (parameterStates.freeze) {
-                        isFrozen = parameterStates.freeze.getValue() > 0.5;
-                    }
-                } catch (err) {
-                    isFrozen = document.getElementById('freeze-btn').classList.contains('active');
-                }
+            var activeGrainCount = 0;
+            var animFrame = 0;
 
-                if (!isFrozen) {
-                    spawnGrain();
-                    document.getElementById('grain-count').textContent = Math.floor(Math.random() * 12 + 1);
-                }
-            }, 120);
+            // Animate: lit dots pulse based on grain count
+            function animate() {
+                animFrame++;
+                var t = animFrame * 0.04;
+                var grainFraction = Math.min(1.0, activeGrainCount / 16.0);
 
-            console.log("  grain visualization");
+                dots.forEach(function(d, i) {
+                    // Each dot has a phase-offset sine wave; lit if within active range
+                    var phase = d.phase + t;
+                    var sineVal = 0.5 + 0.5 * Math.sin(phase);
+                    // Only show a fraction of dots proportional to grain count
+                    var dotFraction = i / NUM_DOTS;
+                    var visible = grainFraction > 0.02 && dotFraction < grainFraction;
+                    var baseOpacity = visible ? (0.15 + sineVal * 0.55) : 0;
+                    d.el.setAttribute('opacity', baseOpacity.toFixed(2));
+                    // Scale dot size slightly with activity
+                    var r = visible ? (2.5 + sineVal * 2.0) : 2.0;
+                    d.el.setAttribute('r', r.toFixed(1));
+                });
+
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+
+            // Expose for C++ meter updates
+            window.updateGrainVisualization = function(activeGrains, density, shape) {
+                activeGrainCount = activeGrains;
+                var grainCount = document.getElementById('grain-count');
+                if (grainCount) grainCount.textContent = activeGrains;
+            };
+
+            // Freeze awareness: check freeze state each animation frame is overkill;
+            // just set activeGrainCount=0 externally when frozen
+            knobUpdaters['grain_arc_freeze_observer'] = function() {};
+
+            // Preview mode: simulate grain activity
+            if (!juceAvailable) {
+                setInterval(function() {
+                    var isFrozen = document.getElementById('freeze-btn').classList.contains('active');
+                    activeGrainCount = isFrozen ? 0 : Math.floor(Math.random() * 12 + 1);
+                    var grainCount = document.getElementById('grain-count');
+                    if (grainCount) grainCount.textContent = activeGrainCount;
+                }, 150);
+            }
+
+            console.log("  grain arc visualization (" + NUM_DOTS + " dots, r=" + RADIUS + ")");
         }
 
         // ============================================================
@@ -1023,11 +1112,6 @@
                 var outEl = document.getElementById('meter-out');
                 if (inEl) inEl.style.height = (inputLevel * 100) + '%';
                 if (outEl) outEl.style.height = (outputLevel * 100) + '%';
-            };
-
-            window.updateGrainVisualization = function(activeGrains, density, shape) {
-                var grainCount = document.getElementById('grain-count');
-                if (grainCount) grainCount.textContent = activeGrains;
             };
 
             if (!juceAvailable) {
@@ -1047,4 +1131,3 @@
 
 </body>
 </html>
-  
