@@ -1,5 +1,5 @@
 # Session Handoff — BeadyEye
-**Last updated:** 2026-02-22 (session 4 — reverb root-cause fixed)
+**Last updated:** 2026-02-22 (session 5 — pluginval pass, state management)
 **Branch:** `feat/next-iteration`
 **Machine:** macOS (Apple Silicon — Ninja build, Xcode 26.2 stable)
 
@@ -140,9 +140,13 @@ ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye
 - [x] **Reverb level/boominess** (session 4):
   - Decay capped at 0.78 (`0.5 + amount*0.28`) — was reaching 0.90 → extreme low-mid accumulation past 60%
   - Output soft-clip `tanh(wet * 0.4f)` — 8-tap sum cannot exceed 0 dBFS
+- [x] **pluginval** (session 5): VST3 PASS, AU PASS — strictness level 5, all 44.1/48/96 kHz block sizes
+- [x] **State management** (session 5):
+  - `plugins/BeadyEye/status.json` created — current state accurately tracked
+  - `scripts/state-management-mac.sh` — bash port of `state-management.ps1` (all 8 functions, python3 for JSON)
+  - `pluginval-mac.sh` updated to write results back to `status.json` after each run
 
 ### Pending / Next Session
-- [ ] pluginval run to confirm AU validation passes
 - [ ] Reverb LP damping tuning — currently near-zero at amounts 0–0.75 (almost no HF damping). May want natural plate warmth: raise to `damp = 0.2 + amount * 0.4` range [0.2, 0.6]
 - [ ] Consider reverb LFO modulation on tank APFs (breaks up metallic fixed-resonance ringing) — was described in session 3 handoff but NOT implemented in actual code
 - [ ] Universal binary: `ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye`
