@@ -7,31 +7,56 @@
     <!-- JS inlined at bottom of body (module imports don't work with WKWebView resource provider) -->
     <style>
         :root {
-            --bg: #0A0A0F;
-            --surface: #1A1A22;
-            --surface-hi: #2A2A33;
-            --red: #E63946;
-            --blue: #2D5BFF;
-            --yellow: #FFB800;
-            --white: #F0F0F5;
-            --cyan: #00F5FF;
-            --text-dim: #808090;
-            --border: #333340;
-            --font: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+            --bg:        #9DBFB5;
+            --panel-l:   #8FB5AB;
+            --panel-m:   #96BAB0;
+            --panel-r:   #A3C2B8;
+            --divider:   #7EA89E;
+            --knob-body: #141E1C;
+            --knob-ring: #2C4440;
+            --knob-fill: #C8E8E0;
+            --atten-col: #8B2A3A;
+            --text:      #0C1816;
+            --text-dim:  #4A6B62;
+            --active:    #00E8D4;
+            --font:      'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: var(--bg);
-            color: var(--white);
+            color: var(--text);
             font-family: var(--font);
-            width: 800px;
-            height: 550px;
+            width: 1000px;
+            height: 500px;
             overflow: hidden;
             position: relative;
             user-select: none;
             -webkit-user-select: none;
+        }
+
+        /* ---- PANEL BACKGROUNDS ---- */
+        .panel {
+            position: absolute;
+            top: 36px; bottom: 20px;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .panel-l { left: 0;     right: 780px; background: var(--panel-l); }
+        .panel-m { left: 220px; right: 400px; background: var(--panel-m); }
+        .panel-r { left: 600px; right: 0;     background: var(--panel-r); }
+
+        /* ---- PANEL DIVIDERS ---- */
+        .divider {
+            position: absolute;
+            top: 36px; bottom: 20px;
+            width: 2px;
+            background: var(--divider);
+            opacity: 0.7;
+            z-index: 3;
+            pointer-events: none;
+            transform-origin: top center;
         }
 
         /* ---- HEADER ---- */
@@ -43,23 +68,13 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
-            border-bottom: 1px solid var(--border);
+            background: #8DB5AB;
+            border-bottom: 1px solid var(--divider);
             z-index: 10;
         }
-        .header-title {
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.35em;
-            text-transform: uppercase;
-        }
-        .header-title .r { color: var(--red); }
-        .header-title .b { color: var(--blue); }
-        .header-title .y { color: var(--yellow); }
-        .header-sub {
-            font-size: 9px;
-            color: var(--text-dim);
-            letter-spacing: 0.15em;
-        }
+        .header-title { font-size: 11px; font-weight: 700; letter-spacing: 0.4em; text-transform: uppercase; color: var(--text); }
+        .header-sub   { font-size: 8px; color: var(--text-dim); letter-spacing: 0.2em; text-transform: uppercase; }
+        .header-right  { font-size: 8px; color: var(--text-dim); letter-spacing: 0.12em; }
 
         /* ---- FOOTER ---- */
         .footer {
@@ -70,76 +85,46 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
-            border-top: 1px solid var(--border);
-            font-size: 9px;
+            background: #8DB5AB;
+            border-top: 1px solid var(--divider);
+            font-size: 8px;
             color: var(--text-dim);
             letter-spacing: 0.1em;
             z-index: 10;
         }
 
-        /* ---- KNOB (absolute positioned) ---- */
-        .knob-wrap {
+        /* ---- KNOB WRAP ---- */
+        .knob-wrap, .out-wrap {
             position: absolute;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             transform: translate(-50%, -50%);
             z-index: 2;
         }
-        .knob-label {
-            font-size: 9px;
-            font-weight: 600;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: var(--text-dim);
-        }
         .knob-value {
-            font-size: 10px;
-            font-weight: 400;
-            color: var(--white);
-            opacity: 0.6;
+            font-size: 9px;
+            color: var(--text);
+            opacity: 0.65;
             font-variant-numeric: tabular-nums;
             min-height: 13px;
-            min-width: 40px;
+            min-width: 44px;
             text-align: center;
         }
-        /* Atten edit mode: value turns into atten display */
-        .knob-value.atten-mode {
-            color: var(--cyan);
-            opacity: 1.0;
-        }
+        .knob-value.atten-mode { color: var(--atten-col); opacity: 1.0; }
         .knob-svg { cursor: pointer; }
-        .knob-track { fill: none; stroke: var(--surface-hi); stroke-linecap: round; }
-        .knob-arc { fill: none; stroke-linecap: round; transition: stroke-dashoffset 60ms ease-out; }
-        .knob-atten { fill: none; stroke-linecap: round; opacity: 0.25; transition: opacity 80ms; }
-        /* Atten ring brightens in atten edit mode */
-        .knob-atten.atten-active { opacity: 0.85; }
-        .knob-indicator { fill: none; stroke-linecap: round; }
 
-        /* ---- DENSITY MODE LABELS ---- */
-        .density-labels {
-            position: absolute;
-            display: flex;
-            justify-content: space-between;
-            width: 140px;
-            transform: translateX(-50%);
-            z-index: 2;
+        /* Atten arc — wine red, centered on current value, visible when atten > 0 */
+        .knob-atten {
+            fill: none;
+            stroke: var(--atten-col);
+            stroke-width: 3;
+            stroke-linecap: round;
+            opacity: 0;
+            transition: opacity 100ms, stroke-width 80ms;
         }
-        .density-labels span {
-            font-size: 7px;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            color: var(--text-dim);
-            opacity: 0.5;
-        }
-
-        /* ---- GRAIN ARC VIZ (background behind density) ---- */
-        #grain-arc {
-            position: absolute;
-            z-index: 1;
-            pointer-events: none;
-        }
+        .knob-atten.atten-active { stroke-width: 4; }
 
         /* ---- FREEZE ---- */
         .freeze-wrap {
@@ -147,85 +132,39 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             transform: translate(-50%, -50%);
             z-index: 2;
         }
         .freeze-btn {
-            width: 36px;
-            height: 36px;
+            width: 38px; height: 38px;
             border-radius: 50%;
-            border: 2px solid var(--border);
-            background: transparent;
+            border: 2px solid var(--divider);
+            background: var(--knob-body);
             cursor: pointer;
             transition: all 120ms ease-out;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             color: var(--text-dim);
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 15px;
             font-family: var(--font);
         }
         .freeze-btn.active {
-            background: var(--red);
-            border-color: var(--red);
-            box-shadow: 0 0 20px rgba(230, 57, 70, 0.4);
-            color: var(--white);
+            background: var(--active);
+            border-color: var(--active);
+            box-shadow: 0 0 16px rgba(0, 232, 212, 0.35);
+            color: var(--knob-body);
         }
+        .freeze-label { font-size: 8px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); }
 
         /* ---- METERS ---- */
-        .meters {
-            position: absolute;
-            display: flex;
-            gap: 3px;
-            flex-direction: column;
-            align-items: center;
-            z-index: 2;
-        }
-        .meter-pair {
-            display: flex;
-            gap: 3px;
-        }
-        .meter-bar {
-            width: 4px;
-            height: 70px;
-            background: var(--surface);
-            border-radius: 2px;
-            position: relative;
-            overflow: hidden;
-        }
-        .meter-fill {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            border-radius: 2px;
-            transition: height 50ms;
-        }
-        .meter-label {
-            font-size: 7px;
-            color: var(--text-dim);
-            letter-spacing: 0.1em;
-            margin-top: 3px;
-        }
-
-        /* ---- OUTPUT ROW ---- */
-        .output-row {
-            position: absolute;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            z-index: 2;
-        }
-        .output-knob {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-        }
+        .meters { position: absolute; display: flex; gap: 3px; flex-direction: column; align-items: center; z-index: 2; }
+        .meter-pair { display: flex; gap: 3px; }
+        .meter-bar { width: 4px; height: 68px; background: rgba(0,0,0,0.12); border-radius: 2px; position: relative; overflow: hidden; }
+        .meter-fill { position: absolute; bottom: 0; width: 100%; border-radius: 2px; transition: height 50ms; background: var(--active); }
+        .meter-lbl { font-size: 7px; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 2px; }
 
         /* ---- SYNC TOGGLE ---- */
-        .sync-toggle {
+        .sync-wrap {
             position: absolute;
             display: flex;
             align-items: center;
@@ -233,266 +172,259 @@
             transform: translateX(-50%);
             z-index: 2;
         }
-        .sync-toggle-btn {
-            font-size: 8px;
-            font-weight: 700;
-            font-family: var(--font);
-            letter-spacing: 0.1em;
-            padding: 2px 8px;
-            border: 1px solid var(--border);
-            border-radius: 3px;
-            background: transparent;
-            color: var(--text-dim);
-            cursor: pointer;
-            transition: all 100ms;
+        .sync-btn {
+            font-size: 8px; font-weight: 700; font-family: var(--font);
+            letter-spacing: 0.1em; padding: 3px 10px;
+            border: 1px solid var(--divider); border-radius: 3px;
+            background: rgba(0,0,0,0.08); color: var(--text-dim); cursor: pointer; transition: all 100ms;
         }
-        .sync-toggle-btn.active {
-            background: var(--cyan);
-            border-color: var(--cyan);
-            color: var(--bg);
-        }
-        .sync-division {
-            font-size: 10px;
-            font-weight: 700;
-            font-family: var(--font);
-            color: var(--cyan);
-            letter-spacing: 0.05em;
-        }
+        .sync-btn.active { background: var(--active); border-color: var(--active); color: var(--knob-body); }
+        .sync-division { font-size: 10px; font-weight: 700; font-family: var(--font); color: var(--active); letter-spacing: 0.05em; }
 
-        /* ---- SECTION DIVIDERS (subtle vertical lines) ---- */
-        .section-divider {
-            position: absolute;
-            width: 1px;
-            background: var(--border);
-            opacity: 0.4;
-            z-index: 1;
-        }
+        /* ---- GRAIN SCOPE ---- */
+        #grain-scope { position: absolute; z-index: 2; border-radius: 4px; background: rgba(0,0,0,0.06); }
 
-        /* ---- ATTEN HINT LABEL ---- */
-        .atten-hint {
+        /* ---- SECTION LABELS ---- */
+        .section-lbl {
             position: absolute;
-            font-size: 7px;
-            color: var(--cyan);
-            letter-spacing: 0.1em;
-            opacity: 0;
-            transition: opacity 150ms;
-            pointer-events: none;
-            white-space: nowrap;
+            font-size: 7px; font-weight: 600; letter-spacing: 0.2em;
+            text-transform: uppercase; color: var(--text-dim); opacity: 0.5; z-index: 2;
         }
-        .atten-hint.visible { opacity: 0.7; }
     </style>
 </head>
 <body>
 
+    <!-- PANEL BACKGROUNDS -->
+    <div class="panel panel-l"></div>
+    <div class="panel panel-m"></div>
+    <div class="panel panel-r"></div>
+
+    <!-- ANGLED DIVIDERS -->
+    <div class="divider" style="left:220px; transform:rotate(1.5deg);"></div>
+    <div class="divider" style="left:600px; transform:rotate(1.5deg);"></div>
+
     <!-- HEADER -->
     <div class="header">
-        <div class="header-title">
-            <span class="r">B</span><span class="b">E</span><span class="y">A</span>D<span class="r">Y</span>
-            &nbsp;
-            <span class="b">E</span><span class="y">Y</span>E
-        </div>
-        <div class="header-sub">GRANULAR TEXTURE PROCESSOR</div>
+        <div class="header-title">BEADY EYE</div>
+        <div class="header-sub">Granular Texture Processor</div>
+        <div class="header-right">GRAINS: <span id="grain-count">0</span></div>
     </div>
 
-    <!-- Subtle section divider between left cluster and density -->
-    <div class="section-divider" style="left: 388px; top: 50px; height: 280px;"></div>
+    <!-- GRAIN SCOPE CANVAS -->
+    <canvas id="grain-scope" style="left:228px; top:52px;" width="340" height="88"></canvas>
 
-    <!-- ============================================
-         GRAIN ARC VISUALIZATION — behind density knob
-         SVG 220×220 centered at density knob (440, 155)
-         ============================================ -->
-    <svg id="grain-arc" style="left: 330px; top: 45px;" width="220" height="220">
-        <!-- Dots injected by JS at radius ~80px from center (110,110) -->
-    </svg>
+    <!-- Section labels -->
+    <span class="section-lbl" style="left:28px; top:42px;">GRAIN</span>
+    <span class="section-lbl" style="left:620px; top:42px;">ENGINE</span>
 
-    <!-- ============================================
-         DENSITY — Hero knob, center-right (100px)
-         ============================================ -->
-    <div class="knob-wrap" style="left: 440px; top: 155px;" id="density-control"
-         data-param="density" data-min="-1" data-max="1" data-default="0" data-bipolar="true">
-        <svg class="knob-svg" width="100" height="100" viewBox="0 0 100 100">
-            <path class="knob-track" d="M 17.7 82.3 A 40 40 0 1 1 82.3 82.3" stroke-width="6" />
-            <circle class="knob-arc" cx="50" cy="50" r="40" stroke="var(--cyan)" stroke-width="6"
-                stroke-dasharray="214" stroke-dashoffset="214" transform="rotate(135 50 50)" />
-            <line class="knob-indicator" x1="50" y1="43" x2="50" y2="14" stroke="var(--cyan)" stroke-width="2.5"
-                transform="rotate(-135 50 50)" />
-        </svg>
-        <span class="knob-label" style="font-size: 10px;">DENSITY</span>
-        <span class="knob-value" id="density-value">0.00</span>
-    </div>
-    <div class="density-labels" style="left: 440px; top: 218px;">
-        <span>RHYTHMIC</span>
-        <span>RANDOM</span>
-    </div>
-    <div class="sync-toggle" style="left: 440px; top: 233px;">
-        <button class="sync-toggle-btn" id="density-sync-btn">FREE</button>
-        <span class="sync-division" id="sync-division" style="display: none;">—</span>
-    </div>
+    <!-- ================================================================
+         LEFT PANEL (0–220px): TIME / SIZE / SHAPE
+         ================================================================ -->
 
-    <!-- ============================================
-         LEFT CLUSTER: TIME / SIZE / SHAPE
-         Grouped together, ~90px spacing
-         ============================================ -->
-
-    <!-- TIME (80px, blue) -->
-    <div class="knob-wrap" style="left: 120px; top: 220px;" id="time-control"
+    <!-- TIME (72px) -->
+    <div class="knob-wrap" style="left:88px; top:148px;" id="time-control"
          data-param="time" data-min="0" data-max="1" data-default="0.5" data-atten="time_atten">
-        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
-            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--blue)" stroke-width="3"
-                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="time_atten-ring" />
-            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
-            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--blue)" stroke-width="5"
-                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--blue)" stroke-width="2"
-                transform="rotate(0 40 40)" />
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <path class="knob-atten" d=""/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">TIME</text>
         </svg>
-        <span class="knob-label">TIME</span>
         <span class="knob-value" id="time-value">50%</span>
     </div>
 
-    <!-- SIZE (80px, red, bipolar) -->
-    <div class="knob-wrap" style="left: 215px; top: 220px;" id="size-control"
+    <!-- SIZE (90px) — slightly larger, offset right for organic feel -->
+    <div class="knob-wrap" style="left:125px; top:298px;" id="size-control"
          data-param="size" data-min="-1" data-max="1" data-default="0.5" data-bipolar="true" data-atten="size_atten">
-        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
-            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--red)" stroke-width="3"
-                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="size_atten-ring" />
-            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
-            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--red)" stroke-width="5"
-                stroke-dasharray="151" stroke-dashoffset="37" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--red)" stroke-width="2"
-                transform="rotate(67.5 40 40)" />
+        <svg class="knob-svg" width="90" height="90" viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="43" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="45" cy="45" r="32" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="10"
+                    stroke-dasharray="150.8 999" transform="rotate(135 45 45)"/>
+            <circle class="knob-fill" cx="45" cy="45" r="32" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="10"
+                    stroke-dasharray="0 999" transform="rotate(135 45 45)"/>
+            <path class="knob-atten" d=""/>
+            <text x="45" y="50" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">SIZE</text>
         </svg>
-        <span class="knob-label">SIZE</span>
-        <span class="knob-value" id="size-value">50%</span>
+        <span class="knob-value" id="size-value">0.50</span>
     </div>
 
-    <!-- SHAPE (80px, white) -->
-    <div class="knob-wrap" style="left: 310px; top: 220px;" id="shape-control"
+    <!-- SHAPE (72px) — lower left -->
+    <div class="knob-wrap" style="left:85px; top:430px;" id="shape-control"
          data-param="shape" data-min="0" data-max="1" data-default="0.5" data-atten="shape_atten">
-        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
-            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--white)" stroke-width="3"
-                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="shape_atten-ring" />
-            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
-            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--white)" stroke-width="5"
-                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--white)" stroke-width="2"
-                transform="rotate(0 40 40)" />
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <path class="knob-atten" d=""/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">SHAPE</text>
         </svg>
-        <span class="knob-label">SHAPE</span>
         <span class="knob-value" id="shape-value">50%</span>
     </div>
 
-    <!-- ============================================
-         PITCH — Right side (80px, yellow, bipolar)
-         ============================================ -->
-    <div class="knob-wrap" style="left: 660px; top: 220px;" id="pitch-control"
+    <!-- ================================================================
+         MIDDLE PANEL (220–600px): PITCH / FEEDBACK + FREEZE
+         ================================================================ -->
+
+    <!-- PITCH (90px) — slightly left of panel center -->
+    <div class="knob-wrap" style="left:310px; top:300px;" id="pitch-control"
          data-param="pitch" data-min="-24" data-max="24" data-default="0" data-bipolar="true" data-unit="st" data-atten="pitch_atten">
-        <svg class="knob-svg" width="80" height="80" viewBox="0 0 80 80">
-            <circle class="knob-atten" cx="40" cy="40" r="37" stroke="var(--yellow)" stroke-width="3"
-                stroke-dasharray="174" stroke-dashoffset="174" transform="rotate(135 40 40)" id="pitch_atten-ring" />
-            <path class="knob-track" d="M 14.3 65.7 A 32 32 0 1 1 65.7 65.7" stroke-width="5" />
-            <circle class="knob-arc" cx="40" cy="40" r="32" stroke="var(--yellow)" stroke-width="5"
-                stroke-dasharray="151" stroke-dashoffset="75" transform="rotate(135 40 40)" />
-            <line class="knob-indicator" x1="40" y1="33" x2="40" y2="12" stroke="var(--yellow)" stroke-width="2"
-                transform="rotate(0 40 40)" />
+        <svg class="knob-svg" width="90" height="90" viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="43" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="45" cy="45" r="32" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="10"
+                    stroke-dasharray="150.8 999" transform="rotate(135 45 45)"/>
+            <circle class="knob-fill" cx="45" cy="45" r="32" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="10"
+                    stroke-dasharray="0 999" transform="rotate(135 45 45)"/>
+            <path class="knob-atten" d=""/>
+            <text x="45" y="50" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">PITCH</text>
         </svg>
-        <span class="knob-label">PITCH</span>
-        <span class="knob-value" id="pitch-value">0 st</span>
+        <span class="knob-value" id="pitch-value">0.0 st</span>
     </div>
 
-    <!-- ============================================
-         FREEZE — Bottom left
-         ============================================ -->
-    <div class="freeze-wrap" style="left: 120px; top: 430px;" id="freeze-control">
-        <button class="freeze-btn" id="freeze-btn">
-            <span style="font-size: 14px;">&#10052;</span>
-        </button>
-        <span class="knob-label">FREEZE</span>
+    <!-- FEEDBACK (72px) — right of panel, higher than PITCH (asymmetric) -->
+    <div class="knob-wrap" style="left:510px; top:274px;" id="feedback-control"
+         data-param="feedback" data-min="0" data-max="1" data-default="0">
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">FDBK</text>
+        </svg>
+        <span class="knob-value" id="feedback-value">0%</span>
     </div>
 
-    <!-- ============================================
-         METERS — Bottom far-left
-         ============================================ -->
-    <div class="meters" style="left: 45px; top: 380px;">
+    <!-- FREEZE -->
+    <div class="freeze-wrap" style="left:408px; top:425px;" id="freeze-control">
+        <button class="freeze-btn" id="freeze-btn">&#10052;</button>
+        <span class="freeze-label">FREEZE</span>
+    </div>
+
+    <!-- ================================================================
+         RIGHT PANEL (600–1000px): DENSITY hero + SYNC + VU + output row
+         ================================================================ -->
+
+    <!-- DENSITY (140px hero) — large, right of panel center -->
+    <div class="knob-wrap" style="left:800px; top:168px;" id="density-control"
+         data-param="density" data-min="-1" data-max="1" data-default="0" data-bipolar="true">
+        <svg class="knob-svg" width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="68" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="70" cy="70" r="54" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="12"
+                    stroke-dasharray="254.5 999" transform="rotate(135 70 70)"/>
+            <circle class="knob-fill" cx="70" cy="70" r="54" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="12"
+                    stroke-dasharray="0 999" transform="rotate(135 70 70)"/>
+            <text x="70" y="77" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="8" letter-spacing="2"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">DENSITY</text>
+        </svg>
+        <span class="knob-value" id="density-value">0.00</span>
+    </div>
+
+    <!-- SYNC toggle (below DENSITY) -->
+    <div class="sync-wrap" style="left:790px; top:272px;">
+        <button class="sync-btn" id="density-sync-btn">FREE</button>
+        <span class="sync-division" id="sync-division" style="display:none;">—</span>
+    </div>
+
+    <!-- VU METERS -->
+    <div class="meters" style="left:628px; top:316px;">
         <div class="meter-pair">
-            <div class="meter-bar"><div class="meter-fill" id="meter-in" style="height: 0%; background: var(--cyan);"></div></div>
-            <div class="meter-bar"><div class="meter-fill" id="meter-out" style="height: 0%; background: var(--cyan);"></div></div>
+            <div class="meter-bar"><div class="meter-fill" id="meter-in"  style="height:0%;"></div></div>
+            <div class="meter-bar"><div class="meter-fill" id="meter-out" style="height:0%;"></div></div>
         </div>
-        <div style="display: flex; gap: 3px;">
-            <span class="meter-label">I</span>
-            <span class="meter-label">O</span>
+        <div style="display:flex; gap:3px;">
+            <span class="meter-lbl">I</span>
+            <span class="meter-lbl">O</span>
         </div>
     </div>
 
-    <!-- ============================================
-         OUTPUT ROW — Larger (64px), moved up
-         FDBK / MIX / REVERB / OUTPUT
-         ============================================ -->
-    <div class="output-row" style="left: 248px; top: 378px;">
+    <!-- OUTPUT ROW: MIX / REVERB / OUTPUT (72px — from 56px) -->
 
-        <!-- FEEDBACK -->
-        <div class="output-knob" id="feedback-control"
-             data-param="feedback" data-min="0" data-max="1" data-default="0">
-            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
-                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
-                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--red)" stroke-width="4"
-                    stroke-dasharray="113" stroke-dashoffset="113" transform="rotate(135 32 32)" />
-                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--red)" stroke-width="2"
-                    transform="rotate(-135 32 32)" />
-            </svg>
-            <span class="knob-label" style="font-size: 8px;">FDBK</span>
-            <span class="knob-value" style="font-size: 9px;" id="feedback-value">0%</span>
-        </div>
+    <!-- MIX (dry_wet) — left of row, slightly lower -->
+    <div class="out-wrap" style="left:650px; top:425px;" id="dry_wet-control"
+         data-param="dry_wet" data-min="0" data-max="1" data-default="0.5">
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">MIX</text>
+        </svg>
+        <span class="knob-value" id="dry_wet-value">50%</span>
+    </div>
 
-        <!-- DRY/WET -->
-        <div class="output-knob" id="dry_wet-control"
-             data-param="dry_wet" data-min="0" data-max="1" data-default="0.5">
-            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
-                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
-                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--white)" stroke-width="4"
-                    stroke-dasharray="113" stroke-dashoffset="56" transform="rotate(135 32 32)" />
-                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--white)" stroke-width="2"
-                    transform="rotate(0 32 32)" />
-            </svg>
-            <span class="knob-label" style="font-size: 8px;">MIX</span>
-            <span class="knob-value" style="font-size: 9px;" id="dry_wet-value">50%</span>
-        </div>
+    <!-- REVERB — center, slightly higher (asymmetric) -->
+    <div class="out-wrap" style="left:800px; top:410px;" id="reverb-control"
+         data-param="reverb" data-min="0" data-max="1" data-default="0">
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">RVB</text>
+        </svg>
+        <span class="knob-value" id="reverb-value">0%</span>
+    </div>
 
-        <!-- REVERB -->
-        <div class="output-knob" id="reverb-control"
-             data-param="reverb" data-min="0" data-max="1" data-default="0">
-            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
-                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
-                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--blue)" stroke-width="4"
-                    stroke-dasharray="113" stroke-dashoffset="113" transform="rotate(135 32 32)" />
-                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--blue)" stroke-width="2"
-                    transform="rotate(-135 32 32)" />
-            </svg>
-            <span class="knob-label" style="font-size: 8px;">REVERB</span>
-            <span class="knob-value" style="font-size: 9px;" id="reverb-value">0%</span>
-        </div>
-
-        <!-- OUTPUT -->
-        <div class="output-knob" id="output_vol-control"
-             data-param="output_vol" data-min="0" data-max="1" data-default="0.75">
-            <svg class="knob-svg" width="64" height="64" viewBox="0 0 64 64">
-                <path class="knob-track" d="M 15.0 49.0 A 24 24 0 1 1 49.0 49.0" stroke-width="4" />
-                <circle class="knob-arc" cx="32" cy="32" r="24" stroke="var(--yellow)" stroke-width="4"
-                    stroke-dasharray="113" stroke-dashoffset="28" transform="rotate(135 32 32)" />
-                <line class="knob-indicator" x1="32" y1="26" x2="32" y2="11" stroke="var(--yellow)" stroke-width="2"
-                    transform="rotate(67.5 32 32)" />
-            </svg>
-            <span class="knob-label" style="font-size: 8px;">OUTPUT</span>
-            <span class="knob-value" style="font-size: 9px;" id="output_vol-value">75%</span>
-        </div>
-
+    <!-- OUTPUT — right edge, slightly lower (asymmetric) -->
+    <div class="out-wrap" style="left:938px; top:430px;" id="output_vol-control"
+         data-param="output_vol" data-min="0" data-max="1" data-default="0.75">
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
+            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-fill)" stroke-width="8"
+                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
+                  font-size="7" letter-spacing="1"
+                  font-family="Helvetica Neue, Helvetica, Arial, sans-serif">OUT</text>
+        </svg>
+        <span class="knob-value" id="output_vol-value">75%</span>
     </div>
 
     <!-- FOOTER -->
     <div class="footer">
-        <span>GRAINS: <span id="grain-count">0</span></span>
-        <span id="debug-status" style="color: #E63946;">INIT...</span>
-        <span>BEADY EYE v0.1</span>
+        <span id="debug-status" style="color:var(--text-dim);">INIT...</span>
+        <span>BEADY EYE v0.9</span>
     </div>
 
     <!-- ALL JS INLINED — WKWebView resource provider doesn't support ES module imports -->
@@ -500,41 +432,36 @@
     (function() {
         'use strict';
 
-        // ============================================================
-        // JUCE LIBRARY (INLINED) — Adapted from CloudWash pattern
-        // ============================================================
+        // ================================================================
+        // JUCE LIBRARY (INLINED)
+        // ================================================================
 
         var juceAvailable = typeof window.__JUCE__ !== 'undefined';
 
-        // Slider State Management
         function SliderState(name) {
             this.name = name;
             this.identifier = "__juce__slider" + name;
             this.scaledValue = 0;
             this.properties = { start: 0, end: 1, skew: 1, name: "", label: "", numSteps: 100, interval: 0, parameterIndex: -1 };
             this.valueChangedListeners = [];
-
             var self = this;
             if (juceAvailable && window.__JUCE__.backend) {
-                window.__JUCE__.backend.addEventListener(this.identifier, function(event) { self.handleEvent(event); });
+                window.__JUCE__.backend.addEventListener(this.identifier, function(e) { self.handleEvent(e); });
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "requestInitialUpdate" });
             }
         }
-        SliderState.prototype.setNormalisedValue = function(newValue) {
-            this.scaledValue = this.snapToLegalValue(this.normalisedToScaledValue(newValue));
-            if (juceAvailable && window.__JUCE__.backend) {
+        SliderState.prototype.setNormalisedValue = function(v) {
+            this.scaledValue = this.snapToLegalValue(this.normalisedToScaledValue(v));
+            if (juceAvailable && window.__JUCE__.backend)
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "valueChanged", value: this.scaledValue });
-            }
         };
         SliderState.prototype.sliderDragStarted = function() {
-            if (juceAvailable && window.__JUCE__.backend) {
+            if (juceAvailable && window.__JUCE__.backend)
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "sliderDragStarted" });
-            }
         };
         SliderState.prototype.sliderDragEnded = function() {
-            if (juceAvailable && window.__JUCE__.backend) {
+            if (juceAvailable && window.__JUCE__.backend)
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "sliderDragEnded" });
-            }
         };
         SliderState.prototype.handleEvent = function(event) {
             if (event.eventType === "valueChanged") {
@@ -554,38 +481,33 @@
                 this.properties.skew
             );
         };
-        SliderState.prototype.normalisedToScaledValue = function(normalisedValue) {
-            return Math.pow(normalisedValue, 1 / this.properties.skew) *
-                (this.properties.end - this.properties.start) + this.properties.start;
+        SliderState.prototype.normalisedToScaledValue = function(v) {
+            return Math.pow(v, 1 / this.properties.skew) * (this.properties.end - this.properties.start) + this.properties.start;
         };
-        SliderState.prototype.snapToLegalValue = function(value) {
-            var interval = this.properties.interval;
-            if (interval === 0) return value;
-            var start = this.properties.start;
-            var snapped = start + interval * Math.floor((value - start) / interval + 0.5);
-            return Math.max(this.properties.start, Math.min(this.properties.end, snapped));
+        SliderState.prototype.snapToLegalValue = function(v) {
+            var i = this.properties.interval;
+            if (i === 0) return v;
+            var s = this.properties.start;
+            return Math.max(s, Math.min(this.properties.end, s + i * Math.floor((v - s) / i + 0.5)));
         };
         SliderState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
 
-        // Toggle State Management
         function ToggleState(name) {
             this.name = name;
             this.identifier = "__juce__toggle" + name;
             this.value = false;
             this.valueChangedListeners = [];
-
             var self = this;
             if (juceAvailable && window.__JUCE__.backend) {
-                window.__JUCE__.backend.addEventListener(this.identifier, function(event) { self.handleEvent(event); });
+                window.__JUCE__.backend.addEventListener(this.identifier, function(e) { self.handleEvent(e); });
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "requestInitialUpdate" });
             }
         }
-        ToggleState.prototype.getValue = function() { return this.value; };
-        ToggleState.prototype.setValue = function(newValue) {
-            this.value = newValue;
-            if (juceAvailable && window.__JUCE__.backend) {
+        ToggleState.prototype.getValue  = function() { return this.value; };
+        ToggleState.prototype.setValue  = function(v) {
+            this.value = v;
+            if (juceAvailable && window.__JUCE__.backend)
                 window.__JUCE__.backend.emitEvent(this.identifier, { eventType: "valueChanged", value: this.value });
-            }
         };
         ToggleState.prototype.handleEvent = function(event) {
             if (event.eventType === "valueChanged") {
@@ -595,10 +517,7 @@
         };
         ToggleState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
 
-        // Caches & Public API
-        var sliderStates = {};
-        var toggleStates = {};
-
+        var sliderStates = {}, toggleStates = {};
         window.Juce = window.Juce || {};
         window.Juce.getSliderState = function(name) {
             if (!sliderStates[name]) sliderStates[name] = new SliderState(name);
@@ -609,13 +528,10 @@
             return toggleStates[name];
         };
 
-        // ============================================================
-        // BEADY EYE — Parameter binding & UI controls
-        // ============================================================
+        // ================================================================
+        // BEADY EYE — Parameter binding & UI
+        // ================================================================
 
-        console.log("BeadyEye WebView UI Loading...");
-
-        // Parameter state management — 10 main + 4 attenurandomizers + 1 toggle
         var parameterStates = {
             time: null, size: null, pitch: null, shape: null, density: null,
             feedback: null, dry_wet: null, reverb: null, output_vol: null,
@@ -623,165 +539,144 @@
             time_atten: null, size_atten: null, pitch_atten: null, shape_atten: null
         };
 
-        // Registry of knob update functions
         var knobUpdaters = {};
 
         document.addEventListener("DOMContentLoaded", function() {
-            console.log("=== BeadyEye Initialization Start ===");
-            console.log("JUCE Backend: " + (juceAvailable ? "Available" : "Not Available (preview mode)"));
-
-            // 1. Initialize visual controls (registers knob updaters)
             initializeKnobs();
             initializeFreezeButton();
             initializeDensitySyncButton();
-            initializeGrainArc();
+            initializeGrainScope();
             initializeMeters();
 
-            // Hook density knob to update sync division label
+            // Wrap density updater to also refresh sync division display
             var origDensityUpdater = knobUpdaters['density'];
             knobUpdaters['density'] = function(newValue, fromJuce) {
                 origDensityUpdater(newValue, fromJuce);
-                if (fromJuce) {
-                    lastDensityNormalized = newValue;
-                } else {
-                    lastDensityNormalized = (newValue + 1) / 2;
-                }
+                lastDensityNormalized = fromJuce ? newValue : (newValue + 1) / 2;
                 updateSyncDivisionDisplay();
             };
 
-            // 2. Connect JUCE parameters (after knobs exist)
-            if (juceAvailable) {
-                console.log("Connecting JUCE parameters...");
-                initializeParameterStates();
-                console.log("JUCE parameters connected");
-            }
+            if (juceAvailable) initializeParameterStates();
 
-            // Update debug indicator
             var dbg = document.getElementById('debug-status');
             if (dbg) {
-                dbg.style.color = juceAvailable ? '#00FF00' : '#808090';
+                dbg.style.color = juceAvailable ? '#0C1816' : 'var(--text-dim)';
                 dbg.textContent = juceAvailable ? 'JUCE:OK' : 'PREVIEW';
             }
-
-            console.log("=== BeadyEye Ready ===");
         });
-
-        // ============================================================
-        // JUCE PARAMETER STATE INITIALIZATION
-        // ============================================================
 
         function initializeParameterStates() {
             for (var paramName in parameterStates) {
                 try {
-                    if (paramName === 'freeze' || paramName === 'density_sync') {
-                        parameterStates[paramName] = window.Juce.getToggleState(paramName);
-                    } else {
-                        parameterStates[paramName] = window.Juce.getSliderState(paramName);
-                    }
+                    parameterStates[paramName] = (paramName === 'freeze' || paramName === 'density_sync')
+                        ? window.Juce.getToggleState(paramName)
+                        : window.Juce.getSliderState(paramName);
 
-                    // Attach JUCE→UI listener (state exists, knob updater registered)
                     if (knobUpdaters[paramName] && parameterStates[paramName]) {
                         (function(pName) {
-                            var state = parameterStates[pName];
+                            var state   = parameterStates[pName];
                             var updater = knobUpdaters[pName];
                             var isToggle = (pName === 'freeze' || pName === 'density_sync');
                             state.addValueChangedListener(function() {
-                                var normalizedValue = isToggle
-                                    ? (state.getValue() ? 1 : 0)
-                                    : state.getNormalisedValue();
-                                updater(normalizedValue, true);
+                                updater(isToggle ? (state.getValue() ? 1 : 0) : state.getNormalisedValue(), true);
                             });
                         })(paramName);
                     }
-
-                    console.log("  param: " + paramName);
                 } catch (error) {
                     console.warn("  failed: " + paramName + ": " + error.message);
                 }
             }
         }
 
-        // ============================================================
+        // ================================================================
         // KNOB INITIALIZATION
-        // ============================================================
+        // ================================================================
 
         function initializeKnobs() {
-            var knobWraps = document.querySelectorAll('.knob-wrap[data-param]');
-            var outputKnobs = document.querySelectorAll('.output-knob[data-param]');
-
-            console.log("Initializing " + knobWraps.length + " main knobs + " + outputKnobs.length + " output knobs...");
-
-            knobWraps.forEach(function(wrap) { setupKnob(wrap); });
-            outputKnobs.forEach(function(wrap) { setupKnob(wrap); });
+            document.querySelectorAll('.knob-wrap[data-param]').forEach(function(w) { setupKnob(w); });
+            document.querySelectorAll('.out-wrap[data-param]').forEach(function(w)  { setupKnob(w); });
         }
 
         function setupKnob(wrap) {
-            var paramName = wrap.dataset.param;
-            var min = parseFloat(wrap.dataset.min);
-            var max = parseFloat(wrap.dataset.max);
-            var defaultValue = parseFloat(wrap.dataset.default);
-            var isBipolar = wrap.dataset.bipolar === 'true';
-            var unit = wrap.dataset.unit || '';
+            var paramName      = wrap.dataset.param;
+            var min            = parseFloat(wrap.dataset.min);
+            var max            = parseFloat(wrap.dataset.max);
+            var defaultValue   = parseFloat(wrap.dataset.default);
+            var isBipolar      = wrap.dataset.bipolar === 'true';
+            var unit           = wrap.dataset.unit || '';
             var attenParamName = wrap.dataset.atten || null;
 
             var value = defaultValue;
-            var isDragging = false;
-            var startY = 0;
-            var startValue = 0;
+            var isDragging = false, startY = 0, startValue = 0;
+            var attenValue = 0.0, attenEditMode = false;
+            var isAttenDragging = false, attenStartY = 0, attenStartValue = 0;
+            var currentNorm = (defaultValue - min) / (max - min);
 
-            // Atten state (Shift+click to toggle edit mode)
-            var attenValue = 0.0;
-            var attenEditMode = false;  // true = shift+click active, dragging adjusts atten
-            var isAttenDragging = false;
-            var attenStartY = 0;
-            var attenStartValue = 0;
-
-            var svg = wrap.querySelector('.knob-svg');
-            var arc = wrap.querySelector('.knob-arc');
-            var indicator = wrap.querySelector('.knob-indicator');
+            var svg          = wrap.querySelector('.knob-svg');
+            var fillArc      = wrap.querySelector('.knob-fill');
+            var trackEl      = wrap.querySelector('.knob-track');
+            var attenPath    = attenParamName ? wrap.querySelector('.knob-atten') : null;
             var valueDisplay = document.getElementById(paramName + '-value') || wrap.querySelector('.knob-value');
-            var attenRing = attenParamName ? document.getElementById(attenParamName + '-ring') : null;
 
-            if (!svg || !arc || !indicator) {
-                console.warn("Knob " + paramName + ": missing SVG elements");
-                return;
-            }
+            if (!svg || !fillArc) { console.warn("Knob " + paramName + ": missing SVG elements"); return; }
 
             var svgSize = parseInt(svg.getAttribute('width'));
-            var center = svgSize / 2;
-            var arcRadius = parseFloat(arc.getAttribute('r'));
-            var circumference = 2 * Math.PI * arcRadius;
-            var arcSweep = circumference * (270 / 360);
+            var cx = svgSize / 2, cy = svgSize / 2;
 
-            // Atten ring sweep: read from HTML attribute
-            var attenArcSweep = attenRing
-                ? parseFloat(attenRing.getAttribute('stroke-dasharray') || '174')
-                : 174;
+            // Arc max = 270° portion of track circumference (first number in dasharray)
+            var arcMax = trackEl ? parseFloat(trackEl.getAttribute('stroke-dasharray')) : 113.1;
+            var trackR = trackEl ? parseFloat(trackEl.getAttribute('r')) : 24;
+            // Atten arc sits just outside the fill ring, inside the body
+            var attenR = trackR + 5;
+
+            function updateFillArc(norm) {
+                fillArc.setAttribute('stroke-dasharray', (norm * arcMax).toFixed(2) + ' 999');
+            }
+
+            function updateAttenPath() {
+                if (!attenPath) return;
+                if (attenValue < 0.005) {
+                    attenPath.setAttribute('d', '');
+                    attenPath.style.opacity = '0';
+                    return;
+                }
+                // Arc centered on current value position, spanning ±(attenValue * 135°)
+                var valueAngleDeg = 225 + currentNorm * 270;
+                var halfSpan = attenValue * 135;
+                var startDeg = valueAngleDeg - halfSpan;
+                var endDeg   = valueAngleDeg + halfSpan;
+                var span     = endDeg - startDeg;
+
+                var startRad = (startDeg - 90) * Math.PI / 180;
+                var endRad   = (endDeg   - 90) * Math.PI / 180;
+
+                var x1 = cx + attenR * Math.cos(startRad);
+                var y1 = cy + attenR * Math.sin(startRad);
+                var x2 = cx + attenR * Math.cos(endRad);
+                var y2 = cy + attenR * Math.sin(endRad);
+
+                attenPath.setAttribute('d',
+                    'M ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
+                    ' A ' + attenR + ' ' + attenR + ' 0 ' + (span > 180 ? 1 : 0) + ' 1 ' +
+                    x2.toFixed(2) + ' ' + y2.toFixed(2));
+                attenPath.style.opacity = attenEditMode ? '0.92' : '0.62';
+            }
 
             function updateKnob(newValue, fromJuce) {
-                if (fromJuce) {
-                    value = min + (newValue * (max - min));
-                } else {
-                    value = Math.max(min, Math.min(max, newValue));
-                }
+                if (fromJuce) value = min + newValue * (max - min);
+                else          value = Math.max(min, Math.min(max, newValue));
 
                 var normalized = (value - min) / (max - min);
+                currentNorm = normalized;
 
-                // Arc visual
-                var dashOffset = arcSweep * (1 - normalized);
-                arc.setAttribute('stroke-dasharray', arcSweep.toFixed(1));
-                arc.setAttribute('stroke-dashoffset', dashOffset.toFixed(1));
+                updateFillArc(normalized);
+                updateAttenPath();
 
-                // Indicator rotation: -135deg (min) to +135deg (max)
-                var angle = -135 + (normalized * 270);
-                indicator.setAttribute('transform', 'rotate(' + angle + ' ' + center + ' ' + center + ')');
-
-                // Value display — show atten% when in atten edit mode
                 if (valueDisplay) {
                     if (attenEditMode) {
                         valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
                     } else if (unit === 'st') {
-                        valueDisplay.textContent = value >= 0 ? '+' + value.toFixed(1) + ' st' : value.toFixed(1) + ' st';
+                        valueDisplay.textContent = (value >= 0 ? '+' : '') + value.toFixed(1) + ' st';
                     } else if (isBipolar) {
                         valueDisplay.textContent = value.toFixed(2);
                     } else {
@@ -789,341 +684,228 @@
                     }
                 }
 
-                // Update JUCE parameter (only from UI interaction)
                 if (!fromJuce && parameterStates[paramName]) {
-                    try {
-                        parameterStates[paramName].setNormalisedValue(normalized);
-                    } catch (error) {
-                        console.warn("Failed to update JUCE param " + paramName + ": " + error.message);
-                    }
+                    try { parameterStates[paramName].setNormalisedValue(normalized); } catch (e) {}
                 }
             }
 
             function updateAttenRing(val, fromJuce) {
                 attenValue = Math.max(0, Math.min(1, val));
-                if (attenRing) {
-                    var offset = attenArcSweep * (1 - attenValue);
-                    attenRing.setAttribute('stroke-dashoffset', offset.toFixed(1));
-                    attenRing.style.opacity = (0.25 + attenValue * 0.55).toFixed(2);
-                }
-                // Refresh value display if in atten mode
-                if (valueDisplay && attenEditMode) {
+                updateAttenPath();
+                if (valueDisplay && attenEditMode)
                     valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
-                }
                 if (!fromJuce && attenParamName && parameterStates[attenParamName]) {
-                    try {
-                        parameterStates[attenParamName].setNormalisedValue(attenValue);
-                    } catch (error) {
-                        console.warn("Failed to update JUCE param " + attenParamName + ": " + error.message);
-                    }
+                    try { parameterStates[attenParamName].setNormalisedValue(attenValue); } catch (e) {}
                 }
             }
 
             function enterAttenMode() {
                 attenEditMode = true;
-                if (attenRing) attenRing.classList.add('atten-active');
-                if (valueDisplay) valueDisplay.classList.add('atten-mode');
-                // Show current atten value
-                if (valueDisplay) valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
+                if (attenPath) attenPath.classList.add('atten-active');
+                if (valueDisplay) {
+                    valueDisplay.classList.add('atten-mode');
+                    valueDisplay.textContent = 'R ' + Math.round(attenValue * 100) + '%';
+                }
+                updateAttenPath();
             }
 
             function exitAttenMode() {
                 attenEditMode = false;
-                if (attenRing) attenRing.classList.remove('atten-active');
+                if (attenPath) attenPath.classList.remove('atten-active');
                 if (valueDisplay) valueDisplay.classList.remove('atten-mode');
-                // Restore main value display
                 updateKnob(value, false);
             }
 
-            // Register updaters for JUCE→UI binding
             knobUpdaters[paramName] = updateKnob;
             if (attenParamName) {
-                knobUpdaters[attenParamName] = function(normalizedValue, fromJuce) {
-                    updateAttenRing(normalizedValue, fromJuce);
-                };
+                knobUpdaters[attenParamName] = function(v, fromJuce) { updateAttenRing(v, fromJuce); };
             }
 
-            // Mouse down: Shift+click toggles atten mode; plain drag adjusts main/atten
             svg.addEventListener('mousedown', function(e) {
                 e.preventDefault();
-
                 if (attenParamName && e.shiftKey) {
-                    // Shift+click: toggle atten edit mode
-                    if (attenEditMode) {
-                        exitAttenMode();
-                    } else {
-                        enterAttenMode();
-                    }
+                    if (attenEditMode) exitAttenMode(); else enterAttenMode();
                     return;
                 }
-
                 if (attenEditMode && attenParamName) {
-                    // In atten mode: drag adjusts atten
                     isAttenDragging = true;
-                    attenStartY = e.clientY;
-                    attenStartValue = attenValue;
-                    if (attenParamName && parameterStates[attenParamName]) {
-                        try { parameterStates[attenParamName].sliderDragStarted(); } catch (err) {}
-                    }
+                    attenStartY = e.clientY; attenStartValue = attenValue;
+                    if (parameterStates[attenParamName]) try { parameterStates[attenParamName].sliderDragStarted(); } catch (e) {}
                     return;
                 }
-
-                // Normal mode: drag adjusts main param
-                isDragging = true;
-                startY = e.clientY;
-                startValue = value;
-                if (parameterStates[paramName]) {
-                    try { parameterStates[paramName].sliderDragStarted(); } catch (err) {}
-                }
+                isDragging = true; startY = e.clientY; startValue = value;
+                if (parameterStates[paramName]) try { parameterStates[paramName].sliderDragStarted(); } catch (e) {}
             });
 
             document.addEventListener('mousemove', function(e) {
                 if (isAttenDragging) {
-                    var deltaY = attenStartY - e.clientY;
-                    updateAttenRing(attenStartValue + deltaY * 0.005, false);
+                    updateAttenRing(attenStartValue + (attenStartY - e.clientY) * 0.005, false);
                     return;
                 }
                 if (!isDragging) return;
-                var deltaY = startY - e.clientY;
-                var sensitivity = 0.005;
-                var newValue = startValue + deltaY * (max - min) * sensitivity;
-                updateKnob(newValue, false);
+                updateKnob(startValue + (startY - e.clientY) * (max - min) * 0.005, false);
             });
 
             document.addEventListener('mouseup', function() {
                 if (isAttenDragging) {
                     isAttenDragging = false;
-                    if (attenParamName && parameterStates[attenParamName]) {
-                        try { parameterStates[attenParamName].sliderDragEnded(); } catch (err) {}
-                    }
+                    if (parameterStates[attenParamName]) try { parameterStates[attenParamName].sliderDragEnded(); } catch (e) {}
                 }
                 if (isDragging) {
                     isDragging = false;
-                    if (parameterStates[paramName]) {
-                        try { parameterStates[paramName].sliderDragEnded(); } catch (err) {}
-                    }
+                    if (parameterStates[paramName]) try { parameterStates[paramName].sliderDragEnded(); } catch (e) {}
                 }
             });
 
-            // Double-click to reset (exits atten mode first if active)
-            svg.addEventListener('dblclick', function(e) {
-                if (attenEditMode) {
-                    updateAttenRing(0, false);
-                } else {
-                    updateKnob(defaultValue, false);
-                }
+            svg.addEventListener('dblclick', function() {
+                if (attenEditMode) updateAttenRing(0, false);
+                else updateKnob(defaultValue, false);
             });
 
-            // Click outside any knob: exit atten mode
             document.addEventListener('mousedown', function(e) {
-                if (attenEditMode && !svg.contains(e.target)) {
-                    exitAttenMode();
-                }
+                if (attenEditMode && !svg.contains(e.target)) exitAttenMode();
             }, true);
 
-            // Initialize visual state
             updateKnob(defaultValue, false);
-            if (attenRing) updateAttenRing(0, false);
-
-            console.log("  knob: " + paramName + (attenParamName ? " [atten:" + attenParamName + " | shift+click]" : ""));
+            if (attenPath) updateAttenRing(0, false);
         }
 
-        // ============================================================
+        // ================================================================
         // FREEZE BUTTON
-        // ============================================================
+        // ================================================================
 
         function initializeFreezeButton() {
             var freezeBtn = document.getElementById('freeze-btn');
             var freezeActive = false;
-
             freezeBtn.addEventListener('click', function() {
                 freezeActive = !freezeActive;
                 freezeBtn.classList.toggle('active', freezeActive);
-
-                if (parameterStates.freeze) {
-                    try {
-                        parameterStates.freeze.setValue(freezeActive);
-                    } catch (error) {
-                        console.warn("Failed to set freeze: " + error.message);
-                    }
-                }
+                if (parameterStates.freeze) try { parameterStates.freeze.setValue(freezeActive); } catch (e) {}
             });
-
-            // Register freeze updater for JUCE→UI binding
-            knobUpdaters['freeze'] = function(normalizedValue, fromJuce) {
-                if (fromJuce) {
-                    var active = normalizedValue > 0.5;
-                    freezeActive = active;
-                    freezeBtn.classList.toggle('active', active);
-                }
+            knobUpdaters['freeze'] = function(v, fromJuce) {
+                if (fromJuce) { freezeActive = v > 0.5; freezeBtn.classList.toggle('active', freezeActive); }
             };
-
-            console.log("  freeze button");
         }
 
-        // ============================================================
+        // ================================================================
         // DENSITY SYNC TOGGLE
-        // ============================================================
+        // ================================================================
 
         var syncDivisionNames = ['/4', '/3', '/2', '/1', 'x1.5', 'x2', 'x3', 'x4'];
         var densitySyncActive = false;
         var lastDensityNormalized = 0.5;
 
-        function getSyncDivisionName(densityNormalized) {
-            var densityValue = densityNormalized * 2 - 1;
-            var absDensity = Math.abs(densityValue);
-            if (absDensity < 0.05) return '—';
-            var pos = (absDensity - 0.05) / 0.95 * 7;
-            var idx = Math.max(0, Math.min(7, Math.round(pos)));
-            return syncDivisionNames[idx];
+        function getSyncDivisionName(dn) {
+            var dv = dn * 2 - 1, ad = Math.abs(dv);
+            if (ad < 0.05) return '—';
+            return syncDivisionNames[Math.max(0, Math.min(7, Math.round((ad - 0.05) / 0.95 * 7)))];
         }
 
         function updateSyncDivisionDisplay() {
             var divEl = document.getElementById('sync-division');
             if (!divEl) return;
             divEl.style.display = densitySyncActive ? 'inline' : 'none';
-            if (densitySyncActive) {
-                divEl.textContent = getSyncDivisionName(lastDensityNormalized);
-            }
+            if (densitySyncActive) divEl.textContent = getSyncDivisionName(lastDensityNormalized);
         }
 
         function initializeDensitySyncButton() {
             var syncBtn = document.getElementById('density-sync-btn');
-
             syncBtn.addEventListener('click', function() {
                 densitySyncActive = !densitySyncActive;
                 syncBtn.classList.toggle('active', densitySyncActive);
                 syncBtn.textContent = densitySyncActive ? 'SYNC' : 'FREE';
                 updateSyncDivisionDisplay();
-
-                if (parameterStates.density_sync) {
-                    try {
-                        parameterStates.density_sync.setValue(densitySyncActive);
-                    } catch (error) {
-                        console.warn("Failed to set density_sync: " + error.message);
-                    }
-                }
+                if (parameterStates.density_sync) try { parameterStates.density_sync.setValue(densitySyncActive); } catch (e) {}
             });
-
-            knobUpdaters['density_sync'] = function(normalizedValue, fromJuce) {
+            knobUpdaters['density_sync'] = function(v, fromJuce) {
                 if (fromJuce) {
-                    var active = normalizedValue > 0.5;
-                    densitySyncActive = active;
-                    syncBtn.classList.toggle('active', active);
-                    syncBtn.textContent = active ? 'SYNC' : 'FREE';
+                    densitySyncActive = v > 0.5;
+                    syncBtn.classList.toggle('active', densitySyncActive);
+                    syncBtn.textContent = densitySyncActive ? 'SYNC' : 'FREE';
                     updateSyncDivisionDisplay();
                 }
             };
-
-            console.log("  density sync button");
         }
 
-        // ============================================================
-        // GRAIN ARC VISUALIZATION
-        // Arc of dots behind the density knob — driven by active grain count.
-        // SVG is 220×220 with center at (110,110), radius 80px from center.
-        // ============================================================
+        // ================================================================
+        // GRAIN SCOPE — multi-harmonic waveform, amplitude driven by activeGrains
+        // ================================================================
 
-        function initializeGrainArc() {
-            var arcSvg = document.getElementById('grain-arc');
-            if (!arcSvg) return;
-
-            var NUM_DOTS = 16;
-            var CX = 110, CY = 110, RADIUS = 80;
-            var colors = ['#00F5FF', '#E63946', '#2D5BFF', '#FFB800', '#00F5FF', '#F0F0F5',
-                          '#00F5FF', '#E63946', '#2D5BFF', '#FFB800', '#00F5FF', '#F0F0F5',
-                          '#E63946', '#00F5FF', '#FFB800', '#2D5BFF'];
-            var dots = [];
-
-            // Create dots at evenly spaced angles around the circle
-            for (var i = 0; i < NUM_DOTS; i++) {
-                var angle = (i / NUM_DOTS) * 2 * Math.PI - Math.PI / 2; // start from top
-                var x = CX + RADIUS * Math.cos(angle);
-                var y = CY + RADIUS * Math.sin(angle);
-                var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                dot.setAttribute('cx', x.toFixed(1));
-                dot.setAttribute('cy', y.toFixed(1));
-                dot.setAttribute('r', '3.5');
-                dot.setAttribute('fill', colors[i]);
-                dot.setAttribute('opacity', '0');
-                arcSvg.appendChild(dot);
-                dots.push({ el: dot, phase: (i / NUM_DOTS) * 2 * Math.PI });
-            }
-
+        function initializeGrainScope() {
+            var canvas = document.getElementById('grain-scope');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var W = canvas.width, H = canvas.height;
             var activeGrainCount = 0;
-            var animFrame = 0;
+            var frame = 0;
 
-            // Animate: lit dots pulse based on grain count
-            function animate() {
-                animFrame++;
-                var t = animFrame * 0.04;
-                var grainFraction = Math.min(1.0, activeGrainCount / 16.0);
+            function draw() {
+                frame++;
+                ctx.clearRect(0, 0, W, H);
+                var n = Math.min(Math.max(activeGrainCount, 0), 32);
+                var t = frame * 0.012;
 
-                dots.forEach(function(d, i) {
-                    // Each dot has a phase-offset sine wave; lit if within active range
-                    var phase = d.phase + t;
-                    var sineVal = 0.5 + 0.5 * Math.sin(phase);
-                    // Only show a fraction of dots proportional to grain count
-                    var dotFraction = i / NUM_DOTS;
-                    var visible = grainFraction > 0.02 && dotFraction < grainFraction;
-                    var baseOpacity = visible ? (0.15 + sineVal * 0.55) : 0;
-                    d.el.setAttribute('opacity', baseOpacity.toFixed(2));
-                    // Scale dot size slightly with activity
-                    var r = visible ? (2.5 + sineVal * 2.0) : 2.0;
-                    d.el.setAttribute('r', r.toFixed(1));
-                });
-
-                requestAnimationFrame(animate);
+                if (n < 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(122,168,160,0.15)';
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
+                    ctx.stroke();
+                } else {
+                    var amp = (H / 2 - 3) * (n / 32) * 0.80;
+                    var complexity = 1.5 + n * 0.12;
+                    ctx.beginPath();
+                    for (var x = 0; x <= W; x++) {
+                        var p = (x / W) * Math.PI * 2;
+                        var y = H / 2;
+                        y += Math.sin(p * complexity       + t        ) * amp * 0.50;
+                        y += Math.sin(p * complexity * 2.1 + t * 1.27 ) * amp * 0.24;
+                        y += Math.sin(p * complexity * 3.8 + t * 0.71 ) * amp * 0.14;
+                        y += Math.sin(p * complexity * 5.3 - t * 1.09 ) * amp * 0.08;
+                        y += Math.sin(p * complexity * 7.1 + t * 0.53 ) * amp * 0.04;
+                        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.strokeStyle = 'rgba(122,168,160,0.72)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+                requestAnimationFrame(draw);
             }
+            draw();
 
-            animate();
-
-            // Expose for C++ meter updates
             window.updateGrainVisualization = function(activeGrains, density, shape) {
                 activeGrainCount = activeGrains;
-                var grainCount = document.getElementById('grain-count');
-                if (grainCount) grainCount.textContent = activeGrains;
+                var gc = document.getElementById('grain-count');
+                if (gc) gc.textContent = activeGrains;
             };
 
-            // Freeze awareness: check freeze state each animation frame is overkill;
-            // just set activeGrainCount=0 externally when frozen
-            knobUpdaters['grain_arc_freeze_observer'] = function() {};
-
-            // Preview mode: simulate grain activity
             if (!juceAvailable) {
                 setInterval(function() {
-                    var isFrozen = document.getElementById('freeze-btn').classList.contains('active');
-                    activeGrainCount = isFrozen ? 0 : Math.floor(Math.random() * 12 + 1);
-                    var grainCount = document.getElementById('grain-count');
-                    if (grainCount) grainCount.textContent = activeGrainCount;
+                    var frozen = document.getElementById('freeze-btn').classList.contains('active');
+                    activeGrainCount = frozen ? 0 : Math.floor(Math.random() * 14 + 1);
+                    var gc = document.getElementById('grain-count');
+                    if (gc) gc.textContent = activeGrainCount;
                 }, 150);
             }
-
-            console.log("  grain arc visualization (" + NUM_DOTS + " dots, r=" + RADIUS + ")");
         }
 
-        // ============================================================
-        // METERS (updated from C++ via evaluateJavascript)
-        // ============================================================
+        // ================================================================
+        // METERS
+        // ================================================================
 
         function initializeMeters() {
             window.updateMeters = function(inputLevel, outputLevel) {
-                var inEl = document.getElementById('meter-in');
+                var inEl  = document.getElementById('meter-in');
                 var outEl = document.getElementById('meter-out');
-                if (inEl) inEl.style.height = (inputLevel * 100) + '%';
+                if (inEl)  inEl.style.height  = (inputLevel  * 100) + '%';
                 if (outEl) outEl.style.height = (outputLevel * 100) + '%';
             };
-
             if (!juceAvailable) {
                 setInterval(function() {
-                    var inH = 20 + Math.random() * 40;
-                    var outH = 25 + Math.random() * 45;
-                    document.getElementById('meter-in').style.height = inH + '%';
-                    document.getElementById('meter-out').style.height = outH + '%';
+                    document.getElementById('meter-in').style.height  = (20 + Math.random() * 40) + '%';
+                    document.getElementById('meter-out').style.height = (25 + Math.random() * 45) + '%';
                 }, 100);
             }
-
-            console.log("  meters");
         }
 
     })();

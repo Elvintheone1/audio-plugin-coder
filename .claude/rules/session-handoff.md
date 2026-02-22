@@ -1,5 +1,5 @@
 # Session Handoff — BeadyEye
-**Last updated:** 2026-02-22 (session 5 — pluginval pass, state management)
+**Last updated:** 2026-02-22 (session 7 — UI iteration: Fauve-inspired proportions, fill-arc knobs, wine-red atten arcs)
 **Branch:** `feat/next-iteration`
 **Machine:** macOS (Apple Silicon — Ninja build, Xcode 26.2 stable)
 
@@ -16,7 +16,7 @@ Granular processor / effect. JUCE 8 WebView UI. 15 parameters.
 | MANUFACTURER_CODE | `Nfld` |
 | Company | Noizefield |
 | Formats | VST3, AU, Standalone |
-| Window size | 800×550 |
+| Window size | 1000×500 |
 
 ### Key File Paths
 - [PluginProcessor.h](../../plugins/BeadyEye/Source/PluginProcessor.h) — APF/DL reverb structs inline
@@ -145,10 +145,31 @@ ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye
   - `plugins/BeadyEye/status.json` created — current state accurately tracked
   - `scripts/state-management-mac.sh` — bash port of `state-management.ps1` (all 8 functions, python3 for JSON)
   - `pluginval-mac.sh` updated to write results back to `status.json` after each run
+- [x] **UI redesign** (session 6): full visual overhaul of `index.html`
+  - Palette: monochromatic sage-teal (`#9DBFB5` bg, three panel tints)
+  - Knobs: dark body + thick inner ring track + orbiting dot indicator; label embedded in SVG
+  - Layout: 3-panel (Left 0–190: TIME/SIZE/SHAPE vertical stack; Middle 190–490: scope canvas + PITCH/FDBK/FREEZE; Right 490–800: DENSITY hero + SYNC + VU + MIX/RVB/OUT)
+  - Grain viz: canvas oscilloscope waves replaces SVG dot ring
+  - Angled panel dividers: 1.5° skewed 2px lines
+  - All 15 JUCE parameter bindings, drag handlers, Shift+click atten mode, double-click reset preserved
+- [x] **Claude Code statusline** (session 6): `~/.claude/statusline-command.sh` + `settings.json` — shows model, tokens, ctx%, git branch+status
+- [x] **UI iteration** (session 7): Fauve-inspired redesign of `index.html` + `PluginEditor.cpp`
+  - Window: 1000×500 (was 800×550; C++ `setSize` updated)
+  - Panels: Left 0–220 / Middle 220–600 / Right 600–1000
+  - Knobs: **filling arc** (track + fill `<circle>` via `stroke-dasharray`) replaces rotating dot
+    - 72px: `r=24 sw=8 arcMax=113.1` | 90px (SIZE, PITCH): `r=32 sw=10 arcMax=150.8`
+    - 140px DENSITY hero: `r=54 sw=12 arcMax=254.5`
+    - MIX/RVB/OUT: 72px (up from 56px)
+  - **Atten arcs**: wine-red `<path>` (`#8B2A3A`), centered on value ±(atten×135°), always visible when atten > 0, brighter in edit mode; Shift+click still enters edit mode
+  - **Organic layout**: SIZE/PITCH at 90px, positions staggered (SIZE offset right, FEEDBACK higher, RVB higher, OUT lower)
+  - Grain viz: improved multi-harmonic waveform (5 harmonics, frequency driven by grain count)
+  - Stray SHAPE section label (was in middle panel) removed
+  - All 15 JUCE bindings, drag, Shift+click atten, double-click reset preserved
 
 ### Pending / Next Session
-- [ ] Reverb LP damping tuning — currently near-zero at amounts 0–0.75 (almost no HF damping). May want natural plate warmth: raise to `damp = 0.2 + amount * 0.4` range [0.2, 0.6]
-- [ ] Consider reverb LFO modulation on tank APFs (breaks up metallic fixed-resonance ringing) — was described in session 3 handoff but NOT implemented in actual code
+- [ ] Reverb LP damping tuning — currently near-zero at amounts 0–0.75. Consider `damp = 0.2 + amount * 0.4` range [0.2, 0.6] for natural plate warmth
+- [ ] Consider reverb LFO modulation on tank APFs (breaks up metallic fixed-resonance ringing)
+- [ ] More GUI iteration if needed (user reviewing session 7 result)
 - [ ] Universal binary: `ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye`
 - [ ] Commit tag / version bump for release
 
@@ -159,4 +180,5 @@ ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye
 - `density_sync` at density=0 returns `interval=999999` → silent (correct behavior)
 - AU cache must be busted after every install on macOS; build script does this automatically
 - Universal binary: use `ARCHS="arm64;x86_64" bash scripts/build-and-install-mac.sh BeadyEye`
-- The `attenArcSweep` in HTML uses 174 (corrected from 198 in old code, now matches 270° of r=37 arc more closely)
+- Atten arc radius in JS is `trackR + 5` (computed from SVG element, not hardcoded) — scales correctly for all knob sizes
+- `arcMax` for each knob size read from `knob-track` dasharray attribute — no hardcoded constants in `setupKnob`
