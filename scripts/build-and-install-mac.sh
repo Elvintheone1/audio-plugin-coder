@@ -71,16 +71,17 @@ echo -e "${CYAN}[Generator] Using: $CMAKE_GENERATOR  (arch: $ARCHS, cpus: $NCPU)
 
 # ------------------------------------------------------------------------------
 # CACHE INVALIDATION
-# If a cached build used a different generator, wipe CMakeCache + CMakeFiles
-# so CMake doesn't error on generator mismatch.
+# If a cached build used a different generator, wipe the ENTIRE build directory.
+# Only wiping the top-level CMakeCache.txt is not enough — JUCE's juceaide sub-build
+# also caches the generator in its own CMakeCache.txt deep inside the build tree.
+# A partial wipe causes juceaide to fail with a "generator mismatch" error.
 # ------------------------------------------------------------------------------
 if [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
     CACHED_GEN=$(grep -m1 "^CMAKE_GENERATOR:INTERNAL=" "$BUILD_DIR/CMakeCache.txt" 2>/dev/null \
                  | cut -d= -f2 || echo "")
     if [ -n "$CACHED_GEN" ] && [ "$CACHED_GEN" != "$CMAKE_GENERATOR" ]; then
-        echo -e "${YELLOW}  (generator changed: \"$CACHED_GEN\" → \"$CMAKE_GENERATOR\" — clearing cache)${NC}"
-        rm -f "$BUILD_DIR/CMakeCache.txt"
-        rm -rf "$BUILD_DIR/CMakeFiles"
+        echo -e "${YELLOW}  (generator changed: \"$CACHED_GEN\" → \"$CMAKE_GENERATOR\" — wiping build dir)${NC}"
+        rm -rf "$BUILD_DIR"
     fi
 fi
 

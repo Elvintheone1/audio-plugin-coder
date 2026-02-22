@@ -550,13 +550,10 @@ void BeadyEyeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         outL[i] = dryL[i] * dryGain + grainLn * wetGain;
         outR[i] = dryR[i] * dryGain + grainRn * wetGain;
 
-        // ---- Reverb ----
-        if (reverbParam > 0.001f)
-        {
-            auto [rvL, rvR] = tickReverb(outL[i], outR[i], reverbParam);
-            outL[i] = rvL;
-            outR[i] = rvR;
-        }
+        // ---- Reverb (always runs so tank state doesn't go stale while bypassed) ----
+        auto [rvL, rvR] = tickReverb(outL[i], outR[i], reverbParam);
+        outL[i] = rvL;
+        outR[i] = rvR;
 
         // ---- Output volume (smoothed) ----
         const float vol = smoothedOutputVol.getNextValue();
@@ -688,32 +685,36 @@ void BeadyEyeAudioProcessor::initReverb (double sr)
     rvTapR[7] = S(205);
 
     rvLP1 = rvLP2 = rvFdL = rvFdR = 0.0f;
-
-    // Store base delays for modulated tank APFs; reset LFO phases
-    rvBaseDelay4 = S(672);
-    rvBaseDelay6 = S(908);
-    rvLfoPhase1  = 0.0;
-    rvLfoPhase2  = 0.0;
 }
 
 std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR, float amount) noexcept
 {
-    const float decay = 0.5f + amount * 0.35f;  // max 0.85 (was 0.9) — avoids extreme tail lengths
+    const float decay = 0.5f + amount * 0.28f;  // range [0.5, 0.78]
 
-    // Plate-like damping: always present (natural plate warmth), increases with reverb amount.
-    // Range [0.15, 0.70] — at 0 the reverb is bright but not metallic; at 1 it's warm.
-    // Previous formula was near-zero at low amounts (0.023 at amount=0.75) causing HF buildup.
-    const float damp = 0.15f + amount * 0.55f;
+    // Plate damping: LP coefficient in the tank feedback path.
+    float damp;
+    if (amount <= 0.75f)
+        damp = 0.0005f + amount * 0.03f;
+    else
+        damp = 0.0005f + 0.75f * 0.03f + (amount - 0.75f) * 0.8f;
 
     static constexpr float kDiff1 = 0.70f;
     static constexpr float kDiff2 = 0.50f;
     static constexpr float kIn    = 0.75f;
     static constexpr float kIn2   = 0.625f;
 
-    // Pre-scale input by (1-decay) so the tank's steady-state signal equals the input
-    // amplitude regardless of decay. Without this, tank gain = decay/(1-decay) * input
-    // which at decay=0.9 is 9x — causing the reverb to overload even at low settings.
-    float x = (inL + inR) * 0.5f * (1.0f - decay);
+    // Guard against NaN/Inf tank state (can occur after sample-rate changes or in
+    // certain hosts). Reset all reverb state cleanly rather than propagating garbage.
+    if (!std::isfinite (rvFdL) || !std::isfinite (rvFdR) ||
+        !std::isfinite (rvLP1) || !std::isfinite (rvLP2))
+    {
+        for (auto& a : apf) std::fill (a.buf.begin(), a.buf.end(), 0.0f);
+        for (auto& d : dl)  std::fill (d.buf.begin(), d.buf.end(), 0.0f);
+        rvFdL = rvFdR = rvLP1 = rvLP2 = 0.0f;
+        return { inL, inR };
+    }
+
+    float x = (inL + inR) * 0.5f;
     x = apf[0].tick (x, kIn);
     x = apf[1].tick (x, kIn);
     x = apf[2].tick (x, kIn2);
@@ -722,17 +723,7 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
     float tL = x + rvFdR;
     float tR = x + rvFdL;
 
-    // LFO modulation on tank APFs — prevents metallic resonances from fixed-delay APFs.
-    // Two slightly detuned rates (0.5 Hz / 0.565 Hz) give natural stereo widening.
-    rvLfoPhase1 = std::fmod (rvLfoPhase1 + 0.5  / currentSampleRate, 1.0);
-    rvLfoPhase2 = std::fmod (rvLfoPhase2 + 0.565 / currentSampleRate, 1.0);
-    constexpr int kLfoDepth = 12;
-    int modDelay4 = rvBaseDelay4 + static_cast<int> (std::sin (rvLfoPhase1 * juce::MathConstants<double>::twoPi) * kLfoDepth);
-    int modDelay6 = rvBaseDelay6 + static_cast<int> (std::sin (rvLfoPhase2 * juce::MathConstants<double>::twoPi) * kLfoDepth);
-    modDelay4 = juce::jlimit (1, static_cast<int> (apf[4].buf.size()) - 1, modDelay4);
-    modDelay6 = juce::jlimit (1, static_cast<int> (apf[6].buf.size()) - 1, modDelay6);
-
-    tL = apf[4].tick (tL, kDiff1, modDelay4);
+    tL = apf[4].tick (tL, kDiff1);
     dl[0].write (tL);
     const float d0 = dl[0].at (rvFullDly[0]);
     rvLP1 = d0 + damp * (rvLP1 - d0);
@@ -741,7 +732,7 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
     dl[1].write (tL);
     rvFdL = dl[1].at (rvFullDly[1]);
 
-    tR = apf[6].tick (tR, kDiff1, modDelay6);
+    tR = apf[6].tick (tR, kDiff1);
     dl[2].write (tR);
     const float d2 = dl[2].at (rvFullDly[2]);
     rvLP2 = d2 + damp * (rvLP2 - d2);
@@ -762,11 +753,8 @@ std::pair<float, float> BeadyEyeAudioProcessor::tickReverb (float inL, float inR
                  - dl[2].at (rvTapR[6])
                  - apf[7].at (rvTapR[7]);
 
-    // tanh-limit output: prevents 8-tap sum from overloading regardless of tank state.
-    // 0.5 scale gives ~0.46x input at full wet — was 0.3 (too quiet, caused users to push
-    // reverb higher which made tails longer and sounded like feedback).
-    wetL = std::tanh(wetL * 0.5f);
-    wetR = std::tanh(wetR * 0.5f);
+    wetL = std::tanh (wetL * 0.4f);
+    wetR = std::tanh (wetR * 0.4f);
 
     return { inL + (wetL - inL) * amount,
              inR + (wetR - inR) * amount };
