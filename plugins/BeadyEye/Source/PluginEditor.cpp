@@ -53,7 +53,7 @@ BeadyEyeAudioProcessorEditor::BeadyEyeAudioProcessorEditor (BeadyEyeAudioProcess
     addAndMakeVisible(*webView);
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
 
-    setSize (1000, 500);
+    setSize (640, 350);
     startTimerHz(30);
 }
 

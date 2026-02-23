@@ -28,8 +28,8 @@
             background: var(--bg);
             color: var(--text);
             font-family: var(--font);
-            width: 1000px;
-            height: 500px;
+            width: 640px;
+            height: 350px;
             overflow: hidden;
             position: relative;
             user-select: none;
@@ -43,9 +43,9 @@
             z-index: 0;
             pointer-events: none;
         }
-        .panel-l { left: 0;     right: 780px; background: var(--panel-l); }
-        .panel-m { left: 220px; right: 400px; background: var(--panel-m); }
-        .panel-r { left: 600px; right: 0;     background: var(--panel-r); }
+        .panel-l { left: 0;     right: 455px; background: var(--panel-l); }
+        .panel-m { left: 185px; right: 272px; background: var(--panel-m); }
+        .panel-r { left: 368px; right: 0;     background: var(--panel-r); }
 
         /* ---- PANEL DIVIDERS ---- */
         .divider {
@@ -137,7 +137,7 @@
             z-index: 2;
         }
         .freeze-btn {
-            width: 38px; height: 38px;
+            width: 50px; height: 50px;
             border-radius: 50%;
             border: 2px solid var(--divider);
             background: var(--knob-body);
@@ -200,8 +200,8 @@
     <div class="panel panel-r"></div>
 
     <!-- ANGLED DIVIDERS -->
-    <div class="divider" style="left:220px; transform:rotate(1.5deg);"></div>
-    <div class="divider" style="left:600px; transform:rotate(1.5deg);"></div>
+    <div class="divider" style="left:185px; transform:rotate(1.5deg);"></div>
+    <div class="divider" style="left:368px; transform:rotate(1.5deg);"></div>
 
     <!-- HEADER -->
     <div class="header">
@@ -211,18 +211,18 @@
     </div>
 
     <!-- GRAIN SCOPE CANVAS -->
-    <canvas id="grain-scope" style="left:228px; top:52px;" width="340" height="88"></canvas>
+    <canvas id="grain-scope" style="left:193px; top:50px;" width="152" height="60"></canvas>
 
     <!-- Section labels -->
-    <span class="section-lbl" style="left:28px; top:42px;">GRAIN</span>
-    <span class="section-lbl" style="left:620px; top:42px;">ENGINE</span>
+    <span class="section-lbl" style="left:20px; top:42px;">GRAIN</span>
+    <span class="section-lbl" style="left:363px; top:42px;">ENGINE</span>
 
     <!-- ================================================================
          LEFT PANEL (0–220px): TIME / SIZE / SHAPE
          ================================================================ -->
 
     <!-- TIME (72px) -->
-    <div class="knob-wrap" style="left:88px; top:148px;" id="time-control"
+    <div class="knob-wrap" style="left:94px; top:96px;" id="time-control"
          data-param="time" data-min="0" data-max="1" data-default="0.5" data-atten="time_atten">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
@@ -240,19 +240,20 @@
         <span class="knob-value" id="time-value">50%</span>
     </div>
 
-    <!-- SIZE (90px) — slightly larger, offset right for organic feel -->
-    <div class="knob-wrap" style="left:125px; top:298px;" id="size-control"
+    <!-- SIZE -->
+    <div class="knob-wrap" style="left:127px; top:190px;" id="size-control"
          data-param="size" data-min="-1" data-max="1" data-default="0.5" data-bipolar="true" data-atten="size_atten">
-        <svg class="knob-svg" width="90" height="90" viewBox="0 0 90 90">
-            <circle cx="45" cy="45" r="43" fill="var(--knob-body)"/>
-            <circle class="knob-track" cx="45" cy="45" r="32" fill="none"
-                    stroke="var(--knob-ring)" stroke-width="10"
-                    stroke-dasharray="150.8 999" transform="rotate(135 45 45)"/>
-            <circle class="knob-fill" cx="45" cy="45" r="32" fill="none"
-                    stroke="var(--knob-fill)" stroke-width="10"
-                    stroke-dasharray="0 999" transform="rotate(135 45 45)"/>
+        <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="8"
+                    stroke-dasharray="150.8 999" transform="rotate(135 36 36)"/>
+            <path class="knob-fill" fill="none" stroke="var(--knob-fill)"
+                  stroke-width="8" d=""/>
+            <line x1="36" y1="8" x2="36" y2="22"
+                  stroke="var(--knob-fill)" stroke-width="1.5"/>
             <path class="knob-atten" d=""/>
-            <text x="45" y="50" text-anchor="middle" fill="var(--text-dim)"
+            <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
                   font-size="7" letter-spacing="1"
                   font-family="Helvetica Neue, Helvetica, Arial, sans-serif">SIZE</text>
         </svg>
@@ -260,22 +261,32 @@
     </div>
 
     <!-- SHAPE (72px) — lower left -->
-    <div class="knob-wrap" style="left:85px; top:430px;" id="shape-control"
+    <div class="knob-wrap" style="left:91px; top:276px;" id="shape-control"
          data-param="shape" data-min="0" data-max="1" data-default="0.5" data-atten="shape_atten">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
             <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
                     stroke="var(--knob-ring)" stroke-width="8"
                     stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
-            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
+            <circle class="knob-fill knob-indicator" cx="36" cy="36" r="24" fill="none"
                     stroke="var(--knob-fill)" stroke-width="8"
-                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+                    stroke-dasharray="8.38 999" transform="rotate(125 36 36)"/>
             <path class="knob-atten" d=""/>
+            <!-- 4 envelope icons clockwise from min (7-o'clock):
+                 RECT=BL  PERC=TL  HANN=TR  PAD=BR -->
+            <path d="M 6,65 L 6,59 L 14,59 L 14,65"
+                  fill="none" stroke="var(--text-dim)" stroke-width="1.1" stroke-linejoin="miter" opacity="0.5"/>
+            <path d="M 6,14 L 6,6 Q 14,6 14,14"
+                  fill="none" stroke="var(--text-dim)" stroke-width="1.1" opacity="0.5"/>
+            <path d="M 58,14 Q 62,6 66,14"
+                  fill="none" stroke="var(--text-dim)" stroke-width="1.1" opacity="0.5"/>
+            <path d="M 57,65 Q 65,65 65,59 L 65,65"
+                  fill="none" stroke="var(--text-dim)" stroke-width="1.1" opacity="0.5"/>
             <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
                   font-size="7" letter-spacing="1"
                   font-family="Helvetica Neue, Helvetica, Arial, sans-serif">SHAPE</text>
         </svg>
-        <span class="knob-value" id="shape-value">50%</span>
+        <span class="knob-value" id="shape-value" style="display:none;"></span>
     </div>
 
     <!-- ================================================================
@@ -283,16 +294,17 @@
          ================================================================ -->
 
     <!-- PITCH (90px) — slightly left of panel center -->
-    <div class="knob-wrap" style="left:310px; top:300px;" id="pitch-control"
+    <div class="knob-wrap" style="left:240px; top:120px;" id="pitch-control"
          data-param="pitch" data-min="-24" data-max="24" data-default="0" data-bipolar="true" data-unit="st" data-atten="pitch_atten">
         <svg class="knob-svg" width="90" height="90" viewBox="0 0 90 90">
             <circle cx="45" cy="45" r="43" fill="var(--knob-body)"/>
             <circle class="knob-track" cx="45" cy="45" r="32" fill="none"
                     stroke="var(--knob-ring)" stroke-width="10"
                     stroke-dasharray="150.8 999" transform="rotate(135 45 45)"/>
-            <circle class="knob-fill" cx="45" cy="45" r="32" fill="none"
-                    stroke="var(--knob-fill)" stroke-width="10"
-                    stroke-dasharray="0 999" transform="rotate(135 45 45)"/>
+            <path class="knob-fill" fill="none" stroke="var(--knob-fill)"
+                  stroke-width="10" d=""/>
+            <line x1="45" y1="9" x2="45" y2="24"
+                  stroke="var(--knob-fill)" stroke-width="1.5"/>
             <path class="knob-atten" d=""/>
             <text x="45" y="50" text-anchor="middle" fill="var(--text-dim)"
                   font-size="7" letter-spacing="1"
@@ -302,7 +314,7 @@
     </div>
 
     <!-- FEEDBACK (72px) — right of panel, higher than PITCH (asymmetric) -->
-    <div class="knob-wrap" style="left:510px; top:274px;" id="feedback-control"
+    <div class="knob-wrap" style="left:308px; top:198px;" id="feedback-control"
          data-param="feedback" data-min="0" data-max="1" data-default="0">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
@@ -320,7 +332,7 @@
     </div>
 
     <!-- FREEZE -->
-    <div class="freeze-wrap" style="left:408px; top:425px;" id="freeze-control">
+    <div class="freeze-wrap" style="left:263px; top:265px;" id="freeze-control">
         <button class="freeze-btn" id="freeze-btn">&#10052;</button>
         <span class="freeze-label">FREEZE</span>
     </div>
@@ -329,18 +341,19 @@
          RIGHT PANEL (600–1000px): DENSITY hero + SYNC + VU + output row
          ================================================================ -->
 
-    <!-- DENSITY (140px hero) — large, right of panel center -->
-    <div class="knob-wrap" style="left:800px; top:168px;" id="density-control"
+    <!-- DENSITY (120px hero) -->
+    <div class="knob-wrap" style="left:466px; top:135px;" id="density-control"
          data-param="density" data-min="-1" data-max="1" data-default="0" data-bipolar="true">
-        <svg class="knob-svg" width="140" height="140" viewBox="0 0 140 140">
-            <circle cx="70" cy="70" r="68" fill="var(--knob-body)"/>
-            <circle class="knob-track" cx="70" cy="70" r="54" fill="none"
-                    stroke="var(--knob-ring)" stroke-width="12"
-                    stroke-dasharray="254.5 999" transform="rotate(135 70 70)"/>
-            <circle class="knob-fill" cx="70" cy="70" r="54" fill="none"
-                    stroke="var(--knob-fill)" stroke-width="12"
-                    stroke-dasharray="0 999" transform="rotate(135 70 70)"/>
-            <text x="70" y="77" text-anchor="middle" fill="var(--text-dim)"
+        <svg class="knob-svg" width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="58" fill="var(--knob-body)"/>
+            <circle class="knob-track" cx="60" cy="60" r="46" fill="none"
+                    stroke="var(--knob-ring)" stroke-width="10"
+                    stroke-dasharray="216.8 999" transform="rotate(135 60 60)"/>
+            <path class="knob-fill" fill="none" stroke="var(--knob-fill)"
+                  stroke-width="10" d=""/>
+            <line x1="60" y1="9" x2="60" y2="27"
+                  stroke="var(--knob-fill)" stroke-width="2"/>
+            <text x="60" y="66" text-anchor="middle" fill="var(--text-dim)"
                   font-size="8" letter-spacing="2"
                   font-family="Helvetica Neue, Helvetica, Arial, sans-serif">DENSITY</text>
         </svg>
@@ -348,36 +361,27 @@
     </div>
 
     <!-- SYNC toggle (below DENSITY) -->
-    <div class="sync-wrap" style="left:790px; top:272px;">
+    <div class="sync-wrap" style="left:466px; top:220px;">
         <button class="sync-btn" id="density-sync-btn">FREE</button>
         <span class="sync-division" id="sync-division" style="display:none;">—</span>
     </div>
 
-    <!-- VU METERS -->
-    <div class="meters" style="left:628px; top:316px;">
-        <div class="meter-pair">
-            <div class="meter-bar"><div class="meter-fill" id="meter-in"  style="height:0%;"></div></div>
-            <div class="meter-bar"><div class="meter-fill" id="meter-out" style="height:0%;"></div></div>
-        </div>
-        <div style="display:flex; gap:3px;">
-            <span class="meter-lbl">I</span>
-            <span class="meter-lbl">O</span>
-        </div>
-    </div>
+    <!-- VU METERS: omitted -->
 
     <!-- OUTPUT ROW: MIX / REVERB / OUTPUT (72px — from 56px) -->
 
     <!-- MIX (dry_wet) — left of row, slightly lower -->
-    <div class="out-wrap" style="left:650px; top:425px;" id="dry_wet-control"
+    <div class="out-wrap" style="left:410px; top:224px;" id="dry_wet-control"
          data-param="dry_wet" data-min="0" data-max="1" data-default="0.5">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
             <circle class="knob-track" cx="36" cy="36" r="24" fill="none"
                     stroke="var(--knob-ring)" stroke-width="8"
                     stroke-dasharray="113.1 999" transform="rotate(135 36 36)"/>
-            <circle class="knob-fill" cx="36" cy="36" r="24" fill="none"
-                    stroke="var(--knob-fill)" stroke-width="8"
-                    stroke-dasharray="0 999" transform="rotate(135 36 36)"/>
+            <path class="knob-fill" fill="none" stroke="var(--knob-fill)"
+                  stroke-width="8" d=""/>
+            <line x1="36" y1="8" x2="36" y2="22"
+                  stroke="var(--knob-fill)" stroke-width="1.5"/>
             <text x="36" y="40" text-anchor="middle" fill="var(--text-dim)"
                   font-size="7" letter-spacing="1"
                   font-family="Helvetica Neue, Helvetica, Arial, sans-serif">MIX</text>
@@ -386,7 +390,7 @@
     </div>
 
     <!-- REVERB — center, slightly higher (asymmetric) -->
-    <div class="out-wrap" style="left:800px; top:410px;" id="reverb-control"
+    <div class="out-wrap" style="left:468px; top:278px;" id="reverb-control"
          data-param="reverb" data-min="0" data-max="1" data-default="0">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
@@ -404,7 +408,7 @@
     </div>
 
     <!-- OUTPUT — right edge, slightly lower (asymmetric) -->
-    <div class="out-wrap" style="left:938px; top:430px;" id="output_vol-control"
+    <div class="out-wrap" style="left:536px; top:224px;" id="output_vol-control"
          data-param="output_vol" data-min="0" data-max="1" data-default="0.75">
         <svg class="knob-svg" width="72" height="72" viewBox="0 0 72 72">
             <circle cx="36" cy="36" r="32" fill="var(--knob-body)"/>
@@ -628,9 +632,38 @@
             var trackR = trackEl ? parseFloat(trackEl.getAttribute('r')) : 24;
             // Atten arc sits just outside the fill ring, inside the body
             var attenR = trackR + 5;
+            // Any knob with a <path> fill element gets center-out bipolar arc; <circle> gets dasharray
+            var isBipolarFill = fillArc.tagName.toLowerCase() === 'path';
+            var isIndicator   = fillArc.classList.contains('knob-indicator');
 
             function updateFillArc(norm) {
-                fillArc.setAttribute('stroke-dasharray', (norm * arcMax).toFixed(2) + ' 999');
+                if (isIndicator) {
+                    // Fixed 20° arc that rotates to the value position
+                    var angle = 125 + norm * 270;
+                    fillArc.setAttribute('transform', 'rotate(' + angle + ' ' + cx + ' ' + cy + ')');
+                    return;
+                }
+                if (!isBipolarFill) {
+                    fillArc.setAttribute('stroke-dasharray', (norm * arcMax).toFixed(2) + ' 999');
+                    return;
+                }
+                // Center-out bipolar: 12 o'clock = zero, CW = positive, CCW = negative
+                var deviation = norm - 0.5;
+                var sweepDeg  = Math.abs(deviation) * 270; // max 135° each way
+                if (sweepDeg < 0.5) { fillArc.setAttribute('d', ''); return; }
+                var startRad = -Math.PI / 2; // 12 o'clock in SVG coords
+                var endRad   = deviation > 0
+                    ? startRad + sweepDeg * Math.PI / 180   // clockwise
+                    : startRad - sweepDeg * Math.PI / 180;  // counter-clockwise
+                var x1 = cx + trackR * Math.cos(startRad);
+                var y1 = cy + trackR * Math.sin(startRad);
+                var x2 = cx + trackR * Math.cos(endRad);
+                var y2 = cy + trackR * Math.sin(endRad);
+                // sweepDeg <= 135 so largeArc is always 0
+                fillArc.setAttribute('d',
+                    'M ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
+                    ' A ' + trackR + ' ' + trackR + ' 0 0 ' + (deviation > 0 ? 1 : 0) + ' ' +
+                    x2.toFixed(2) + ' ' + y2.toFixed(2));
             }
 
             function updateAttenPath() {
@@ -900,12 +933,6 @@
                 if (inEl)  inEl.style.height  = (inputLevel  * 100) + '%';
                 if (outEl) outEl.style.height = (outputLevel * 100) + '%';
             };
-            if (!juceAvailable) {
-                setInterval(function() {
-                    document.getElementById('meter-in').style.height  = (20 + Math.random() * 40) + '%';
-                    document.getElementById('meter-out').style.height = (25 + Math.random() * 45) + '%';
-                }, 100);
-            }
         }
 
     })();
