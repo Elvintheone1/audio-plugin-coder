@@ -41,7 +41,7 @@ juce_add_binary_data(BeadyEye_WebUI
 # ============================================
 juce_add_plugin(BeadyEye
     COMPANY_NAME "Noizefield"
-    PLUGIN_MANUFACTURER_CODE Nfld
+    PLUGIN_MANUFACTURER_CODE AJzz
     PLUGIN_CODE BdEy
     FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "BeadyEye"

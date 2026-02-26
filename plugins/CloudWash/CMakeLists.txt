@@ -43,7 +43,7 @@ juce_add_binary_data(CloudWash_WebUI
 # ============================================
 juce_add_plugin(CloudWash
     COMPANY_NAME "Noizefield"
-    PLUGIN_MANUFACTURER_CODE Nfld
+    PLUGIN_MANUFACTURER_CODE AJzz
     PLUGIN_CODE CldW
     FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "CloudWash"

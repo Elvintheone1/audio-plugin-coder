@@ -121,7 +121,7 @@ This kills `AudioComponentRegistrar`, removes `~/Library/Caches/AudioUnitCache`,
 ### Step 3: Validate with auval
 ```bash
 # <type> is aufx for effect, aumu for instrument, aumx for MIDI
-auval -v aufx BdEy Nfld
+auval -v aufx BdEy AJzz
 #            ^--- OSType (4-char, from CMakeLists: PLUGIN_CODE)
 #                  ^--- Manufacturer (4-char, from CMakeLists: PLUGIN_MANUFACTURER_CODE)
 ```

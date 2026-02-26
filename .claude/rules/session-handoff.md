@@ -13,7 +13,7 @@ Granular processor / effect. JUCE 8 WebView UI. 15 parameters.
 | Field | Value |
 |-------|-------|
 | PLUGIN_CODE | `BdEy` |
-| MANUFACTURER_CODE | `Nfld` |
+| MANUFACTURER_CODE | `AJzz` |
 | Company | Noizefield |
 | Formats | VST3, AU, Standalone |
 | Window size | 1000×500 |
