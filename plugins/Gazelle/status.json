@@ -50,15 +50,17 @@
     "window_size": "1000x500"
   },
   "design": {
-    "version": "v1",
+    "version": "v2",
     "files": [
       "Design/v1-ui-spec.md",
       "Design/v1-style-guide.md",
-      "Design/v1-test.html"
+      "Design/v1-test.html",
+      "Design/v2-test.html"
     ],
-    "sections": ["ENV (0-160px)", "FILTER (160-469px)", "DIST (469-668px)", "FX (668-856px)", "OUT (856-1000px)"],
+    "sections": ["FILTER (0-310px)", "DIST (310-510px)", "FX (510-820px)", "TRIGGERS (820-1000px)"],
     "controls": 18,
-    "special_controls": ["Cherry MX triggers x2", "FX type selector (3 buttons)", "Feedback path toggle"]
+    "special_controls": ["Cherry MX triggers x2 (splayed ±8°, trigger zone right)", "ARP Odyssey A+D sliders per trigger (4 sliders total)", "FX type selector (3 buttons)", "Feedback path toggle"],
+    "v2_changes": "Removed ENV section (attack/decay/env_shape knobs). Removed VU meter and OUT section. Attack+Decay become per-filter-path sliders (ARP Odyssey style) above each splayed MX trigger button. Parameters: attack1, decay1, attack2, decay2 replace shared attack/decay/env_shape."
   },
   "error_recovery": {
     "last_backup": null,
