@@ -22,13 +22,17 @@ GazelleAudioProcessor::createParameterLayout()
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
     // FILTER
+    // Cutoff stored as 0-1 internally; C++ maps norm→Hz as 40*125^norm (40–5000 Hz).
+    // JS uses the same formula — display always matches the actual filter frequency.
     params.push_back (std::make_unique<Param> ("cutoff",        "Cutoff",
-        NRange (20.0f, 20000.0f, 0.0f, 0.25f), 800.0f));
+        NRange (0.0f, 1.0f), 0.35f));   // 0.35 ≈ 217 Hz
     params.push_back (std::make_unique<Param> ("resonance",     "Resonance",
         NRange (0.0f, 1.0f), 0.6f));
     params.push_back (std::make_unique<Param> ("spread",        "Spread",
-        NRange (-1.0f, 1.0f), 0.0f));
-    params.push_back (std::make_unique<Param> ("filter_mode",   "LP→HP",
+        NRange (0.0f, 1.0f), 0.0f));
+    params.push_back (std::make_unique<Param> ("filter1_mode",  "LP→HP i",
+        NRange (0.0f, 1.0f), 0.0f));
+    params.push_back (std::make_unique<Param> ("filter2_mode",  "LP→HP ii",
         NRange (0.0f, 1.0f), 0.0f));
     params.push_back (std::make_unique<Param> ("filter1_level", "Level I",
         NRange (0.0f, 1.0f), 1.0f));
@@ -45,16 +49,27 @@ GazelleAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<Param> ("decay2",  "Decay II",
         NRange (5.0f, 8000.0f, 0.0f, 0.3f), 300.0f));
 
-    // DISTORTION
-    params.push_back (std::make_unique<Param> ("drive",         "Drive",
-        NRange (0.0f, 1.0f), 0.4f));
-    params.push_back (std::make_unique<Param> ("dist_amount",   "Dist",
-        NRange (0.0f, 1.0f), 0.3f));
-    params.push_back (std::make_unique<Param> ("dist_feedback", "Dist Feedback",
+    // PITCH SWEEP (bridged-T: how many semitones above target the filter starts on trigger)
+    params.push_back (std::make_unique<Param> ("pitch1", "Pitch Sweep I",
+        NRange (0.0f, 24.0f), 8.0f));
+    params.push_back (std::make_unique<Param> ("pitch2", "Pitch Sweep II",
+        NRange (0.0f, 24.0f), 8.0f));
+
+    // SATURATION (single hero knob)
+    params.push_back (std::make_unique<Param> ("saturation", "Saturation",
         NRange (0.0f, 1.0f), 0.0f));
-    params.push_back (std::make_unique<ParamB> ("feedback_path", "FB Path", false));
-    params.push_back (std::make_unique<Param> ("eq_tilt",       "EQ Tilt",
+
+    // 3-BAND EQ (Sunn Beta Bass style: -1→-15dB, 0→0dB, 1→+15dB)
+    params.push_back (std::make_unique<Param> ("eq_bass",   "Bass",
         NRange (-1.0f, 1.0f), 0.0f));
+    params.push_back (std::make_unique<Param> ("eq_mid",    "Mid",
+        NRange (-1.0f, 1.0f), 0.0f));
+    params.push_back (std::make_unique<Param> ("eq_treble", "Treble",
+        NRange (-1.0f, 1.0f), 0.0f));
+
+    // VCA — output level after saturation
+    params.push_back (std::make_unique<Param> ("output_level", "Output",
+        NRange (0.0f, 1.0f), 1.0f));
 
     // FX ENGINE
     params.push_back (std::make_unique<Param> ("fx_type", "FX Type",
@@ -84,11 +99,10 @@ void GazelleAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBl
     filter1.reset();
     filter2.reset();
 
-    // Reset tilt EQ state
-    tiltLowState = 0.0f;
-
-    // Reset feedback
-    feedbackSample = 0.0f;
+    // Reset 3-band EQ biquad states and compute initial coefficients
+    eqBass.reset();   eqBass.setLowShelf  (100.0f,  0.0f, sampleRate);
+    eqMid.reset();    eqMid.setPeakingEQ  (400.0f,  0.8f, 0.0f, sampleRate);
+    eqTreble.reset(); eqTreble.setHighShelf (2000.0f, 0.0f, sampleRate);
 
     // Tape delay buffers
     tapeBufL.assign (kTapeMaxSamples, 0.0f);
@@ -130,36 +144,39 @@ float GazelleAudioProcessor::nextRandom() noexcept
     prngState ^= prngState << 13;
     prngState ^= prngState >> 17;
     prngState ^= prngState << 5;
-    return static_cast<float>(prngState) * 4.656612873077393e-10f;  // /2^31
+    // Cast to int32_t BEFORE float conversion: int32 range [-2^31, +2^31-1]
+    // → output ∈ [-1, +1] (bipolar white noise, mean = 0).
+    // The old uint32 cast gave [0, 2] (unipolar) which biased the SVF integrators
+    // toward +1, triggering the IC clip guard constantly at high resonance.
+    return static_cast<float>(static_cast<int32_t>(prngState)) * 4.656612873077393e-10f;
 }
 
 //==============================================================================
-// MOSFET-inspired asymmetric saturation.
-// Positive half: soft tanh-based with 2nd harmonic from DC bias.
-// Negative half: same tanh but attenuated (harder clip character).
-float GazelleAudioProcessor::distort (float x, float driveGain, float distAmount) noexcept
+// Amp-style two-stage saturation — single control knob.
+//
+// sat 0 → clean bypass.
+// sat 0–0.5 → pre-amp warmth: gentle tanh on positive half (tube-like 2nd harmonic).
+// sat 0.5–1 → power-amp break-up: exponential drive into asymmetric clip.
+//             Positive half: tanh (soft, musical).
+//             Negative half: steeper tanh (solid-state transistor push-pull character).
+// DC bias (sat²×0.25) introduces asymmetry/even harmonics throughout.
+// VCA (output_level param) handles resulting level — no automatic gain compensation.
+float GazelleAudioProcessor::distort (float x, float sat) noexcept
 {
-    x *= driveGain;
-    const float bias = distAmount * 0.25f;           // asymmetric DC shift
-    const float sat  = 1.0f + distAmount * 3.0f;    // saturation drive
-    float out = std::tanh ((x + bias) * sat) - std::tanh (bias * sat);
-    return out * (1.0f / std::tanh (sat));           // normalize to ~[-1, 1]
-}
+    if (sat < 1e-4f) return x;
 
-//==============================================================================
-// One-pole shelving tilt EQ (pivot ~2 kHz).
-// tilt: -1 = boost low / cut high; +1 = boost high / cut low
-float GazelleAudioProcessor::applyTiltEQ (float x, float tilt) noexcept
-{
-    const float coeff = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi
-                                          * 2000.0f / static_cast<float>(currentSampleRate));
-    tiltLowState += coeff * (x - tiltLowState);
-    float high = x - tiltLowState;
+    // preGain 1× (sat=0) → 8× (sat=1) drives the signal into the clip zone.
+    // No level normalization: tanh output is naturally bounded ±1.
+    // As sat rises: signal compresses toward ±1, adding harmonics and sustain.
+    // Asymmetric clip (pos = tanh, neg = harder tanh) gives even harmonics
+    // (tube-like 2nd harmonic) without requiring a DC bias term.
+    const float preGain = std::pow (8.0f, sat);
+    const float driven  = x * preGain;
 
-    // ±12 dB at extremes
-    float lowGain  = std::pow (10.0f, std::max (0.0f, -tilt) * 12.0f / 20.0f);
-    float highGain = std::pow (10.0f, std::max (0.0f,  tilt) * 12.0f / 20.0f);
-    return tiltLowState * lowGain + high * highGain;
+    if (driven >= 0.0f)
+        return std::tanh (driven);
+    else
+        return std::tanh (driven * 1.3f) / 1.3f;   // harder negative clip
 }
 
 //==============================================================================
@@ -395,10 +412,18 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         return;
 
     //── Read parameters ──────────────────────────────────────────────────────
-    const float cutoff       = apvts.getRawParameterValue ("cutoff")       ->load();
+    // Cutoff: 0-1 norm, piecewise log.
+    // 0→0.65  = 20–400 Hz   (65% knob travel, ~4.3 oct — fine resolution for perc).
+    // 0.65→1  = 400–15000 Hz (35% knob travel, ~5.2 oct — coarser upper range).
+    // Matches JS display formula exactly.
+    const float cutoffNorm   = apvts.getRawParameterValue ("cutoff")       ->load();
+    const float cutoff       = (cutoffNorm <= 0.65f)
+        ? 20.0f  * std::pow (20.0f,  cutoffNorm / 0.65f)
+        : 400.0f * std::pow (37.5f,  (cutoffNorm - 0.65f) / 0.35f);
     const float resonance    = apvts.getRawParameterValue ("resonance")    ->load();
     const float spread       = apvts.getRawParameterValue ("spread")       ->load();
-    const float filterMode   = apvts.getRawParameterValue ("filter_mode")  ->load();
+    const float filter1Mode  = apvts.getRawParameterValue ("filter1_mode") ->load();
+    const float filter2Mode  = apvts.getRawParameterValue ("filter2_mode") ->load();
     const float level1       = apvts.getRawParameterValue ("filter1_level")->load();
     const float level2       = apvts.getRawParameterValue ("filter2_level")->load();
 
@@ -407,11 +432,20 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float attack2Ms    = apvts.getRawParameterValue ("attack2")->load();
     const float decay2Ms     = apvts.getRawParameterValue ("decay2") ->load();
 
-    const float drive        = apvts.getRawParameterValue ("drive")        ->load();
-    const float distAmt      = apvts.getRawParameterValue ("dist_amount")  ->load();
-    const float distFb       = apvts.getRawParameterValue ("dist_feedback")->load();
-    const bool  fbPath       = apvts.getRawParameterValue ("feedback_path")->load() > 0.5f;
-    const float eqTilt       = apvts.getRawParameterValue ("eq_tilt")      ->load();
+    const float sat          = apvts.getRawParameterValue ("saturation")   ->load();
+    const float eqBassParam  = apvts.getRawParameterValue ("eq_bass")      ->load();
+    const float eqMidParam   = apvts.getRawParameterValue ("eq_mid")       ->load();
+    const float eqTrebleParam= apvts.getRawParameterValue ("eq_treble")    ->load();
+    const float outputLevel  = apvts.getRawParameterValue ("output_level") ->load();
+
+    //── Update 3-band EQ coefficients (per block, cheap) ─────────────────────
+    // Bass: low shelf at 100 Hz  (covers 20–200 Hz fundamental/sub body)
+    // Mid:  peaking EQ at 400 Hz (covers 200–800 Hz bark/grind body)
+    // Treble: high shelf at 2 kHz (covers 1 kHz+ presence/harmonics)
+    constexpr float kEqMaxDb = 15.0f;
+    eqBass.setLowShelf   (100.0f,  eqBassParam   * kEqMaxDb, currentSampleRate);
+    eqMid.setPeakingEQ   (400.0f,  0.8f, eqMidParam   * kEqMaxDb, currentSampleRate);
+    eqTreble.setHighShelf (2000.0f, eqTrebleParam * kEqMaxDb, currentSampleRate);
 
     const int   fxType       = juce::roundToInt (apvts.getRawParameterValue ("fx_type")->load());
     const float fxP1         = apvts.getRawParameterValue ("fx_p1") ->load();
@@ -421,6 +455,9 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const bool  trig1        = apvts.getRawParameterValue ("trigger1")->load() > 0.5f;
     const bool  trig2        = apvts.getRawParameterValue ("trigger2")->load() > 0.5f;
 
+    const float pitchSweep1  = apvts.getRawParameterValue ("pitch1")->load();
+    const float pitchSweep2  = apvts.getRawParameterValue ("pitch2")->load();
+
     //── MIDI trigger detection ────────────────────────────────────────────────
     for (const auto& m : midiMessages)
     {
@@ -429,11 +466,23 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             // Note < 60 → trigger path 1; note >= 60 → trigger path 2
             if (msg.getNoteNumber() < 60)
+            {
                 env1.retrigger();
+                pitch1State = pitchSweep1;
+            }
             else
+            {
                 env2.retrigger();
+                pitch2State = pitchSweep2;
+            }
         }
     }
+
+    //── Block-level rising-edge detection for button triggers ────────────────
+    if (trig1 && !lastTrig1) pitch1State = pitchSweep1;
+    if (trig2 && !lastTrig2) pitch2State = pitchSweep2;
+    lastTrig1 = trig1;
+    lastTrig2 = trig2;
 
     //── Pre-compute envelope coefficients (per block) ────────────────────────
     const float sr = static_cast<float>(currentSampleRate);
@@ -451,16 +500,24 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float ac2 = makeAttackCoeff (attack2Ms);
     const float dc2 = makeDecayCoeff  (decay2Ms);
 
-    //── Pre-compute filter coefficients ──────────────────────────────────────
-    // Spread: filter1 shifted up, filter2 shifted down by exp(spread * 0.5)
-    float spreadFactor = std::exp (spread * 0.5f);   // 0.61–1.0–1.65 for spread -1→+1
-    float cutoff1 = juce::jlimit (20.0f, 20000.0f, cutoff * spreadFactor);
-    float cutoff2 = juce::jlimit (20.0f, 20000.0f, cutoff / spreadFactor);
-    filter1.updateCoeffs (cutoff1, resonance, currentSampleRate);
-    filter2.updateCoeffs (cutoff2, resonance, currentSampleRate);
+    //── Pre-compute spread cutoffs ────────────────────────────────────────────
+    // Spread: semitone-based, unipolar [0,1].
+    // 0 → unison (both filters at cutoff), 1 → ±12 semitones (one octave apart).
+    // Filter i always lower, filter ii always higher.
+    const float spreadSemitones = spread * 12.0f;
+    const float spreadFactor    = std::pow (2.0f, spreadSemitones / 12.0f);
+    const float cutoff1Base = juce::jlimit (20.0f, 15000.0f, cutoff / spreadFactor);  // i  — lower
+    const float cutoff2Base = juce::jlimit (20.0f, 15000.0f, cutoff * spreadFactor);  // ii — higher
 
-    //── Distortion drive gain: 1x to 20x ────────────────────────────────────
-    const float driveGain = 1.0f + drive * 19.0f;
+    //── Pitch sweep decay coefficients (bridged-T behaviour) ─────────────────
+    // Pitch settles to the target cutoff ~10× faster than the amplitude decay.
+    // Minimum 3 ms to prevent aliasing on very short decays.
+    const float pitchDecay1Ms = std::min (80.0f, std::max (3.0f, decay1Ms * 0.05f));
+    const float pitchDecay2Ms = std::min (80.0f, std::max (3.0f, decay2Ms * 0.05f));
+    const float pitchDc1 = std::exp (-1000.0f / (pitchDecay1Ms * sr));
+    const float pitchDc2 = std::exp (-1000.0f / (pitchDecay2Ms * sr));
+
+    // Filter coefficients are updated per-sample (pitch-swept).
 
     //── Output pointers ──────────────────────────────────────────────────────
     const int numOut = buffer.getNumChannels();
@@ -480,39 +537,58 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float noise1 = nextRandom() * env1Level * level1;
         const float noise2 = nextRandom() * env2Level * level2;
 
+        // ── Resonance smoothing (one-pole, ~11ms τ at 44.1kHz) ───────────
+        // Smooths coefficient changes per-sample so abrupt knob turns don't
+        // cause discontinuities in the filter's integrator states → no crackle.
+        smoothedResonance += 0.002f * (resonance - smoothedResonance);
+
+        // ── Bridged-T pitch sweep: decay semitone offset toward 0 ────────
+        // On trigger, pitch1State = pitchSweep1 semitones above target.
+        // Decays ~10× faster than amplitude → filter sweeps down to target.
+        // This is the elastic "boing" character of Bridged-T percussion.
+        pitch1State *= pitchDc1;
+        pitch2State *= pitchDc2;
+
+        // ── Envelope → cutoff modulation ─────────────────────────────────
+        // The same AD envelope that gates the noise burst also pushes the cutoff
+        // up by up to 1 octave on trigger, then decays with it.  This sweeps the
+        // resonant peak through a wider range on each hit — more organic "ping".
+        const float envCutoffMod1 = 1.0f + env1Level;   // 1× (idle) → 2× (peak) = +1 oct
+        const float envCutoffMod2 = 1.0f + env2Level;
+        const float instCutoff1 = cutoff1Base * std::pow (2.0f, pitch1State / 12.0f) * envCutoffMod1;
+        const float instCutoff2 = cutoff2Base * std::pow (2.0f, pitch2State / 12.0f) * envCutoffMod2;
+        filter1.updateCoeffs (instCutoff1, smoothedResonance, currentSampleRate);
+        filter2.updateCoeffs (instCutoff2, smoothedResonance, currentSampleRate);
+
         // ── Dual SVF filters ──────────────────────────────────────────────
-        const float filt1 = filter1.tick (noise1, filterMode);
-        const float filt2 = filter2.tick (noise2, filterMode);
+        // No input scaling: noise is now bipolar [-1,+1] (DC = 0), so integrator
+        // ICs oscillate around 0.  The hard-clip guard in tick() bounds them to
+        // ±1 only when the ring amplitude genuinely overloads — not constantly.
+        // High resonance → large ring amplitude → healthy output level. ✓
+        const float filt1 = filter1.tick (noise1, filter1Mode);
+        const float filt2 = filter2.tick (noise2, filter2Mode);
 
-        // ── Sum filter paths (mono before distortion) ─────────────────────
-        const float summed = (filt1 + filt2) * 0.5f;
+        // ── Sum filter paths ──────────────────────────────────────────────
+        float sig = (filt1 + filt2) * 0.5f;
 
-        // ── Add feedback (1-sample delay, causal) ─────────────────────────
-        float distIn = summed + feedbackSample * distFb;
+        // ── 3-band EQ (Bass shelf → Mid peak → Treble shelf) ─────────────
+        sig = eqBass.tick (sig);
+        sig = eqMid.tick  (sig);
+        sig = eqTreble.tick (sig);
 
-        // ── Tilt EQ ───────────────────────────────────────────────────────
-        distIn = applyTiltEQ (distIn, eqTilt);
+        // ── Amp saturation ────────────────────────────────────────────────
+        const float distOut = distort (sig, sat);
 
-        // ── MOSFET distortion ─────────────────────────────────────────────
-        float distOut = distort (distIn, driveGain, distAmt);
+        // ── VCA — output level after saturation ───────────────────────────
+        const float vcaSig = distOut * outputLevel;
 
         // ── FX engine ─────────────────────────────────────────────────────
-        auto [fxL, fxR] = processFX (distOut, distOut, fxType, fxP1, fxP2);
-
-        // ── Update feedback for next sample ───────────────────────────────
-        if (fbPath)
-            feedbackSample = std::tanh ((fxL + fxR) * 0.5f);   // through FX
-        else
-            feedbackSample = std::tanh (distOut);               // direct
-
-        // Clamp to prevent blow-up
-        feedbackSample = juce::jlimit (-1.0f, 1.0f, feedbackSample);
+        auto [fxL, fxR] = processFX (vcaSig, vcaSig, fxType, fxP1, fxP2);
 
         // ── FX wet/dry mix ────────────────────────────────────────────────
-        const float mixL = distOut + (fxL - distOut) * fxWet;
-        const float mixR = distOut + (fxR - distOut) * fxWet;
+        const float mixL = vcaSig + (fxL - vcaSig) * fxWet;
+        const float mixR = vcaSig + (fxR - vcaSig) * fxWet;
 
-        // ── Write to output ───────────────────────────────────────────────
         if (outL) outL[i] = juce::jlimit (-1.0f, 1.0f, mixL);
         if (outR) outR[i] = juce::jlimit (-1.0f, 1.0f, mixR);
     }

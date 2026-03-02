@@ -38,14 +38,6 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
 .fx-btn:hover{border-color:#1848A077;color:#4070C0}
 .fx-btn.active{background:#103060;border-color:#1848A0;color:#C4C4FF;box-shadow:0 0 8px rgba(24,72,160,0.5),inset 0 0 4px rgba(24,72,160,0.3)}
 
-/* ── FB PATH TOGGLE ── */
-#fb-wrap{position:absolute;display:flex;flex-direction:column;align-items:center}
-.toggle{width:44px;height:22px;background:#1A0808;border:1px solid #C4960A44;border-radius:11px;cursor:pointer;position:relative;transition:background 200ms,border-color 200ms}
-.toggle.on{background:#0A0C18;border-color:#C4960A88}
-.thumb{position:absolute;width:16px;height:16px;border-radius:50%;top:2px;left:3px;transition:left 200ms,background 200ms,box-shadow 200ms;background:#B81212;box-shadow:0 0 4px rgba(184,18,18,0.5)}
-.toggle.on .thumb{left:23px;background:#1848A0;box-shadow:0 0 4px rgba(24,72,160,0.5)}
-.toggle-lbl{margin-top:4px;font-size:7px;letter-spacing:2px;color:#C4960A;text-align:center}
-.toggle-sub{font-size:6px;color:#C4960A66;letter-spacing:1px;margin-top:1px}
 
 /* ── TRIGGER CLUSTER ── */
 .trigger-cluster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:12px;width:64px}
@@ -138,32 +130,31 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
 <!-- ════════════════════════════════════════ -->
 <div id="title">✦ GAZELLE</div>
 <span class="sec-label" style="left:130px;top:10px">Filter</span>
-<span class="sec-label" style="left:385px;top:10px">Dist</span>
+<span class="sec-label" style="left:370px;top:10px">Amp</span>
 <span class="sec-label" style="left:565px;top:10px">FX</span>
 
 <!-- ════════════════════════════════════════ -->
 <!-- FILTER  0 – 310 px                      -->
 <!-- ════════════════════════════════════════ -->
-<div class="ctrl" data-p="cutoff"        data-min="20"  data-max="20000" data-def="800" data-v="800" data-col="#B81212" data-sz="80"  style="left:88px;top:48px"><svg width="80" height="80"></svg><div class="lbl">Cutoff</div><div class="val">800Hz</div></div>
+<div class="ctrl" data-p="cutoff"        data-min="0"   data-max="1"     data-def="0.5"  data-v="0.5"  data-col="#B81212" data-sz="80"  style="left:88px;top:48px"><svg width="80" height="80"></svg><div class="lbl">Cutoff</div><div class="val">200Hz</div></div>
 <div class="ctrl" data-p="resonance"     data-min="0"   data-max="1"     data-def="0.6" data-v="0.6" data-col="#B81212" data-sz="62"  style="left:116px;top:192px"><svg width="62" height="62"></svg><div class="lbl">Res</div><div class="val">0.60</div></div>
-<div class="ctrl" data-p="spread"        data-min="-1"  data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="52"  style="left:20px;top:160px"><svg width="52" height="52"></svg><div class="lbl">Spread</div><div class="val">0.00</div></div>
-<div class="ctrl" data-p="filter_mode"   data-min="0"   data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="40"  style="left:240px;top:128px"><svg width="40" height="40"></svg><div class="lbl">LP→HP</div><div class="val">LP</div></div>
+<div class="ctrl" data-p="spread"        data-min="0"   data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="52"  style="left:20px;top:160px"><svg width="52" height="52"></svg><div class="lbl">Spread</div><div class="val">0.00</div></div>
+<div class="ctrl" data-p="filter1_mode"  data-min="0"   data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="40"  style="left:20px;top:258px"><svg width="40" height="40"></svg><div class="lbl">Morph i</div><div class="val">LP</div></div>
+<div class="ctrl" data-p="filter2_mode"  data-min="0"   data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="40"  style="left:240px;top:128px"><svg width="40" height="40"></svg><div class="lbl">Morph ii</div><div class="val">LP</div></div>
 <div class="ctrl" data-p="filter1_level" data-min="0"   data-max="1"     data-def="1"   data-v="1"   data-col="#B81212" data-sz="40"  style="left:28px;top:330px"><svg width="40" height="40"></svg><div class="lbl">Lvl i</div><div class="val">1.00</div></div>
 <div class="ctrl" data-p="filter2_level" data-min="0"   data-max="1"     data-def="0.8" data-v="0.8" data-col="#B81212" data-sz="40"  style="left:220px;top:308px"><svg width="40" height="40"></svg><div class="lbl">Lvl ii</div><div class="val">0.80</div></div>
 
 <!-- ════════════════════════════════════════ -->
-<!-- DIST  310 – 510 px                      -->
+<!-- SAT + EQ  310 – 510 px                  -->
 <!-- ════════════════════════════════════════ -->
-<div class="ctrl" data-p="drive"         data-min="0"  data-max="1" data-def="0.4" data-v="0.4" data-col="#1C1C1C" data-sz="72"  style="left:346px;top:48px"><svg width="72" height="72"></svg><div class="lbl">Drive</div><div class="val">0.40</div></div>
-<div class="ctrl" data-p="dist_amount"   data-min="0"  data-max="1" data-def="0.3" data-v="0.3" data-col="#1C1C1C" data-sz="52"  style="left:358px;top:188px"><svg width="52" height="52"></svg><div class="lbl">Dist</div><div class="val">0.30</div></div>
-<div class="ctrl" data-p="dist_feedback" data-min="0"  data-max="1" data-def="0"   data-v="0"   data-col="#1C1C1C" data-sz="40"  style="left:313px;top:152px"><svg width="40" height="40"></svg><div class="lbl">Feedbk</div><div class="val">0.00</div></div>
-<div class="ctrl" data-p="eq_tilt"       data-min="-1" data-max="1" data-def="0"   data-v="0"   data-col="#1C1C1C" data-sz="52"  style="left:444px;top:132px"><svg width="52" height="52"></svg><div class="lbl">Tilt EQ</div><div class="val">0.00</div></div>
-
-<div id="fb-wrap" style="left:388px;top:352px">
-  <div class="toggle" id="fb-toggle"><div class="thumb"></div></div>
-  <div class="toggle-lbl">FB PATH</div>
-  <div class="toggle-sub" id="fb-sub">DIRECT</div>
-</div>
+<!-- Saturation hero knob -->
+<div class="ctrl" data-p="saturation" data-min="0" data-max="1" data-def="0" data-v="0" data-col="#8B3000" data-sz="80" style="left:348px;top:38px"><svg width="80" height="80"></svg><div class="lbl">Sat</div><div class="val">0.00</div></div>
+<!-- 3-band EQ knobs (Sunn Beta Bass: bass 100Hz / mid 400Hz / treble 2kHz) -->
+<div class="ctrl" data-p="eq_bass"   data-min="-1" data-max="1" data-def="0" data-v="0" data-col="#1C3010" data-sz="52" style="left:316px;top:188px"><svg width="52" height="52"></svg><div class="lbl">Bass</div><div class="val">0dB</div></div>
+<div class="ctrl" data-p="eq_mid"    data-min="-1" data-max="1" data-def="0" data-v="0" data-col="#1C3010" data-sz="52" style="left:380px;top:202px"><svg width="52" height="52"></svg><div class="lbl">Mid</div><div class="val">0dB</div></div>
+<div class="ctrl" data-p="eq_treble" data-min="-1" data-max="1" data-def="0" data-v="0" data-col="#1C3010" data-sz="52" style="left:444px;top:178px"><svg width="52" height="52"></svg><div class="lbl">Treble</div><div class="val">0dB</div></div>
+<!-- VCA — output level after saturation -->
+<div class="ctrl" data-p="output_level" data-min="0" data-max="1" data-def="1" data-v="1" data-col="#6A4800" data-sz="52" style="left:370px;top:345px"><svg width="52" height="52"></svg><div class="lbl">Out</div><div class="val">1.00</div></div>
 
 <!-- ════════════════════════════════════════ -->
 <!-- FX  510 – 665 px                        -->
@@ -200,6 +191,7 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
     <div class="mx-lbl">i</div>
   </div>
 </div>
+<div class="ctrl" data-p="pitch1" data-min="0" data-max="24" data-def="8" data-v="8" data-col="#B81212" data-sz="40" style="left:701px;top:312px"><svg width="40" height="40"></svg><div class="lbl">Sweep i</div><div class="val">8st</div></div>
 
 <!-- Cluster ii — trails (20 px lower) -->
 <div class="trigger-cluster" id="cluster-ii"
@@ -219,6 +211,7 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
     <div class="mx-lbl">ii</div>
   </div>
 </div>
+<div class="ctrl" data-p="pitch2" data-min="0" data-max="24" data-def="8" data-v="8" data-col="#1848A0" data-sz="40" style="left:859px;top:328px"><svg width="40" height="40"></svg><div class="lbl">Sweep ii</div><div class="val">8st</div></div>
 
 <!-- Voronoi -->
 <svg id="vor" style="left:670px;top:355px" width="324" height="140" viewBox="0 0 144 122">
@@ -250,7 +243,7 @@ var juceAvailable = typeof window.__JUCE__ !== 'undefined';
 
 function SliderState(name) {
     this.name = name;
-    this.identifier = '__juce__slider_' + name;
+    this.identifier = '__juce__slider' + name;
     this.scaledValue = 0;
     this.properties = { start: 0, end: 1, skew: 1, name: '', label: '', numSteps: 100, interval: 0, parameterIndex: -1 };
     this.valueChangedListeners = [];
@@ -294,7 +287,9 @@ SliderState.prototype.handleEvent = function(event) {
         this.scaledValue = event.value;
         this.valueChangedListeners.forEach(function(fn) { try { fn(); } catch(e) {} });
     } else if (event.eventType === 'propertiesChanged') {
-        this.properties = event.properties;
+        var props = {};
+        for (var k in event) { if (k !== 'eventType') props[k] = event[k]; }
+        this.properties = props;
     }
 };
 SliderState.prototype.getNormalisedValue = function() {
@@ -304,7 +299,7 @@ SliderState.prototype.addValueChangedListener = function(fn) { this.valueChanged
 
 function ToggleState(name) {
     this.name = name;
-    this.identifier = '__juce__toggle_' + name;
+    this.identifier = '__juce__toggle' + name;
     this.value = false;
     this.valueChangedListeners = [];
     var self = this;
@@ -387,11 +382,15 @@ function getNorm(el) {
 }
 
 function fmtVal(p, v) {
-    if (p === 'cutoff')                       return v >= 1000 ? (v/1000).toFixed(1)+'kHz' : Math.round(v)+'Hz';
+    if (p === 'cutoff')                       { var hz = v <= 0.65 ? 20 * Math.pow(20, v / 0.65) : 400 * Math.pow(37.5, (v - 0.65) / 0.35); return hz >= 1000 ? (hz/1000).toFixed(2)+'kHz' : Math.round(hz)+'Hz'; }
     if (p === 'attack1' || p === 'attack2')   return v < 10 ? v.toFixed(1)+'ms' : Math.round(v)+'ms';
     if (p === 'decay1'  || p === 'decay2')    return v >= 1000 ? (v/1000).toFixed(1)+'s' : Math.round(v)+'ms';
-    if (p === 'filter_mode')                  return v < 0.25 ? 'LP' : v > 0.75 ? 'HP' : 'BP';
-    if (p === 'eq_tilt')                      return v > 0 ? '+' + v.toFixed(2) : v.toFixed(2);
+    if (p === 'filter1_mode' || p === 'filter2_mode') return v < 0.25 ? 'LP' : v > 0.75 ? 'HP' : 'BP';
+    if (p === 'spread')                       return (v * 12).toFixed(1) + 'st';
+    if (p === 'pitch1' || p === 'pitch2')     return v.toFixed(1) + 'st';
+    if (p === 'eq_bass' || p === 'eq_mid' || p === 'eq_treble') {
+        var db = v * 15; return (db >= 0 ? '+' : '') + db.toFixed(1) + 'dB';
+    }
     return v.toFixed(2);
 }
 
@@ -565,28 +564,6 @@ fxTypeState.addValueChangedListener(function() {
     document.getElementById('p2-lbl').textContent = fxLabels[t][1];
 });
 
-// ════════════════════════════════════════════════════════
-// FEEDBACK PATH TOGGLE
-// ════════════════════════════════════════════════════════
-
-var fbToggle  = document.getElementById('fb-toggle');
-var fbSub     = document.getElementById('fb-sub');
-var fbOn      = false;
-var fbState   = window.Juce.getToggleState('feedback_path');
-
-fbToggle.addEventListener('click', function() {
-    fbOn = !fbOn;
-    fbToggle.classList.toggle('on', fbOn);
-    fbSub.textContent = fbOn ? 'THRU FX' : 'DIRECT';
-    try { fbState.setValue(fbOn); } catch(e) {}
-});
-
-// Sync from host recall
-fbState.addValueChangedListener(function() {
-    fbOn = fbState.getValue();
-    fbToggle.classList.toggle('on', fbOn);
-    fbSub.textContent = fbOn ? 'THRU FX' : 'DIRECT';
-});
 </script>
 </body>
 </html>

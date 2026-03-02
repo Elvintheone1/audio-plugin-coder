@@ -15,8 +15,10 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
         (*audioProcessor.apvts.getParameter ("resonance"),     resonanceRelay);
     spreadAttachment        = std::make_unique<juce::WebSliderParameterAttachment>
         (*audioProcessor.apvts.getParameter ("spread"),        spreadRelay);
-    filterModeAttachment    = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("filter_mode"),   filterModeRelay);
+    filter1ModeAttachment   = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("filter1_mode"),  filter1ModeRelay);
+    filter2ModeAttachment   = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("filter2_mode"),  filter2ModeRelay);
     filter1LevelAttachment  = std::make_unique<juce::WebSliderParameterAttachment>
         (*audioProcessor.apvts.getParameter ("filter1_level"), filter1LevelRelay);
     filter2LevelAttachment  = std::make_unique<juce::WebSliderParameterAttachment>
@@ -32,17 +34,23 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
     decay2Attachment        = std::make_unique<juce::WebSliderParameterAttachment>
         (*audioProcessor.apvts.getParameter ("decay2"),  decay2Relay);
 
-    // Distortion
-    driveAttachment         = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("drive"),         driveRelay);
-    distAmountAttachment    = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("dist_amount"),   distAmountRelay);
-    distFeedbackAttachment  = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("dist_feedback"), distFeedbackRelay);
-    feedbackPathAttachment  = std::make_unique<juce::WebToggleButtonParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("feedback_path"), feedbackPathRelay);
-    eqTiltAttachment        = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("eq_tilt"),       eqTiltRelay);
+    // Pitch sweep
+    pitch1Attachment        = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("pitch1"), pitch1Relay);
+    pitch2Attachment        = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("pitch2"), pitch2Relay);
+
+    // Saturation + EQ + VCA
+    saturationAttachment    = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("saturation"),    saturationRelay);
+    eqBassAttachment        = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("eq_bass"),       eqBassRelay);
+    eqMidAttachment         = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("eq_mid"),        eqMidRelay);
+    eqTrebleAttachment      = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("eq_treble"),     eqTrebleRelay);
+    outputLevelAttachment   = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("output_level"),  outputLevelRelay);
 
     // FX
     fxTypeAttachment        = std::make_unique<juce::WebSliderParameterAttachment>
@@ -75,7 +83,8 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
             .withOptionsFrom (cutoffRelay)
             .withOptionsFrom (resonanceRelay)
             .withOptionsFrom (spreadRelay)
-            .withOptionsFrom (filterModeRelay)
+            .withOptionsFrom (filter1ModeRelay)
+            .withOptionsFrom (filter2ModeRelay)
             .withOptionsFrom (filter1LevelRelay)
             .withOptionsFrom (filter2LevelRelay)
             // Envelope relays
@@ -83,12 +92,15 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
             .withOptionsFrom (decay1Relay)
             .withOptionsFrom (attack2Relay)
             .withOptionsFrom (decay2Relay)
-            // Distortion relays
-            .withOptionsFrom (driveRelay)
-            .withOptionsFrom (distAmountRelay)
-            .withOptionsFrom (distFeedbackRelay)
-            .withOptionsFrom (feedbackPathRelay)
-            .withOptionsFrom (eqTiltRelay)
+            // Pitch sweep relays
+            .withOptionsFrom (pitch1Relay)
+            .withOptionsFrom (pitch2Relay)
+            // Saturation + EQ + VCA relays
+            .withOptionsFrom (saturationRelay)
+            .withOptionsFrom (eqBassRelay)
+            .withOptionsFrom (eqMidRelay)
+            .withOptionsFrom (eqTrebleRelay)
+            .withOptionsFrom (outputLevelRelay)
             // FX relays
             .withOptionsFrom (fxTypeRelay)
             .withOptionsFrom (fxP1Relay)

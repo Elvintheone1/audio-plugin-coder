@@ -59,7 +59,9 @@ struct TptSvf
     {
         float fc = juce::jlimit (20.0f, static_cast<float>(sampleRate * 0.49), cutoffHz);
         float g  = std::tan (juce::MathConstants<float>::pi * fc / static_cast<float>(sampleRate));
-        k  = 2.0f - resonance * 1.95f;  // k: 2 → 0.05 as resonance 0 → 1
+        // Exponential k curve: Q goes from ~0.5 (woody) to ~67 (long ring)
+        // k = 2·exp(-5·resonance): at res=0 → k≈2 (Q≈0.5), at res=1 → k≈0.013 (Q≈77)
+        k  = std::max (0.015f, 2.0f * std::exp (-5.0f * resonance));
         a1 = 1.0f / (1.0f + g * (g + k));
         a2 = g * a1;
         a3 = g * a2;
@@ -68,11 +70,16 @@ struct TptSvf
     // filterMode: 0 = LP, 1 = HP, 0.5 = BP (crossfade LP→HP)
     float tick (float in, float filterMode) noexcept
     {
-        // Self-oscillation guard: soft-clip integrator states at high resonance
+        // Self-oscillation guard: hard-clip IC states only when they exceed ±1.
+        // Replacing tanh (which ran EVERY sample and added ~14% damping/sample,
+        // killing any ring in <2ms) with a threshold clip that fires only when
+        // the integrators are genuinely overloading. Ring is preserved completely.
         if (k < 0.10f)
         {
-            ic1eq = std::tanh (ic1eq * 0.95f);
-            ic2eq = std::tanh (ic2eq * 0.95f);
+            if (ic1eq >  1.0f) ic1eq =  1.0f;
+            else if (ic1eq < -1.0f) ic1eq = -1.0f;
+            if (ic2eq >  1.0f) ic2eq =  1.0f;
+            else if (ic2eq < -1.0f) ic2eq = -1.0f;
         }
 
         float v3 = in - ic2eq;
@@ -87,6 +94,84 @@ struct TptSvf
     }
 
     void reset() noexcept { ic1eq = ic2eq = 0.0f; }
+};
+
+//==============================================================================
+// Second-order biquad filter — Transposed Direct Form II.
+// Supports low shelf, peaking EQ, and high shelf (Audio EQ Cookbook, RBJ).
+struct Biquad
+{
+    float s1 = 0.0f, s2 = 0.0f;
+    float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+    float a1 = 0.0f, a2 = 0.0f;
+
+    float tick (float x) noexcept
+    {
+        float y = b0 * x + s1;
+        s1 = b1 * x - a1 * y + s2;
+        s2 = b2 * x - a2 * y;
+        return y;
+    }
+
+    void reset() noexcept { s1 = s2 = 0.0f; }
+
+    // Low shelving, slope S = 1.  gainDb ∈ [-15, +15]
+    void setLowShelf (float fc, float gainDb, double sr) noexcept
+    {
+        float A   = std::pow (10.0f, gainDb / 40.0f);
+        float w0  = juce::MathConstants<float>::twoPi * fc / static_cast<float>(sr);
+        float cw  = std::cos (w0);
+        float alp = std::sin (w0) / std::sqrt (2.0f);  // S = 1
+        float sqA = std::sqrt (A);
+        float b0n = A * ((A+1) - (A-1)*cw + 2*sqA*alp);
+        float b1n = 2*A * ((A-1) - (A+1)*cw);
+        float b2n = A * ((A+1) - (A-1)*cw - 2*sqA*alp);
+        float a0  = (A+1) + (A-1)*cw + 2*sqA*alp;
+        float a1n = -2 * ((A-1) + (A+1)*cw);
+        float a2n = (A+1) + (A-1)*cw - 2*sqA*alp;
+        applyCoeffs (b0n, b1n, b2n, a0, a1n, a2n);
+    }
+
+    // Peaking EQ.  gainDb ∈ [-15, +15]
+    void setPeakingEQ (float fc, float Q, float gainDb, double sr) noexcept
+    {
+        float A   = std::pow (10.0f, gainDb / 40.0f);
+        float w0  = juce::MathConstants<float>::twoPi * fc / static_cast<float>(sr);
+        float alp = std::sin (w0) / (2.0f * Q);
+        float cw  = std::cos (w0);
+        float b0n = 1 + alp * A;
+        float b1n = -2 * cw;
+        float b2n = 1 - alp * A;
+        float a0  = 1 + alp / A;
+        float a1n = -2 * cw;
+        float a2n = 1 - alp / A;
+        applyCoeffs (b0n, b1n, b2n, a0, a1n, a2n);
+    }
+
+    // High shelving, slope S = 1.  gainDb ∈ [-15, +15]
+    void setHighShelf (float fc, float gainDb, double sr) noexcept
+    {
+        float A   = std::pow (10.0f, gainDb / 40.0f);
+        float w0  = juce::MathConstants<float>::twoPi * fc / static_cast<float>(sr);
+        float cw  = std::cos (w0);
+        float alp = std::sin (w0) / std::sqrt (2.0f);  // S = 1
+        float sqA = std::sqrt (A);
+        float b0n = A * ((A+1) + (A-1)*cw + 2*sqA*alp);
+        float b1n = -2*A * ((A-1) + (A+1)*cw);
+        float b2n = A * ((A+1) + (A-1)*cw - 2*sqA*alp);
+        float a0  = (A+1) - (A-1)*cw + 2*sqA*alp;
+        float a1n = 2 * ((A-1) - (A+1)*cw);
+        float a2n = (A+1) - (A-1)*cw - 2*sqA*alp;
+        applyCoeffs (b0n, b1n, b2n, a0, a1n, a2n);
+    }
+
+private:
+    void applyCoeffs (float b0n, float b1n, float b2n,
+                      float a0,  float a1n, float a2n) noexcept
+    {
+        b0 = b0n / a0;  b1 = b1n / a0;  b2 = b2n / a0;
+        a1 = a1n / a0;  a2 = a2n / a0;
+    }
 };
 
 //==============================================================================
@@ -210,16 +295,20 @@ private:
     AdEnvelope env1, env2;
 
     //==============================================================================
+    // PITCH SWEEP (bridged-T style — frequency sweeps down from trigger to target)
+    float pitch1State = 0.0f;  // semitones above target, decays to 0 after trigger
+    float pitch2State = 0.0f;
+    bool  lastTrig1   = false; // for rising-edge detection per block
+    bool  lastTrig2   = false;
+
+    //==============================================================================
     // DUAL TPT SVF FILTERS
     TptSvf filter1, filter2;
+    float smoothedResonance = 0.6f;  // one-pole smoothed resonance (prevents crackle on knob turns)
 
     //==============================================================================
-    // TILT EQ (one-pole shelving at ~2 kHz)
-    float tiltLowState = 0.0f;
-
-    //==============================================================================
-    // FEEDBACK (1-sample delay)
-    float feedbackSample = 0.0f;
+    // 3-BAND ACTIVE EQ (Sunn Beta Bass style — bass shelf, mid peak, treble shelf)
+    Biquad eqBass, eqMid, eqTreble;
 
     //==============================================================================
     // TAPE DELAY
@@ -256,8 +345,7 @@ private:
 
     //==============================================================================
     // DSP HELPERS
-    float distort     (float x, float driveGain, float distAmount) noexcept;
-    float applyTiltEQ (float x, float tilt) noexcept;
+    float distort (float x, float sat) noexcept;
 
     std::pair<float, float> processFX (float inL, float inR, int fxType,
                                        float p1, float p2) noexcept;

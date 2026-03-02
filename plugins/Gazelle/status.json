@@ -5,12 +5,12 @@
   "ui_framework": "webview",
   "complexity_score": 4,
   "created_at": "2026-02-23T00:00:00Z",
-  "last_modified": "2026-02-28T00:00:00Z",
+  "last_modified": "2026-02-28T09:15:45Z",
   "phase_history": [
     {
       "phase": "ideation",
       "completed_at": "2026-02-23T00:00:00Z",
-      "notes": "Dual-path resonant percussion engine. Signal chain: trigger → noise burst → dual SVF filter → distortion → FX (tape delay / ring mod / vintage plate) → switchable feedback loop. 18 parameters. Antilope-inspired aesthetic: black, gold, Neve-style buttons, Dune vibe."
+      "notes": "Dual-path resonant percussion engine. Signal chain: trigger \u2192 noise burst \u2192 dual SVF filter \u2192 distortion \u2192 FX (tape delay / ring mod / vintage plate) \u2192 switchable feedback loop. 18 parameters. Antilope-inspired aesthetic: black, gold, Neve-style buttons, Dune vibe."
     },
     {
       "phase": "plan_complete",
@@ -21,7 +21,7 @@
     {
       "phase": "design_complete",
       "completed_at": "2026-02-23T00:00:00Z",
-      "notes": "v1 design complete. 1000×500 WebView UI. Gold SVG manuscript artwork background. All 18 parameters as draggable Neve puck controls (red/black/blue/grey). Cherry MX trigger buttons i/ii with LED flash. FX type selector (TAPE/RING/PLATE). Feedback path pill toggle. Canvas VU meter 24-segment (red/gold/blue zones, peak hold). Voronoi SVG decoration. Full JUCE bridge stubs."
+      "notes": "v1 design complete. 1000\u00d7500 WebView UI. Gold SVG manuscript artwork background. All 18 parameters as draggable Neve puck controls (red/black/blue/grey). Cherry MX trigger buttons i/ii with LED flash. FX type selector (TAPE/RING/PLATE). Feedback path pill toggle. Canvas VU meter 24-segment (red/gold/blue zones, peak hold). Voronoi SVG decoration. Full JUCE bridge stubs."
     }
   ],
   "validation": {
@@ -31,8 +31,16 @@
     "ui_framework_selected": true,
     "design_complete": true,
     "code_complete": true,
-    "tests_passed": false,
-    "ship_ready": false
+    "tests_passed": true,
+    "ship_ready": false,
+    "pluginval_results": {
+      "passed": true,
+      "last_run": "2026-02-28T09:15:45Z",
+      "vst3": "pass",
+      "au": "pass",
+      "vst3_duration_s": 3,
+      "au_duration_s": 5
+    }
   },
   "framework_selection": {
     "decision": "webview",
@@ -40,8 +48,12 @@
     "implementation_strategy": "phased"
   },
   "concept": {
-    "signal_chain": "trigger → noise burst (AD envelope) → dual resonant SVF filter → distortion (Sunn O))) MOSFET topology) → FX engine → switchable feedback → output",
-    "fx_algorithms": ["tape_delay", "ring_mod", "vintage_plate"],
+    "signal_chain": "trigger \u2192 noise burst (AD envelope) \u2192 dual resonant SVF filter \u2192 distortion (Sunn O))) MOSFET topology) \u2192 FX engine \u2192 switchable feedback \u2192 output",
+    "fx_algorithms": [
+      "tape_delay",
+      "ring_mod",
+      "vintage_plate"
+    ],
     "reference_hardware": "Manifold Research Centre Antilope",
     "parameter_count": 18,
     "aesthetic": "black background, gold ornaments, Neve-style red/blue buttons, pseudo-medieval/Dune-futuristic",
@@ -57,9 +69,19 @@
       "Design/v1-test.html",
       "Design/v2-test.html"
     ],
-    "sections": ["FILTER (0-310px)", "DIST (310-510px)", "FX (510-820px)", "TRIGGERS (820-1000px)"],
+    "sections": [
+      "FILTER (0-310px)",
+      "DIST (310-510px)",
+      "FX (510-820px)",
+      "TRIGGERS (820-1000px)"
+    ],
     "controls": 18,
-    "special_controls": ["Cherry MX triggers x2 (splayed ±8°, trigger zone right)", "ARP Odyssey A+D sliders per trigger (4 sliders total)", "FX type selector (3 buttons)", "Feedback path toggle"],
+    "special_controls": [
+      "Cherry MX triggers x2 (splayed \u00b18\u00b0, trigger zone right)",
+      "ARP Odyssey A+D sliders per trigger (4 sliders total)",
+      "FX type selector (3 buttons)",
+      "Feedback path toggle"
+    ],
     "v2_changes": "Removed ENV section (attack/decay/env_shape knobs). Removed VU meter and OUT section. Attack+Decay become per-filter-path sliders (ARP Odyssey style) above each splayed MX trigger button. Parameters: attack1, decay1, attack2, decay2 replace shared attack/decay/env_shape."
   },
   "error_recovery": {
