@@ -141,31 +141,200 @@ bool SpliceAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
 #endif
 
 //==============================================================================
+// Voice helpers
+
+int SpliceAudioProcessor::getGridValue() const
+{
+    int idx = static_cast<int> (apvts.getRawParameterValue ("grid")->load());
+    const int vals[] = { 1, 2, 4, 8, 16 };
+    return vals[juce::jlimit (0, 4, idx)];
+}
+
+std::pair<int, int> SpliceAudioProcessor::getSliceRange (int sliceIdx) const
+{
+    const int totalSamples = reelBuffer.getNumSamples();
+    if (totalSamples == 0) return { 0, 0 };
+
+    const int gridVal     = getGridValue();
+    const int totalSlices = 4 * gridVal;
+    sliceIdx = juce::jlimit (0, totalSlices - 1, sliceIdx);
+
+    const int sliceLen = totalSamples / totalSlices;
+    const int start    = sliceIdx * sliceLen;
+    const int end      = std::min (start + sliceLen, totalSamples);
+    return { start, end };
+}
+
+void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int sliceIdx,
+                                          float atk, float dec, float sus, float /*rel*/)
+{
+    // Determine slice range
+    int start, end;
+    const int modeIdx = static_cast<int> (apvts.getRawParameterValue ("playback_mode")->load());
+
+    if (modeIdx == 0) // POLY: play the full reel, pitched by MIDI note vs C4
+    {
+        start = 0;
+        end   = reelBuffer.getNumSamples();
+    }
+    else  // SLICE / ARP / SEQ: play specific slice at natural pitch
+    {
+        std::tie (start, end) = getSliceRange (sliceIdx);
+    }
+
+    if (end <= start) return;
+
+    // playRate = sample-rate conversion  ×  optional pitch ratio
+    const float baseRate  = static_cast<float> (reelSampleRate / currentSampleRate);
+    float pitchRatio = 1.0f;
+    if (modeIdx == 0)   // POLY: pitch from MIDI note (C4 = no shift)
+        pitchRatio = std::pow (2.0f, (midiNote - 60) / 12.0f);
+
+    // Find idle voice; if none, steal the oldest
+    int victimIdx = 0;
+    int maxAge    = -1;
+    for (int i = 0; i < kNumVoices; ++i)
+    {
+        if (! voices[i].active) { victimIdx = i; maxAge = -1; break; }
+        if (voices[i].age > maxAge) { maxAge = voices[i].age; victimIdx = i; }
+    }
+
+    auto& v       = voices[victimIdx];
+    v.active      = true;
+    v.sliceEnded  = false;
+    v.midiNote    = midiNote;
+    v.playhead    = static_cast<float> (start);
+    v.playRate    = baseRate * pitchRatio;
+    v.startSample = start;
+    v.endSample   = end;
+    v.velocity    = velocity;
+    v.age         = voiceAge++;
+    v.ampEnv.noteOn (atk, dec, sus, currentSampleRate);
+}
+
+void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
+{
+    for (int i = 0; i < kNumVoices; ++i)
+        if (voices[i].active && voices[i].midiNote == midiNote)
+            voices[i].ampEnv.noteOff (rel, currentSampleRate);
+}
+
+//==============================================================================
 void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                         juce::MidiBuffer& /*midiMessages*/)
+                                         juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    if (buffer.getNumSamples() == 0)
-        return;
-
-    // Silence unused channels
-    for (int ch = buffer.getNumChannels(); ch < totalNumOutputChannels; ++ch)
-        buffer.clear (ch, 0, buffer.getNumSamples());
-
-    // Apply output volume (Phase 4.0 stub — full DSP added in Phase 4.1)
-    smoothedOutputVol.setTargetValue (apvts.getRawParameterValue ("output_vol")->load());
 
     const int numSamples  = buffer.getNumSamples();
     const int numChannels = buffer.getNumChannels();
 
-    for (int sample = 0; sample < numSamples; ++sample)
+    if (numSamples == 0) return;
+
+    // Clear output (we accumulate from voices)
+    buffer.clear();
+
+    // Read envelope + output params once per block
+    const float atkS = apvts.getRawParameterValue ("amp_attack") ->load();
+    const float decS = apvts.getRawParameterValue ("amp_decay")  ->load();
+    const float sus  = apvts.getRawParameterValue ("amp_sustain")->load();
+    const float relS = apvts.getRawParameterValue ("amp_release")->load();
+    const int modeIdx = static_cast<int> (apvts.getRawParameterValue ("playback_mode")->load());
+
+    smoothedOutputVol.setTargetValue (apvts.getRawParameterValue ("output_vol")->load());
+
+    // ── MIDI handling ────────────────────────────────────────────────────────
+    if (reelBuffer.getNumSamples() > 0)
     {
-        float gain = smoothedOutputVol.getNextValue();
+        const int gridVal     = getGridValue();
+        const int totalSlices = 4 * gridVal;
+
+        for (const auto meta : midiMessages)
+        {
+            const auto msg = meta.getMessage();
+
+            if (msg.isNoteOn() && msg.getVelocity() > 0)
+            {
+                const int   note = msg.getNoteNumber();
+                const float vel  = msg.getFloatVelocity();
+
+                // Determine which slice to trigger
+                int sliceIdx = 0;
+                if (modeIdx == 1) // SLICE: C1 (24) → slice 0, each semitone = +1 slice
+                    sliceIdx = juce::jlimit (0, totalSlices - 1, note - 24);
+
+                // Skip muted slices in SLICE mode
+                const bool sliceMuted = (modeIdx == 1)
+                    && (sliceIdx < 64)
+                    && ! sliceActive[static_cast<size_t> (sliceIdx)];
+
+                if (! sliceMuted)
+                    allocateVoice (note, vel, sliceIdx, atkS, decS, sus, relS);
+            }
+            else if (msg.isNoteOff() || (msg.isNoteOn() && msg.getVelocity() == 0))
+            {
+                releaseVoice (msg.getNoteNumber(), relS);
+            }
+        }
+    }
+
+    // ── Voice rendering ──────────────────────────────────────────────────────
+    if (reelBuffer.getNumSamples() > 0 && numChannels > 0)
+    {
+        const float* reelL = reelBuffer.getReadPointer (0);
+        const float* reelR = (reelBuffer.getNumChannels() > 1)
+                           ? reelBuffer.getReadPointer (1)
+                           : reelL;
+        const int    reelMax = reelBuffer.getNumSamples() - 2;
+
+        float* outL = buffer.getWritePointer (0);
+        float* outR = (numChannels > 1) ? buffer.getWritePointer (1) : outL;
+
+        for (int i = 0; i < kNumVoices; ++i)
+        {
+            auto& v = voices[i];
+            if (! v.active) continue;
+
+            for (int s = 0; s < numSamples; ++s)
+            {
+                // Trigger release when playhead reaches end of slice
+                if (! v.sliceEnded && v.playhead >= static_cast<float> (v.endSample - 1))
+                {
+                    v.sliceEnded = true;
+                    v.ampEnv.noteOff (relS, currentSampleRate);
+                }
+
+                const float envGain = v.ampEnv.process();
+
+                if (v.ampEnv.isIdle())
+                {
+                    v.active = false;
+                    break;
+                }
+
+                // Linear interpolation read
+                const int   pos  = juce::jlimit (0, reelMax, static_cast<int> (v.playhead));
+                const float frac = v.playhead - static_cast<float> (pos);
+
+                const float sL = reelL[pos] + frac * (reelL[pos + 1] - reelL[pos]);
+                const float sR = reelR[pos] + frac * (reelR[pos + 1] - reelR[pos]);
+
+                const float gain = envGain * v.velocity;
+                outL[s] += sL * gain;
+                if (outR != outL) outR[s] += sR * gain;
+
+                // Advance playhead; clamp at end during release tail
+                if (! v.sliceEnded)
+                    v.playhead += v.playRate;
+            }
+        }
+    }
+
+    // ── Output volume ────────────────────────────────────────────────────────
+    for (int s = 0; s < numSamples; ++s)
+    {
+        const float gain = smoothedOutputVol.getNextValue();
         for (int ch = 0; ch < numChannels; ++ch)
-            buffer.getWritePointer (ch)[sample] *= gain;
+            buffer.getWritePointer (ch)[s] *= gain;
     }
 
     // Update peak level for metering

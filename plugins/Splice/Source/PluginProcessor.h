@@ -80,5 +80,93 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smoothedOutputVol;
 
     //==========================================================================
+    // Amp Envelope — linear ADSR, one instance per voice
+    struct AmpEnvelope
+    {
+        enum class State { IDLE, ATTACK, DECAY, SUSTAIN, RELEASE } state = State::IDLE;
+        float value        = 0.0f;
+        float attackRate   = 0.0f;
+        float decayRate    = 0.0f;
+        float sustainLevel = 1.0f;
+        float releaseRate  = 0.0f;
+
+        void noteOn (float atk, float dec, float sus, double sr)
+        {
+            sustainLevel = juce::jlimit (0.0f, 1.0f, sus);
+            attackRate   = (atk > 0.0f) ? (1.0f / (atk  * (float) sr)) : 1.0f;
+            decayRate    = (dec > 0.0f) ? ((1.0f - sustainLevel) / (dec * (float) sr)) : (1.0f - sustainLevel);
+            state = State::ATTACK;
+        }
+
+        void noteOff (float rel, double sr)
+        {
+            if (state != State::IDLE)
+            {
+                releaseRate = (rel > 0.0f) ? (value / (rel * (float) sr)) : value;
+                state = State::RELEASE;
+            }
+        }
+
+        float process()
+        {
+            switch (state)
+            {
+                case State::ATTACK:
+                    value += attackRate;
+                    if (value >= 1.0f)
+                    {
+                        value = 1.0f;
+                        state = (sustainLevel >= 1.0f) ? State::SUSTAIN : State::DECAY;
+                    }
+                    break;
+
+                case State::DECAY:
+                    value -= decayRate;
+                    if (value <= sustainLevel) { value = sustainLevel; state = State::SUSTAIN; }
+                    break;
+
+                case State::SUSTAIN:
+                    break;
+
+                case State::RELEASE:
+                    value -= releaseRate;
+                    if (value <= 0.0f) { value = 0.0f; state = State::IDLE; }
+                    break;
+
+                default: break;
+            }
+            return value;
+        }
+
+        bool isIdle() const { return state == State::IDLE; }
+    };
+
+    // Polyphonic voice — one slice playback + envelope
+    struct SpliceVoice
+    {
+        bool  active      = false;
+        bool  sliceEnded  = false;  // true once playhead reaches end (triggers release)
+        int   midiNote    = -1;
+        float playhead    = 0.0f;   // current read position (samples, float for sub-sample)
+        float playRate    = 1.0f;   // samples-per-output-sample
+        int   startSample = 0;
+        int   endSample   = 0;
+        float velocity    = 1.0f;
+        int   age         = 0;      // for voice stealing (steal highest age = oldest)
+        AmpEnvelope ampEnv;
+    };
+
+    static constexpr int kNumVoices = 8;
+    SpliceVoice voices[kNumVoices];
+    int voiceAge = 0;
+
+    // Voice helpers
+    int getGridValue() const;
+    std::pair<int, int> getSliceRange (int sliceIdx) const;
+    void allocateVoice (int midiNote, float velocity, int sliceIdx,
+                        float atk, float dec, float sus, float rel);
+    void releaseVoice  (int midiNote, float rel);
+
+    //==========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpliceAudioProcessor)
 };
