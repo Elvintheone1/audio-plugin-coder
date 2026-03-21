@@ -61,8 +61,12 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     addAndMakeVisible (*webView);
     webView->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
 
-    setSize (1000, 600);
-    startTimerHz (15);  // for reel-name updates
+    // Header bar: pure JUCE component above the WebView — drag target works here
+    header.onFileDrop = [this] (const juce::File& f) { audioProcessor.loadReelFile (f); };
+    addAndMakeVisible (header);
+
+    setSize (1000, 630);   // 30px header + 600px WebView
+    startTimerHz (15);
 }
 
 SpliceAudioProcessorEditor::~SpliceAudioProcessorEditor()
@@ -74,59 +78,32 @@ SpliceAudioProcessorEditor::~SpliceAudioProcessorEditor()
 void SpliceAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colours::black);
-
-    if (draggingOver)
-    {
-        g.setColour (juce::Colour (0x55FFFFFF));
-        g.fillAll();
-        g.setColour (juce::Colours::white);
-        g.setFont (18.0f);
-        g.drawText ("Drop audio file", getLocalBounds(), juce::Justification::centred);
-    }
-}
-
-//==============================================================================
-bool SpliceAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
-{
-    for (const auto& f : files)
-    {
-        auto ext = juce::File (f).getFileExtension().toLowerCase();
-        if (ext == ".wav" || ext == ".aif" || ext == ".aiff" ||
-            ext == ".mp3" || ext == ".ogg" || ext == ".flac" ||
-            ext == ".caf" || ext == ".m4a")
-            return true;
-    }
-    return false;
-}
-
-void SpliceAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
-{
-    draggingOver = false;
-    repaint();
-
-    for (const auto& f : files)
-    {
-        juce::File file (f);
-        if (file.existsAsFile())
-        {
-            audioProcessor.loadReelFile (file);
-            break;  // load only the first audio file
-        }
-    }
 }
 
 void SpliceAudioProcessorEditor::resized()
 {
-    if (webView) webView->setBounds (getLocalBounds());
+    const int headerH = 30;
+    header.setBounds (0, 0, getWidth(), headerH);
+    if (webView) webView->setBounds (0, headerH, getWidth(), getHeight() - headerH);
 }
 
 //==============================================================================
 void SpliceAudioProcessorEditor::timerCallback()
 {
-    if (!webView || !webView->isVisible()) return;
-
-    // Push reel name to UI
+    // Update header bar label
     auto name = audioProcessor.getReelName();
+    auto newLabel = name.isEmpty()
+        ? juce::String ("drag audio file here")
+        : ("\xe2\x97\x89 " + name + "  \xc2\xb7  drag to replace");  // ◉ name · drag to replace
+
+    if (header.labelText != newLabel)
+    {
+        header.labelText = newLabel;
+        header.repaint();
+    }
+
+    // Push reel name to WebView JS
+    if (!webView || !webView->isVisible()) return;
     auto display = name.isEmpty() ? "no reel loaded" : name;
 
     try

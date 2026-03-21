@@ -12,9 +12,12 @@
  *   1. Parameter relays    (destroyed LAST)
  *   2. WebBrowserComponent (destroyed middle)
  *   3. Parameter attachments (destroyed FIRST)
+ *
+ * File drag-and-drop is handled by HeaderBar — a pure JUCE component that sits
+ * above the WebView. WKWebView (native NSView) intercepts OS drags so
+ * FileDragAndDropTarget on the editor itself does not work.
  */
 class SpliceAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                   public juce::FileDragAndDropTarget,
                                    public juce::Timer
 {
 public:
@@ -25,13 +28,68 @@ public:
     void resized () override;
     void timerCallback() override;
 
-    // FileDragAndDropTarget
-    bool isInterestedInFileDrag (const juce::StringArray& files) override;
-    void filesDropped (const juce::StringArray& files, int x, int y) override;
-    void fileDragEnter (const juce::StringArray&, int, int) override { draggingOver = true;  repaint(); }
-    void fileDragExit  (const juce::StringArray&)           override { draggingOver = false; repaint(); }
-
 private:
+    //==========================================================================
+    // Thin header strip above the WebView — pure JUCE component, no native
+    // overlay, so FileDragAndDropTarget always fires correctly.
+    struct HeaderBar : public juce::Component,
+                       public juce::FileDragAndDropTarget
+    {
+        std::function<void (const juce::File&)> onFileDrop;
+        juce::String labelText { "drag audio file here" };
+
+        void paint (juce::Graphics& g) override
+        {
+            g.fillAll (dragging ? juce::Colour (0xFF2A2A3A) : juce::Colour (0xFF111111));
+
+            g.setColour (dragging ? juce::Colours::white : juce::Colour (0xFF888888));
+            g.setFont (juce::Font (12.0f));
+            g.drawText (labelText,
+                        getLocalBounds().reduced (12, 0),
+                        juce::Justification::centredLeft);
+
+            // Separator line at bottom
+            g.setColour (juce::Colour (0xFF2A2A2A));
+            g.drawHorizontalLine (getHeight() - 1, 0.0f, (float) getWidth());
+        }
+
+        bool isInterestedInFileDrag (const juce::StringArray& files) override
+        {
+            for (const auto& f : files)
+            {
+                auto ext = juce::File (f).getFileExtension().toLowerCase();
+                if (ext == ".wav"  || ext == ".aif"  || ext == ".aiff" ||
+                    ext == ".mp3"  || ext == ".ogg"  || ext == ".flac" ||
+                    ext == ".caf"  || ext == ".m4a")
+                    return true;
+            }
+            return false;
+        }
+
+        void filesDropped (const juce::StringArray& files, int, int) override
+        {
+            dragging = false;
+            repaint();
+            for (const auto& f : files)
+            {
+                juce::File file (f);
+                if (file.existsAsFile())
+                {
+                    if (onFileDrop) onFileDrop (file);
+                    break;
+                }
+            }
+        }
+
+        void fileDragEnter (const juce::StringArray&, int, int) override { dragging = true;  repaint(); }
+        void fileDragExit  (const juce::StringArray&)           override { dragging = false; repaint(); }
+
+    private:
+        bool dragging = false;
+    };
+
+    HeaderBar header;
+
     //==========================================================================
     // 1. PARAMETER RELAYS (declared first → destroyed last)
 
@@ -85,8 +143,6 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> sliceDirAttachment;
 
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> arpHoldAttachment;
-
-    bool draggingOver = false;
 
     //==========================================================================
     // Resource provider
