@@ -61,8 +61,9 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     addAndMakeVisible (*webView);
     webView->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
 
-    // Header bar: pure JUCE component above the WebView — drag target works here
-    header.onFileDrop = [this] (const juce::File& f) { audioProcessor.loadReelFile (f); };
+    // Header bar: Load button + bonus drag-and-drop
+    header.onFileDrop  = [this] (const juce::File& f) { audioProcessor.loadReelFile (f); };
+    header.onLoadClick = [this] { launchFileChooser(); };
     addAndMakeVisible (header);
 
     setSize (1000, 630);   // 30px header + 600px WebView
@@ -88,13 +89,31 @@ void SpliceAudioProcessorEditor::resized()
 }
 
 //==============================================================================
+void SpliceAudioProcessorEditor::launchFileChooser()
+{
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Load audio reel",
+        juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+        "*.wav;*.aif;*.aiff;*.mp3;*.ogg;*.flac;*.caf;*.m4a");
+
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                            | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            auto result = fc.getResult();
+            if (result.existsAsFile())
+                audioProcessor.loadReelFile (result);
+        });
+}
+
+//==============================================================================
 void SpliceAudioProcessorEditor::timerCallback()
 {
     // Update header bar label
     auto name = audioProcessor.getReelName();
     auto newLabel = name.isEmpty()
-        ? juce::String ("drag audio file here")
-        : ("\xe2\x97\x89 " + name + "  \xc2\xb7  drag to replace");  // ◉ name · drag to replace
+        ? juce::String ("no reel loaded")
+        : ("\xe2\x97\x89 " + name);  // ◉ filename
 
     if (header.labelText != newLabel)
     {
