@@ -74,6 +74,45 @@ SpliceAudioProcessorEditor::~SpliceAudioProcessorEditor()
 void SpliceAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colours::black);
+
+    if (draggingOver)
+    {
+        g.setColour (juce::Colour (0x55FFFFFF));
+        g.fillAll();
+        g.setColour (juce::Colours::white);
+        g.setFont (18.0f);
+        g.drawText ("Drop audio file", getLocalBounds(), juce::Justification::centred);
+    }
+}
+
+//==============================================================================
+bool SpliceAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& f : files)
+    {
+        auto ext = juce::File (f).getFileExtension().toLowerCase();
+        if (ext == ".wav" || ext == ".aif" || ext == ".aiff" ||
+            ext == ".mp3" || ext == ".ogg" || ext == ".flac" ||
+            ext == ".caf" || ext == ".m4a")
+            return true;
+    }
+    return false;
+}
+
+void SpliceAudioProcessorEditor::filesDropped (const juce::StringArray& files, int, int)
+{
+    draggingOver = false;
+    repaint();
+
+    for (const auto& f : files)
+    {
+        juce::File file (f);
+        if (file.existsAsFile())
+        {
+            audioProcessor.loadReelFile (file);
+            break;  // load only the first audio file
+        }
+    }
 }
 
 void SpliceAudioProcessorEditor::resized()

@@ -14,6 +14,7 @@
  *   3. Parameter attachments (destroyed FIRST)
  */
 class SpliceAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                   public juce::FileDragAndDropTarget,
                                    public juce::Timer
 {
 public:
@@ -23,6 +24,12 @@ public:
     void paint   (juce::Graphics&) override;
     void resized () override;
     void timerCallback() override;
+
+    // FileDragAndDropTarget
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+    void fileDragEnter (const juce::StringArray&, int, int) override { draggingOver = true;  repaint(); }
+    void fileDragExit  (const juce::StringArray&)           override { draggingOver = false; repaint(); }
 
 private:
     //==========================================================================
@@ -78,6 +85,8 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> sliceDirAttachment;
 
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> arpHoldAttachment;
+
+    bool draggingOver = false;
 
     //==========================================================================
     // Resource provider
