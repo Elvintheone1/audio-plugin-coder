@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Splice — v1 Preview</title>
+  <style>
+    :root {
+      --bg:           #1A1A1A;
+      --bg-block:     #252525;
+      --bg-cell-off:  #141414;
+      --bg-panel:     #222222;
+      --border:       #333333;
+      --hover:        #2A2A2A;
+
+      --s1:     #D4604A;
+      --s1-lit: #DF8C7A;
+      --s2:     #4A7BA8;
+      --s2-lit: #7AA0C0;
+      --s3:     #5A8A6A;
+      --s3-lit: #84A892;
+      --s4:     #B87888;
+      --s4-lit: #CDA4B0;
+
+      --seq-lit:  #4A8AA8;
+
+      --text:    #E8E8E8;
+      --text-2:  #888888;
+      --text-3:  #555555;
+      --tab-bg:  #2E6B8A;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Inter, sans-serif;
+      width: 1000px;
+      height: 600px;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── TOP BAR ─────────────────────────────────────────── */
+    .top-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plugin-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .reel-name {
+      font-size: 12px;
+      color: var(--text-2);
+      margin-left: 14px;
+    }
+
+    .page-tabs {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2px;
+    }
+
+    .page-tab {
+      padding: 5px 18px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .page-tab.active {
+      background: var(--tab-bg);
+      color: var(--text);
+    }
+
+    .mode-group {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .mode-btn.active {
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    /* ── PAGES ───────────────────────────────────────────── */
+    .page { display: none; flex-direction: column; height: calc(600px - 52px); }
+    .page.active { display: flex; }
+
+    /* ── GRID AREA ───────────────────────────────────────── */
+    .grid-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 28px 12px;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    /* ── SECTION BLOCKS (Loop page) ──────────────────────── */
+    .section-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-block);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 7px 9px 4px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      flex-shrink: 0;
+    }
+
+    .section-cells {
+      display: grid;
+      gap: 3px;
+      padding: 7px;
+      width: 100%;
+      aspect-ratio: 1; /* container always square — cells fill proportionally */
+    }
+
+
+    .cell {
+      border-radius: 2px;
+      cursor: pointer;
+      /* no aspect-ratio — cells fill their grid track naturally */
+      transition: opacity 0.06s;
+    }
+    .cell.off { background: var(--bg-cell-off); }
+
+    .s1 .cell.on     { background: var(--s1); }
+    .s1 .cell.on.lit { background: var(--s1-lit); }
+    .s2 .cell.on     { background: var(--s2); }
+    .s2 .cell.on.lit { background: var(--s2-lit); }
+    .s3 .cell.on     { background: var(--s3); }
+    .s3 .cell.on.lit { background: var(--s3-lit); }
+    .s4 .cell.on     { background: var(--s4); }
+    .s4 .cell.on.lit { background: var(--s4-lit); }
+
+    /* ── CONTROLS AREA (Loop page) ───────────────────────── */
+    .controls-area {
+      height: 160px;
+      display: flex;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .ctrl-panel {
+      flex: 1;
+      padding: 13px 22px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .ctrl-panel + .ctrl-panel { border-left: 1px solid var(--border); }
+
+    .ctrl-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .ctrl-tab {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 3px 8px;
+      border-radius: 2px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .ctrl-tab.active {
+      color: var(--text);
+      background: var(--hover);
+    }
+    .ctrl-tab-sep {
+      color: var(--text-3);
+      font-size: 9px;
+      padding: 0 2px;
+    }
+
+    .ctrl-body { display: none; }
+    .ctrl-body.active { display: flex; gap: 24px; align-items: flex-start; }
+
+    /* Direction groups */
+    .dir-group { display: flex; flex-direction: column; gap: 5px; }
+    .dir-group-label {
+      font-size: 9px;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .dir-btns { display: flex; gap: 4px; }
+
+    .dir-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--hover);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-3);
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .dir-btn.active {
+      border-color: #555;
+      color: var(--text);
+    }
+
+    /* Grid control */
+    .grid-group { display: flex; flex-direction: column; gap: 5px; }
+    .grid-display {
+      font-size: 26px;
+      font-weight: 300;
+      color: var(--text);
+      cursor: ns-resize;
+    }
+
+    /* Envelope icon controls */
+    .env-controls { display: flex; gap: 22px; align-items: flex-end; }
+    .env-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+
+    .env-icon {
+      display: block;
+      cursor: ns-resize;
+      opacity: 0.6;
+      transition: opacity 0.1s;
+    }
+    .env-icon:hover { opacity: 0.85; }
+    .env-icon.dragging { opacity: 1; }
+
+    .env-line {
+      stroke: var(--text-2);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
+    .env-icon.dragging .env-line { stroke: var(--text); }
+
+    .env-label {
+      font-size: 9px;
+      color: var(--text-2);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Filter controls */
+    .filter-controls { display: flex; flex-direction: column; gap: 8px; }
+    .filter-row { display: flex; gap: 16px; align-items: center; }
+    .filter-param { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.06em; text-transform: uppercase; }
+    input[type=range].hslider { width: 100px; cursor: pointer; accent-color: var(--text-2); }
+    .filter-type-btns { display: flex; gap: 3px; }
+    .ftype-btn {
+      padding: 3px 8px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: var(--hover);
+      border: 1px solid transparent;
+      border-radius: 2px;
+      color: var(--text-3);
+      cursor: pointer;
+    }
+    .ftype-btn.active { border-color: #555; color: var(--text); }
+
+    /* ── LANE BLOCKS (SEQ page) ──────────────────────────── */
+    .lane-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-block);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .lane-header {
+      padding: 7px 9px 4px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .lane-name {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .lane-val {
+      font-size: 10px;
+      color: var(--text-2);
+      margin-left: auto;
+    }
+
+    .lane-cells {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 3px;
+      padding: 7px;
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+
+    .lcell {
+      border-radius: 2px;
+      cursor: ns-resize;
+      aspect-ratio: 1;
+    }
+    .lcell.lit      { background: var(--seq-lit); }
+    .lcell.inactive { background: var(--bg-cell-off); cursor: default; }
+
+    .step-val, .speed-val { cursor: ns-resize; user-select: none; }
+    .step-val:hover, .speed-val:hover { color: var(--text); }
+    #page-seq .grid-area  { align-items: flex-start; }
+    #page-loop .grid-area { align-items: flex-start; }
+
+    .lane-footer {
+      padding: 6px 9px;
+      display: flex;
+      gap: 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .lane-meta { display: flex; flex-direction: column; gap: 2px; }
+    .lane-meta-label {
+      font-size: 8px;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .lane-meta-value { font-size: 10px; color: var(--text); }
+
+    /* ── SEQ GLOBAL BAR ──────────────────────────────────── */
+    .seq-bar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 36px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .seq-item { display: flex; align-items: center; gap: 8px; }
+    .seq-item-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.06em; text-transform: uppercase; }
+    .seq-item-value { font-size: 12px; color: var(--text); }
+
+    .gen-btns { margin-left: auto; display: flex; gap: 4px; }
+    .gen-btn {
+      padding: 4px 10px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: var(--hover);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .gen-btn:hover { color: var(--text); border-color: #555; }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <span class="plugin-title">Splice</span>
+  <span class="reel-name">C3 → no reel loaded</span>
+
+  <div class="page-tabs">
+    <button class="page-tab active" onclick="switchPage('loop', this)">Loop</button>
+    <button class="page-tab" onclick="switchPage('seq', this)">Seq</button>
+  </div>
+
+  <div class="mode-group">
+    <button class="mode-btn active" onclick="setMode(this)">Poly</button>
+    <button class="mode-btn" onclick="setMode(this)">Slice</button>
+    <button class="mode-btn" onclick="setMode(this)">Arp</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- LOOP PAGE                                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="page active" id="page-loop">
+
+  <div class="grid-area">
+
+    <!-- Section I -->
+    <div class="section-block s1">
+      <div class="section-header">I</div>
+      <div class="section-cells g4">
+        <div class="cell on lit"></div>
+        <div class="cell on"></div>
+        <div class="cell on"></div>
+        <div class="cell off"></div>
+      </div>
+    </div>
+
+    <!-- Section II -->
+    <div class="section-block s2">
+      <div class="section-header">II</div>
+      <div class="section-cells g4">
+        <div class="cell on"></div>
+        <div class="cell off"></div>
+        <div class="cell on"></div>
+        <div class="cell on"></div>
+      </div>
+    </div>
+
+    <!-- Section III -->
+    <div class="section-block s3">
+      <div class="section-header">III</div>
+      <div class="section-cells g4">
+        <div class="cell off"></div>
+        <div class="cell on"></div>
+        <div class="cell on"></div>
+        <div class="cell on"></div>
+      </div>
+    </div>
+
+    <!-- Section IV -->
+    <div class="section-block s4">
+      <div class="section-header">IV</div>
+      <div class="section-cells g4">
+        <div class="cell on"></div>
+        <div class="cell on"></div>
+        <div class="cell off"></div>
+        <div class="cell on"></div>
+      </div>
+    </div>
+
+  </div><!-- /grid-area -->
+
+  <!-- CONTROLS AREA -->
+  <div class="controls-area">
+
+    <!-- Left panel -->
+    <div class="ctrl-panel">
+      <div class="ctrl-tabs">
+        <button class="ctrl-tab active" onclick="switchCtrl(this,'playhead-body')">Playhead</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'signal-body')">Signal</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'random-body')">Random</button>
+      </div>
+
+      <!-- Playhead body -->
+      <div class="ctrl-body active" id="playhead-body">
+        <div class="dir-group">
+          <div class="dir-group-label">Reel</div>
+          <div class="dir-btns">
+            <button class="dir-btn active" onclick="setDir(this)">→</button>
+            <button class="dir-btn" onclick="setDir(this)">←</button>
+            <button class="dir-btn" onclick="setDir(this)">↔</button>
+            <button class="dir-btn" onclick="setDir(this)">∿</button>
+          </div>
+        </div>
+        <div class="dir-group">
+          <div class="dir-group-label">Slice</div>
+          <div class="dir-btns">
+            <button class="dir-btn active" onclick="setDir(this)">→</button>
+            <button class="dir-btn" onclick="setDir(this)">←</button>
+            <button class="dir-btn" onclick="setDir(this)">↔</button>
+            <button class="dir-btn" onclick="setDir(this)">∿</button>
+          </div>
+        </div>
+        <div class="grid-group">
+          <div class="dir-group-label">Grid</div>
+          <div class="grid-display">/4</div>
+        </div>
+      </div>
+
+      <!-- Signal body (placeholder) -->
+      <div class="ctrl-body" id="signal-body">
+        <div class="env-item">
+          <input class="hslider" type="range" min="0" max="100" value="75">
+          <div class="env-label">Level</div>
+        </div>
+      </div>
+
+      <!-- Random body (placeholder) -->
+      <div class="ctrl-body" id="random-body">
+        <span style="font-size:10px;color:var(--text-2)">Randomization controls — v2</span>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="ctrl-panel">
+      <div class="ctrl-tabs">
+        <button class="ctrl-tab active" onclick="switchCtrl(this,'ampenv-body')">Amp Env</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'filter-body')">Filter</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'fenv-body')">Filter Env</button>
+      </div>
+
+      <!-- Amp Env body -->
+      <div class="ctrl-body active" id="ampenv-body">
+        <div class="env-controls">
+          <div class="env-item">
+            <svg class="env-icon" data-type="attack" data-value="0.05" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="54" x2="6" y2="6"/>
+            </svg>
+            <div class="env-label">Attack</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="decay" data-value="0.4" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            </svg>
+            <div class="env-label">Decay</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="sustain" data-value="1.0" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="6" x2="30" y2="6"/>
+            </svg>
+            <div class="env-label">Sustain</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="release" data-value="0.2" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            </svg>
+            <div class="env-label">Release</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter body -->
+      <div class="ctrl-body" id="filter-body">
+        <div class="filter-controls">
+          <div class="filter-row">
+            <div class="filter-param">
+              <div class="filter-label">Cutoff</div>
+              <input class="hslider" type="range" min="0" max="100" value="90">
+            </div>
+            <div class="filter-param">
+              <div class="filter-label">Res</div>
+              <input class="hslider" type="range" min="0" max="100" value="10">
+            </div>
+          </div>
+          <div class="filter-type-btns">
+            <button class="ftype-btn active">LP</button>
+            <button class="ftype-btn">BP</button>
+            <button class="ftype-btn">HP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Env body -->
+      <div class="ctrl-body" id="fenv-body">
+        <div class="env-controls">
+          <div class="env-item">
+            <svg class="env-icon" data-type="depth" data-value="0" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="30" x2="30" y2="30"/>
+            </svg>
+            <div class="env-label">Depth</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="attack" data-value="0.1" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="54" x2="6" y2="6"/>
+            </svg>
+            <div class="env-label">Attack</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="decay" data-value="0.5" viewBox="0 0 36 60" width="36" height="60">
+              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            </svg>
+            <div class="env-label">Decay</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /ctrl-panel right -->
+
+  </div><!-- /controls-area -->
+
+</div><!-- /page-loop -->
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SEQ PAGE                                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-seq">
+
+  <div class="grid-area">
+
+    <!-- POS lane -->
+    <div class="lane-block" data-lane="pos">
+      <div class="lane-header">
+        <span class="lane-name">Pos</span>
+        <span class="lane-val">8 / 16</span>
+      </div>
+      <div class="lane-cells" id="lane-pos"></div>
+      <div class="lane-footer">
+        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-steps="16">16</div></div>
+        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-speed="16">*16</div></div>
+      </div>
+    </div>
+
+    <!-- VEL lane -->
+    <div class="lane-block" data-lane="vel">
+      <div class="lane-header">
+        <span class="lane-name">Vel</span>
+        <span class="lane-val">75%</span>
+      </div>
+      <div class="lane-cells" id="lane-vel"></div>
+      <div class="lane-footer">
+        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-steps="12">12</div></div>
+        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-speed="8">*8</div></div>
+      </div>
+    </div>
+
+    <!-- PITCH lane -->
+    <div class="lane-block" data-lane="pitch">
+      <div class="lane-header">
+        <span class="lane-name">Pitch</span>
+        <span class="lane-val">+7 st</span>
+      </div>
+      <div class="lane-cells" id="lane-pitch"></div>
+      <div class="lane-footer">
+        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-steps="9">9</div></div>
+        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-speed="16">*16</div></div>
+      </div>
+    </div>
+
+    <!-- DIR lane -->
+    <div class="lane-block" data-lane="dir">
+      <div class="lane-header">
+        <span class="lane-name">Dir</span>
+        <span class="lane-val">Fwd</span>
+      </div>
+      <div class="lane-cells" id="lane-dir"></div>
+      <div class="lane-footer">
+        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-steps="7">7</div></div>
+        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-speed="4">*4</div></div>
+      </div>
+    </div>
+
+  </div><!-- /grid-area -->
+
+  <!-- SEQ GLOBAL BAR -->
+  <div class="seq-bar">
+    <div class="seq-item">
+      <span class="seq-item-label">Step Length</span>
+      <span class="seq-item-value">/16</span>
+    </div>
+    <div class="seq-item">
+      <span class="seq-item-label">Latch</span>
+      <span class="seq-item-value">Off</span>
+    </div>
+    <div class="gen-btns">
+      <button class="gen-btn">On</button>
+      <button class="gen-btn">Gen</button>
+      <button class="gen-btn">Reset</button>
+    </div>
+  </div>
+
+</div><!-- /page-seq -->
+
+<script>
+  // ── Page switching ──────────────────────────────────────
+  function switchPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // ── Mode buttons ────────────────────────────────────────
+  function setMode(btn) {
+    btn.closest('.mode-group').querySelectorAll('.mode-btn')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ── Direction buttons (single-select per group) ─────────
+  function setDir(btn) {
+    btn.closest('.dir-btns').querySelectorAll('.dir-btn')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ── Control tab panels ──────────────────────────────────
+  function switchCtrl(tab, bodyId) {
+    const panel = tab.closest('.ctrl-panel');
+    panel.querySelectorAll('.ctrl-tab').forEach(t => t.classList.remove('active'));
+    panel.querySelectorAll('.ctrl-body').forEach(b => b.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(bodyId).classList.add('active');
+  }
+
+  // ── Filter type buttons ─────────────────────────────────
+  document.querySelectorAll('.filter-type-btns').forEach(group => {
+    group.querySelectorAll('.ftype-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.ftype-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  });
+
+  // ── Slice cell toggle (event delegation) ─────────────────
+  document.querySelectorAll('.section-block').forEach(block => {
+    block.addEventListener('click', e => {
+      const cell = e.target.closest('.cell');
+      if (!cell || cell.classList.contains('lit')) return;
+      if (cell.classList.contains('on')) {
+        cell.classList.replace('on', 'off');
+      } else {
+        cell.classList.replace('off', 'on');
+      }
+    });
+  });
+
+  // ── Grid control drag (Loop page) ────────────────────────
+  (function () {
+    let n = 4; // current grid value (1–16)
+
+    // Fixed layout per slice count — no empty slots, multi-column where possible.
+    // Primes (5,7,11,13) are single-column by necessity.
+    const LAYOUT = {
+       1: { cols:1, rows:1 },
+       2: { cols:1, rows:2 },
+       3: { cols:1, rows:3 },
+       4: { cols:2, rows:2 },
+       5: { cols:1, rows:5 },
+       6: { cols:2, rows:3 },
+       7: { cols:1, rows:7 },
+       8: { cols:2, rows:4 },
+       9: { cols:3, rows:3 },
+      10: { cols:2, rows:5 },
+      11: { cols:1, rows:11 },
+      12: { cols:3, rows:4 },
+      13: { cols:1, rows:13 },
+      14: { cols:2, rows:7 },
+      15: { cols:3, rows:5 },
+      16: { cols:4, rows:4 },
+    };
+    function layoutForN(val) { return LAYOUT[val]; }
+
+    function rebuildSections(val) {
+      const { cols, rows } = layoutForN(val);
+      document.querySelectorAll('.section-block').forEach(block => {
+        const container = block.querySelector('.section-cells');
+        container.className = 'section-cells';
+        container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        container.style.gridTemplateRows    = `repeat(${rows}, 1fr)`;
+        const prev = Array.from(container.children).map(c => c.classList.contains('on') || c.classList.contains('lit'));
+        container.innerHTML = '';
+        for (let i = 0; i < val; i++) {
+          const cell = document.createElement('div');
+          cell.className = (i === 0) ? 'cell on lit' : ((prev[i] ?? true) ? 'cell on' : 'cell off');
+          container.appendChild(cell);
+        }
+      });
+    }
+
+    const display = document.querySelector('.grid-display');
+    let drag = false, startY = 0, startN = 0;
+
+    display.addEventListener('mousedown', e => {
+      drag = true; startY = e.clientY; startN = n;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!drag) return;
+      const newN = Math.max(1, Math.min(16, Math.round(startN + (startY - e.clientY) / 12)));
+      if (newN !== n) {
+        n = newN;
+        display.textContent = `/${n}`;
+        rebuildSections(n);
+      }
+    });
+    document.addEventListener('mouseup', () => { drag = false; });
+
+    // Init
+    rebuildSections(n);
+  })();
+
+  // ── Envelope icon drag controls ─────────────────────────
+  (function () {
+    const xL = 6, xR = 30, yT = 6, yB = 54;
+
+    function updateEnv(svg) {
+      const line = svg.querySelector('.env-line');
+      const type = svg.dataset.type;
+      const raw  = parseFloat(svg.dataset.value);
+      const HL = 15, cx = 18, cy = 30; // center-pivot: all lines centered at (18,30)
+      const maxA = 50 * Math.PI / 180;
+      const f = n => +n.toFixed(2);
+
+      if (type === 'attack') {
+        // vertical at v=0, tilts / as v increases
+        const v = Math.max(0, Math.min(1, raw)); svg.dataset.value = v;
+        const θ = v * maxA;
+        line.setAttribute('x1', f(cx - HL * Math.sin(θ)));
+        line.setAttribute('y1', f(cy + HL * Math.cos(θ)));
+        line.setAttribute('x2', f(cx + HL * Math.sin(θ)));
+        line.setAttribute('y2', f(cy - HL * Math.cos(θ)));
+      } else if (type === 'decay' || type === 'release') {
+        // vertical at v=0, tilts \ as v increases (mirror of attack)
+        const v = Math.max(0, Math.min(1, raw)); svg.dataset.value = v;
+        const θ = v * maxA;
+        line.setAttribute('x1', f(cx - HL * Math.sin(θ)));
+        line.setAttribute('y1', f(cy - HL * Math.cos(θ)));
+        line.setAttribute('x2', f(cx + HL * Math.sin(θ)));
+        line.setAttribute('y2', f(cy + HL * Math.cos(θ)));
+      } else if (type === 'sustain') {
+        const v = Math.max(0, Math.min(1, raw)); svg.dataset.value = v;
+        const y = f(6 + (1 - v) * 48);
+        line.setAttribute('x1', cx - HL); line.setAttribute('y1', y);
+        line.setAttribute('x2', cx + HL); line.setAttribute('y2', y);
+      } else if (type === 'depth') {
+        const v = Math.max(-1, Math.min(1, raw)); svg.dataset.value = v;
+        const y = f(cy - v * 24);
+        line.setAttribute('x1', cx - HL); line.setAttribute('y1', y);
+        line.setAttribute('x2', cx + HL); line.setAttribute('y2', y);
+      }
+    }
+
+    document.querySelectorAll('.env-icon').forEach(svg => updateEnv(svg));
+
+    let drag = null, startY = 0, startVal = 0;
+
+    document.querySelectorAll('.env-icon').forEach(svg => {
+      svg.addEventListener('mousedown', e => {
+        drag = svg; startY = e.clientY;
+        startVal = parseFloat(svg.dataset.value);
+        svg.classList.add('dragging');
+        e.preventDefault();
+      });
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!drag) return;
+      const dy = startY - e.clientY;
+      const sensitivity = drag.dataset.type === 'depth' ? 1 / 80 : 1 / 150;
+      drag.dataset.value = startVal + dy * sensitivity;
+      updateEnv(drag);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (drag) { drag.classList.remove('dragging'); drag = null; }
+    });
+  })();
+
+  // ── Build SEQ lane cells ────────────────────────────────
+  const laneData = {
+    pos:   [0.9, 0.4, 0.7, 0.2, 0.6, 0.9, 0.3, 0.8, 0.5, 0.1, 0.7, 0.4, 0.9, 0.3, 0.6, 0.2],
+    vel:   [0.8, 0.5, 0.9, 0.3, 0.7, 0.4, 0.6, 0.9, 0.2, 0.8, 0.5, 0.3, 0.7, 0.1, 0.6, 0.4],
+    pitch: [0.5, 0.8, 0.3, 0.7, 0.4, 0.9, 0.2, 0.6, 0.1, 0.5, 0.8, 0.3, 0.7, 0.9, 0.4, 0.6],
+    dir:   [0.9, 0.9, 0.1, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9, 0.1, 0.9, 0.9, 0.1],
+  };
+  const litStep = { pos: 2, vel: 7, pitch: 11, dir: 4 };
+
+  // Always 4×4 = 16 cells; cells beyond `steps` turn inactive (black)
+  function rebuildLane(id, steps) {
+    const container = document.getElementById('lane-' + id);
+    container.innerHTML = '';
+    const vals = laneData[id];
+    const lit  = litStep[id] % steps;
+    for (let i = 0; i < 16; i++) {
+      const cell = document.createElement('div');
+      const v = vals[i];
+      cell.dataset.value = v;
+      if (i >= steps) {
+        cell.className = 'lcell inactive';
+      } else if (i === lit) {
+        cell.className = 'lcell lit';
+      } else {
+        cell.className = 'lcell';
+        cell.style.background = `hsl(0,0%,${Math.round(14 + v * 66)}%)`;
+      }
+      container.appendChild(cell);
+    }
+  }
+
+  // Initial build from data-steps
+  document.querySelectorAll('.step-val').forEach(el => {
+    rebuildLane(el.closest('.lane-block').dataset.lane, parseInt(el.dataset.steps));
+  });
+
+  // ── SEQ cell + steps + speed drag ────────────────────────
+  (function () {
+    let cellDrag = null, stepDrag = null, speedDrag = null;
+    let startY = 0, startVal = 0;
+
+    document.addEventListener('mousedown', e => {
+      const sv = e.target.closest('.step-val');
+      if (sv) { stepDrag = sv; startY = e.clientY; startVal = parseInt(sv.dataset.steps); e.preventDefault(); return; }
+      const spv = e.target.closest('.speed-val');
+      if (spv) { speedDrag = spv; startY = e.clientY; startVal = parseInt(spv.dataset.speed); e.preventDefault(); return; }
+      const cell = e.target.closest('.lcell:not(.lit):not(.inactive)');
+      if (!cell) return;
+      cellDrag = cell; startY = e.clientY;
+      startVal = parseFloat(cell.dataset.value ?? '0.5');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (stepDrag) {
+        const n = Math.max(1, Math.min(16, Math.round(startVal + (startY - e.clientY) / 8)));
+        if (n !== parseInt(stepDrag.dataset.steps)) {
+          stepDrag.dataset.steps = n; stepDrag.textContent = n;
+          rebuildLane(stepDrag.closest('.lane-block').dataset.lane, n);
+        }
+        return;
+      }
+      if (speedDrag) {
+        const n = Math.max(1, Math.min(16, Math.round(startVal + (startY - e.clientY) / 8)));
+        if (n !== parseInt(speedDrag.dataset.speed)) {
+          speedDrag.dataset.speed = n; speedDrag.textContent = `*${n}`;
+        }
+        return;
+      }
+      if (!cellDrag) return;
+      const v = Math.max(0, Math.min(1, startVal + (startY - e.clientY) / 100));
+      cellDrag.dataset.value = v;
+      cellDrag.style.background = `hsl(0,0%,${Math.round(14 + v * 66)}%)`;
+    });
+
+    document.addEventListener('mouseup', () => { cellDrag = null; stepDrag = null; speedDrag = null; });
+  })();
+</script>
+</body>
+</html>
