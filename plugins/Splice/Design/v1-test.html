@@ -93,6 +93,7 @@
     .mode-group {
       margin-left: auto;
       display: flex;
+      align-items: center;
       gap: 2px;
     }
 
@@ -112,6 +113,64 @@
     .mode-btn.active {
       color: var(--text);
       border-color: var(--border);
+    }
+
+    .mode-sep {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+      margin: 0 6px;
+    }
+
+    /* SEQ power toggle — sits right of the Seq tab */
+    .seq-power {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid var(--text-3);
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 6px;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      flex-shrink: 0;
+    }
+    .seq-power::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+      transition: background 0.15s;
+    }
+    .seq-power.active {
+      border-color: var(--seq-lit);
+      box-shadow: 0 0 6px var(--seq-lit);
+    }
+    .seq-power.active::after {
+      background: var(--seq-lit);
+    }
+
+    /* Hold button */
+    .hold-btn {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s, background 0.1s;
+    }
+    .hold-btn.active {
+      color: var(--text);
+      border-color: #C08030;
+      background: rgba(192,128,48,0.12);
     }
 
     /* ── PAGES ───────────────────────────────────────────── */
@@ -166,14 +225,18 @@
     }
     .cell.off { background: var(--bg-cell-off); }
 
-    .s1 .cell.on     { background: var(--s1); }
-    .s1 .cell.on.lit { background: var(--s1-lit); }
-    .s2 .cell.on     { background: var(--s2); }
-    .s2 .cell.on.lit { background: var(--s2-lit); }
-    .s3 .cell.on     { background: var(--s3); }
-    .s3 .cell.on.lit { background: var(--s3-lit); }
-    .s4 .cell.on     { background: var(--s4); }
-    .s4 .cell.on.lit { background: var(--s4-lit); }
+    .s1 .cell.on      { background: var(--s1); }
+    .s1 .cell.on.lit  { background: var(--s1-lit); }
+    .s1 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s1-lit); }
+    .s2 .cell.on      { background: var(--s2); }
+    .s2 .cell.on.lit  { background: var(--s2-lit); }
+    .s2 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s2-lit); }
+    .s3 .cell.on      { background: var(--s3); }
+    .s3 .cell.on.lit  { background: var(--s3-lit); }
+    .s3 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s3-lit); }
+    .s4 .cell.on      { background: var(--s4); }
+    .s4 .cell.on.lit  { background: var(--s4-lit); }
+    .s4 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s4-lit); }
 
     /* ── CONTROLS AREA (Loop page) ───────────────────────── */
     .controls-area {
@@ -416,15 +479,18 @@
   <span class="plugin-title">Splice</span>
   <span class="reel-name">C3 → no reel loaded</span>
 
-  <div class="page-tabs">
+  <div class="page-tabs" style="display:flex;align-items:center;">
     <button class="page-tab active" onclick="switchPage('loop', this)">Loop</button>
     <button class="page-tab" onclick="switchPage('seq', this)">Seq</button>
+    <button class="seq-power" id="seq-power" onclick="toggleSeq()" title="Sequencer on/off"></button>
   </div>
 
   <div class="mode-group">
     <button class="mode-btn active" onclick="setMode(this)">Poly</button>
     <button class="mode-btn" onclick="setMode(this)">Slice</button>
     <button class="mode-btn" onclick="setMode(this)">Arp</button>
+    <div class="mode-sep"></div>
+    <button class="hold-btn" id="hold-btn" onclick="toggleHold()">Hold</button>
   </div>
 </div>
 
@@ -688,16 +754,7 @@
 
   <!-- SEQ GLOBAL BAR -->
   <div class="seq-bar">
-    <div class="seq-item">
-      <span class="seq-item-label">Step Length</span>
-      <span class="seq-item-value">/16</span>
-    </div>
-    <div class="seq-item">
-      <span class="seq-item-label">Latch</span>
-      <span class="seq-item-value">Off</span>
-    </div>
     <div class="gen-btns">
-      <button class="gen-btn">On</button>
       <button class="gen-btn">Gen</button>
       <button class="gen-btn">Reset</button>
     </div>
@@ -719,6 +776,16 @@
     btn.closest('.mode-group').querySelectorAll('.mode-btn')
       .forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+  }
+
+  // ── SEQ power toggle ─────────────────────────────────────
+  function toggleSeq() {
+    document.getElementById('seq-power').classList.toggle('active');
+  }
+
+  // ── Hold toggle (Arp) ────────────────────────────────────
+  function toggleHold() {
+    document.getElementById('hold-btn').classList.toggle('active');
   }
 
   // ── Direction buttons (single-select per group) ─────────
@@ -751,7 +818,7 @@
   document.querySelectorAll('.section-block').forEach(block => {
     block.addEventListener('click', e => {
       const cell = e.target.closest('.cell');
-      if (!cell || cell.classList.contains('lit')) return;
+      if (!cell) return;
       if (cell.classList.contains('on')) {
         cell.classList.replace('on', 'off');
       } else {
@@ -762,32 +829,18 @@
 
   // ── Grid control drag (Loop page) ────────────────────────
   (function () {
-    let n = 4; // current grid value (1–16)
-
-    // Fixed layout per slice count — no empty slots, multi-column where possible.
-    // Primes (5,7,11,13) are single-column by necessity.
+    const STEPS  = [1, 2, 4, 8, 16];
     const LAYOUT = {
        1: { cols:1, rows:1 },
        2: { cols:1, rows:2 },
-       3: { cols:1, rows:3 },
        4: { cols:2, rows:2 },
-       5: { cols:1, rows:5 },
-       6: { cols:2, rows:3 },
-       7: { cols:1, rows:7 },
        8: { cols:2, rows:4 },
-       9: { cols:3, rows:3 },
-      10: { cols:2, rows:5 },
-      11: { cols:1, rows:11 },
-      12: { cols:3, rows:4 },
-      13: { cols:1, rows:13 },
-      14: { cols:2, rows:7 },
-      15: { cols:3, rows:5 },
       16: { cols:4, rows:4 },
     };
-    function layoutForN(val) { return LAYOUT[val]; }
+    let idx = 2; // default = /4
 
     function rebuildSections(val) {
-      const { cols, rows } = layoutForN(val);
+      const { cols, rows } = LAYOUT[val];
       document.querySelectorAll('.section-block').forEach(block => {
         const container = block.querySelector('.section-cells');
         container.className = 'section-cells';
@@ -804,25 +857,25 @@
     }
 
     const display = document.querySelector('.grid-display');
-    let drag = false, startY = 0, startN = 0;
+    let drag = false, startY = 0, startIdx = 0;
 
     display.addEventListener('mousedown', e => {
-      drag = true; startY = e.clientY; startN = n;
+      drag = true; startY = e.clientY; startIdx = idx;
       e.preventDefault();
     });
     document.addEventListener('mousemove', e => {
       if (!drag) return;
-      const newN = Math.max(1, Math.min(16, Math.round(startN + (startY - e.clientY) / 12)));
-      if (newN !== n) {
-        n = newN;
-        display.textContent = `/${n}`;
-        rebuildSections(n);
+      const newIdx = Math.max(0, Math.min(4, Math.round(startIdx + (startY - e.clientY) / 20)));
+      if (newIdx !== idx) {
+        idx = newIdx;
+        display.textContent = `/${STEPS[idx]}`;
+        rebuildSections(STEPS[idx]);
       }
     });
     document.addEventListener('mouseup', () => { drag = false; });
 
     // Init
-    rebuildSections(n);
+    rebuildSections(STEPS[idx]);
   })();
 
   // ── Envelope icon drag controls ─────────────────────────
