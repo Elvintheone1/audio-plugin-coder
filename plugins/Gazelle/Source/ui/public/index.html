@@ -32,11 +32,7 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
 .mx-led.b-on{background:#2080FF;box-shadow:0 0 7px #2080FF,0 0 14px #2080FF88}
 .mx-lbl{margin-top:5px;font-size:10px;color:#C4960A;letter-spacing:1px}
 
-/* ── FX SELECTOR ── */
-#fx-sel{position:absolute;display:flex;gap:2px}
-.fx-btn{padding:5px 9px;background:#0C1828;border:1px solid #1848A033;color:#1848A0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all 120ms}
-.fx-btn:hover{border-color:#1848A077;color:#4070C0}
-.fx-btn.active{background:#103060;border-color:#1848A0;color:#C4C4FF;box-shadow:0 0 8px rgba(24,72,160,0.5),inset 0 0 4px rgba(24,72,160,0.3)}
+
 
 
 /* ── TRIGGER CLUSTER ── */
@@ -131,7 +127,7 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
 <div id="title">✦ GAZELLE</div>
 <span class="sec-label" style="left:130px;top:10px">Filter</span>
 <span class="sec-label" style="left:370px;top:10px">Amp</span>
-<span class="sec-label" style="left:565px;top:10px">FX</span>
+<span class="sec-label" style="left:572px;top:10px">FX</span>
 
 <!-- ════════════════════════════════════════ -->
 <!-- FILTER  0 – 310 px                      -->
@@ -157,17 +153,22 @@ body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'C
 <div class="ctrl" data-p="output_level" data-min="0" data-max="1" data-def="1" data-v="1" data-col="#6A4800" data-sz="52" style="left:370px;top:345px"><svg width="52" height="52"></svg><div class="lbl">Out</div><div class="val">1.00</div></div>
 
 <!-- ════════════════════════════════════════ -->
-<!-- FX  510 – 665 px                        -->
+<!-- FX  510 – 685 px  (series: ring→delay→plate) -->
 <!-- ════════════════════════════════════════ -->
-<div id="fx-sel" style="left:515px;top:42px">
-  <button class="fx-btn active" data-t="0">TAPE</button>
-  <button class="fx-btn" data-t="1">RING</button>
-  <button class="fx-btn" data-t="2">PLATE</button>
-</div>
-
-<div class="ctrl" data-p="fx_p1" data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="52" style="left:516px;top:100px"><svg width="52" height="52"></svg><div class="lbl" id="p1-lbl">Time</div><div class="val">0.50</div></div>
-<div class="ctrl" data-p="fx_p2" data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="52" style="left:592px;top:118px"><svg width="52" height="52"></svg><div class="lbl" id="p2-lbl">Fdbk</div><div class="val">0.50</div></div>
-<div class="ctrl" data-p="fx_wet" data-min="0" data-max="1" data-def="0.3" data-v="0.3" data-col="#1848A0" data-sz="40" style="left:543px;top:265px"><svg width="40" height="40"></svg><div class="lbl">Wet</div><div class="val">0.30</div></div>
+<!-- Ring mod (top center hero) -->
+<div class="ctrl" data-p="fx_type" data-min="0" data-max="1" data-def="0" data-v="0" data-col="#1848A0" data-sz="36" style="left:580px;top:28px"><svg width="36" height="36"></svg><div class="lbl">Ring</div><div class="val">0%</div></div>
+<!-- DELAY column (left) -->
+<span class="sec-label" style="left:511px;top:82px">DELAY</span>
+<div class="ctrl" data-p="fx_p1"          data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="40" style="left:508px;top:92px"><svg width="40" height="40"></svg><div class="lbl">Time</div><div class="val">402ms</div></div>
+<div class="ctrl" data-p="delay_feedback" data-min="0" data-max="1" data-def="0.35" data-v="0.35" data-col="#1848A0" data-sz="32" style="left:512px;top:162px"><svg width="32" height="32"></svg><div class="lbl">Fdbk</div><div class="val">28%</div></div>
+<div class="ctrl" data-p="delay_mix"      data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="32" style="left:512px;top:218px"><svg width="32" height="32"></svg><div class="lbl">Mix</div><div class="val">50%</div></div>
+<!-- PLATE column (right) -->
+<span class="sec-label" style="left:629px;top:82px">PLATE</span>
+<div class="ctrl" data-p="plate_predelay" data-min="0" data-max="1" data-def="0" data-v="0" data-col="#1848A0" data-sz="32" style="left:632px;top:92px"><svg width="32" height="32"></svg><div class="lbl">PreD</div><div class="val">0ms</div></div>
+<div class="ctrl" data-p="fx_p2"          data-min="0" data-max="1" data-def="0.3" data-v="0.3" data-col="#1848A0" data-sz="40" style="left:628px;top:148px"><svg width="40" height="40"></svg><div class="lbl">Decay</div><div class="val">30%</div></div>
+<div class="ctrl" data-p="plate_mix"      data-min="0" data-max="1" data-def="0.3" data-v="0.3" data-col="#1848A0" data-sz="32" style="left:632px;top:222px"><svg width="32" height="32"></svg><div class="lbl">Mix</div><div class="val">30%</div></div>
+<!-- Master FX mix (bottom center) -->
+<div class="ctrl" data-p="fx_wet"         data-min="0" data-max="1" data-def="0.3" data-v="0.3" data-col="#1848A0" data-sz="36" style="left:580px;top:308px"><svg width="36" height="36"></svg><div class="lbl">Master</div><div class="val">30%</div></div>
 
 <!-- ════════════════════════════════════════ -->
 <!-- TRIGGER ZONE  665 – 1000 px             -->
@@ -391,6 +392,14 @@ function fmtVal(p, v) {
     if (p === 'eq_bass' || p === 'eq_mid' || p === 'eq_treble') {
         var db = v * 15; return (db >= 0 ? '+' : '') + db.toFixed(1) + 'dB';
     }
+    if (p === 'fx_type')        return Math.round(v * 100) + '%';
+    if (p === 'fx_p1')          { var ms = 5 + v * 795; return ms >= 1000 ? (ms/1000).toFixed(2)+'s' : Math.round(ms)+'ms'; }
+    if (p === 'fx_p2')          return Math.round(v * 100) + '%';
+    if (p === 'fx_wet')         return Math.round(v * 100) + '%';
+    if (p === 'delay_feedback') return Math.round(v * 80) + '%';
+    if (p === 'delay_mix')      return Math.round(v * 100) + '%';
+    if (p === 'plate_predelay') return Math.round(v * 80) + 'ms';
+    if (p === 'plate_mix')      return Math.round(v * 100) + '%';
     return v.toFixed(2);
 }
 
@@ -536,33 +545,6 @@ function setupMX(btnId, ledId, offCls, onCls, paramId) {
 setupMX('mx1', 'led1', 'r-off', 'r-on', 'trigger1');
 setupMX('mx2', 'led2', 'b-off', 'b-on', 'trigger2');
 
-// ════════════════════════════════════════════════════════
-// FX TYPE SELECTOR
-// ════════════════════════════════════════════════════════
-
-var fxLabels = [['Time','Fdbk'],['Freq','Depth'],['Pre-D','Decay']];
-var fxTypeState = window.Juce.getSliderState('fx_type');
-
-document.querySelectorAll('.fx-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.fx-btn').forEach(function(b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        var t = parseInt(btn.dataset.t);
-        document.getElementById('p1-lbl').textContent = fxLabels[t][0];
-        document.getElementById('p2-lbl').textContent = fxLabels[t][1];
-        try { fxTypeState.setNormalisedValue(t / 2.0); } catch(e) {}
-    });
-});
-
-// Sync FX selector from host recall
-fxTypeState.addValueChangedListener(function() {
-    var t = Math.round(fxTypeState.getNormalisedValue() * 2);
-    document.querySelectorAll('.fx-btn').forEach(function(b, i) {
-        b.classList.toggle('active', i === t);
-    });
-    document.getElementById('p1-lbl').textContent = fxLabels[t][0];
-    document.getElementById('p2-lbl').textContent = fxLabels[t][1];
-});
 
 </script>
 </body>

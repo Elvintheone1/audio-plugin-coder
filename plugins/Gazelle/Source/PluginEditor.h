@@ -57,10 +57,14 @@ private:
     juce::WebSliderRelay outputLevelRelay   { "output_level" };
 
     // FX
-    juce::WebSliderRelay fxTypeRelay        { "fx_type" };
-    juce::WebSliderRelay fxP1Relay          { "fx_p1" };
-    juce::WebSliderRelay fxP2Relay          { "fx_p2" };
-    juce::WebSliderRelay fxWetRelay         { "fx_wet" };
+    juce::WebSliderRelay fxTypeRelay          { "fx_type" };
+    juce::WebSliderRelay fxP1Relay            { "fx_p1" };
+    juce::WebSliderRelay fxP2Relay            { "fx_p2" };
+    juce::WebSliderRelay fxWetRelay           { "fx_wet" };
+    juce::WebSliderRelay delayFeedbackRelay   { "delay_feedback" };
+    juce::WebSliderRelay delayMixRelay        { "delay_mix" };
+    juce::WebSliderRelay platePredRelay       { "plate_predelay" };
+    juce::WebSliderRelay plateMixRelay        { "plate_mix" };
 
     // Triggers
     juce::WebToggleButtonRelay trigger1Relay { "trigger1" };
@@ -104,6 +108,10 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment>       fxP1Attachment;
     std::unique_ptr<juce::WebSliderParameterAttachment>       fxP2Attachment;
     std::unique_ptr<juce::WebSliderParameterAttachment>       fxWetAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment>       delayFeedbackAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment>       delayMixAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment>       platePredAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment>       plateMixAttachment;
 
     // Triggers
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> trigger1Attachment;

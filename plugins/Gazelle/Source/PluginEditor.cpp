@@ -54,13 +54,21 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
 
     // FX
     fxTypeAttachment        = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("fx_type"), fxTypeRelay);
+        (*audioProcessor.apvts.getParameter ("fx_type"),        fxTypeRelay);
     fxP1Attachment          = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("fx_p1"),   fxP1Relay);
+        (*audioProcessor.apvts.getParameter ("fx_p1"),          fxP1Relay);
     fxP2Attachment          = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("fx_p2"),   fxP2Relay);
+        (*audioProcessor.apvts.getParameter ("fx_p2"),          fxP2Relay);
     fxWetAttachment         = std::make_unique<juce::WebSliderParameterAttachment>
-        (*audioProcessor.apvts.getParameter ("fx_wet"),  fxWetRelay);
+        (*audioProcessor.apvts.getParameter ("fx_wet"),         fxWetRelay);
+    delayFeedbackAttachment = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("delay_feedback"),  delayFeedbackRelay);
+    delayMixAttachment      = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("delay_mix"),       delayMixRelay);
+    platePredAttachment     = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("plate_predelay"),  platePredRelay);
+    plateMixAttachment      = std::make_unique<juce::WebSliderParameterAttachment>
+        (*audioProcessor.apvts.getParameter ("plate_mix"),       plateMixRelay);
 
     // Triggers
     trigger1Attachment      = std::make_unique<juce::WebToggleButtonParameterAttachment>
@@ -106,6 +114,10 @@ GazelleAudioProcessorEditor::GazelleAudioProcessorEditor (GazelleAudioProcessor&
             .withOptionsFrom (fxP1Relay)
             .withOptionsFrom (fxP2Relay)
             .withOptionsFrom (fxWetRelay)
+            .withOptionsFrom (delayFeedbackRelay)
+            .withOptionsFrom (delayMixRelay)
+            .withOptionsFrom (platePredRelay)
+            .withOptionsFrom (plateMixRelay)
             // Trigger relays
             .withOptionsFrom (trigger1Relay)
             .withOptionsFrom (trigger2Relay)

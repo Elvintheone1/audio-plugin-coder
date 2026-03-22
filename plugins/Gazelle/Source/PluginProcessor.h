@@ -70,17 +70,13 @@ struct TptSvf
     // filterMode: 0 = LP, 1 = HP, 0.5 = BP (crossfade LP→HP)
     float tick (float in, float filterMode) noexcept
     {
-        // Self-oscillation guard: hard-clip IC states only when they exceed ±1.
-        // Replacing tanh (which ran EVERY sample and added ~14% damping/sample,
-        // killing any ring in <2ms) with a threshold clip that fires only when
-        // the integrators are genuinely overloading. Ring is preserved completely.
-        if (k < 0.10f)
-        {
-            if (ic1eq >  1.0f) ic1eq =  1.0f;
-            else if (ic1eq < -1.0f) ic1eq = -1.0f;
-            if (ic2eq >  1.0f) ic2eq =  1.0f;
-            else if (ic2eq < -1.0f) ic2eq = -1.0f;
-        }
+        // NaN/Inf guard only — do NOT hard-clip to ±1.
+        // The TPT SVF is unconditionally stable for k > 0 (minimum enforced in
+        // updateCoeffs). During ring-down at high Q, ic1eq/ic2eq hold a sinusoid
+        // whose amplitude = Q × excitation — easily ±10 to ±100 at res > 0.7.
+        // Clipping to ±1 bled energy every sample, shortening decay.
+        if (!std::isfinite (ic1eq)) ic1eq = 0.0f;
+        if (!std::isfinite (ic2eq)) ic2eq = 0.0f;
 
         float v3 = in - ic2eq;
         float v1 = a1 * ic1eq + a2 * v3;
@@ -322,9 +318,6 @@ private:
     float readCircular (const std::vector<float>& buf, int writePos,
                         float delaySamples) const noexcept;
 
-    //==============================================================================
-    // RING MODULATOR
-    float ringPhaseL = 0.0f, ringPhaseR = 0.0f;
 
     //==============================================================================
     // DATTORRO PLATE REVERB (for FX mode 2, Vintage Plate)
@@ -347,12 +340,8 @@ private:
     // DSP HELPERS
     float distort (float x, float sat) noexcept;
 
-    std::pair<float, float> processFX (float inL, float inR, int fxType,
-                                       float p1, float p2) noexcept;
-    std::pair<float, float> processTapeDelay (float inL, float inR,
-                                              float p1, float p2) noexcept;
-    std::pair<float, float> processRingMod   (float inL, float inR,
-                                              float p1, float p2) noexcept;
+    std::pair<float, float> processTapeDelay    (float inL, float inR,
+                                                  float p1, float p2) noexcept;
     std::pair<float, float> processVintagePlate (float inL, float inR,
                                                   float p1, float p2) noexcept;
 

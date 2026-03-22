@@ -71,14 +71,24 @@ GazelleAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<Param> ("output_level", "Output",
         NRange (0.0f, 1.0f), 1.0f));
 
-    // FX ENGINE
-    params.push_back (std::make_unique<Param> ("fx_type", "FX Type",
-        NRange (0.0f, 2.0f, 1.0f), 0.0f));   // step=1 → integer choice
-    params.push_back (std::make_unique<Param> ("fx_p1",   "FX P1",
+    // FX ENGINE (series: ring mod → tape delay → plate reverb)
+    params.push_back (std::make_unique<Param> ("fx_type", "Ring",
+        NRange (0.0f, 1.0f), 0.0f));   // ring mod amount: 0=sum only, 1=product only
+    params.push_back (std::make_unique<Param> ("fx_p1",   "Delay",
+        NRange (0.0f, 1.0f), 0.5f));   // tape delay time
+    params.push_back (std::make_unique<Param> ("fx_p2",   "Plate",
+        NRange (0.0f, 1.0f), 0.3f));   // plate reverb decay
+    params.push_back (std::make_unique<Param> ("fx_wet",  "FX Mix",
+        NRange (0.0f, 1.0f), 0.3f));
+
+    // FX — individual controls
+    params.push_back (std::make_unique<Param> ("delay_feedback",  "Delay Fdbk",
+        NRange (0.0f, 1.0f), 0.35f));
+    params.push_back (std::make_unique<Param> ("delay_mix",       "Delay Mix",
         NRange (0.0f, 1.0f), 0.5f));
-    params.push_back (std::make_unique<Param> ("fx_p2",   "FX P2",
-        NRange (0.0f, 1.0f), 0.5f));
-    params.push_back (std::make_unique<Param> ("fx_wet",  "FX Wet",
+    params.push_back (std::make_unique<Param> ("plate_predelay",  "Pre-Delay",
+        NRange (0.0f, 1.0f), 0.0f));
+    params.push_back (std::make_unique<Param> ("plate_mix",       "Plate Mix",
         NRange (0.0f, 1.0f), 0.3f));
 
     // TRIGGERS (momentary gate: JS sets true on mousedown, false on mouseup)
@@ -110,9 +120,6 @@ void GazelleAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBl
     tapePosL = tapePosR = 0;
     tapeFilterL = tapeFilterR = 0.0f;
     tapeLfoPhase = 0.0f;
-
-    // Ring mod phases
-    ringPhaseL = ringPhaseR = 0.0f;
 
     // Plate reverb
     initPlateReverb (sampleRate);
@@ -230,29 +237,6 @@ std::pair<float, float> GazelleAudioProcessor::processTapeDelay (float inL, floa
 }
 
 //==============================================================================
-// RING MODULATOR
-std::pair<float, float> GazelleAudioProcessor::processRingMod (float inL, float inR,
-                                                                float p1, float p2) noexcept
-{
-    // p1: carrier frequency 20–4000 Hz (exponential)
-    float carrierFreq = 20.0f * std::pow (200.0f, p1);
-
-    float cL = std::sin (ringPhaseL);
-    float cR = std::sin (ringPhaseR);
-
-    float step = juce::MathConstants<float>::twoPi / static_cast<float>(currentSampleRate);
-    ringPhaseL += step * carrierFreq;
-    ringPhaseR += step * (carrierFreq + 2.0f);   // +2 Hz L/R detuning for stereo width
-    if (ringPhaseL > juce::MathConstants<float>::twoPi) ringPhaseL -= juce::MathConstants<float>::twoPi;
-    if (ringPhaseR > juce::MathConstants<float>::twoPi) ringPhaseR -= juce::MathConstants<float>::twoPi;
-
-    // p2: modulation depth 0→1
-    float outL = inL * (1.0f - p2) + inL * cL * p2;
-    float outR = inR * (1.0f - p2) + inR * cR * p2;
-    return { outL, outR };
-}
-
-//==============================================================================
 // VINTAGE PLATE REVERB (Dattorro topology, pre-delay)
 std::pair<float, float> GazelleAudioProcessor::processVintagePlate (float inL, float inR,
                                                                       float p1, float p2) noexcept
@@ -270,20 +254,6 @@ std::pair<float, float> GazelleAudioProcessor::processVintagePlate (float inL, f
 
     // p2: decay amount (maps to plate reverb amount)
     return tickPlate (pdL, pdR, p2);
-}
-
-//==============================================================================
-std::pair<float, float> GazelleAudioProcessor::processFX (float inL, float inR,
-                                                            int fxType,
-                                                            float p1, float p2) noexcept
-{
-    switch (fxType)
-    {
-        case 0:  return processTapeDelay     (inL, inR, p1, p2);
-        case 1:  return processRingMod       (inL, inR, p1, p2);
-        case 2:  return processVintagePlate  (inL, inR, p1, p2);
-        default: return { inL, inR };
-    }
 }
 
 //==============================================================================
@@ -350,7 +320,7 @@ std::pair<float, float> GazelleAudioProcessor::tickPlate (float inL, float inR,
         for (auto& a : apf) std::fill (a.buf.begin(), a.buf.end(), 0.0f);
         for (auto& d : dl)  std::fill (d.buf.begin(), d.buf.end(), 0.0f);
         rvFdL = rvFdR = rvLP1 = rvLP2 = 0.0f;
-        return { inL, inR };
+        return { 0.0f, 0.0f };
     }
 
     float x = (inL + inR) * 0.5f;
@@ -395,8 +365,8 @@ std::pair<float, float> GazelleAudioProcessor::tickPlate (float inL, float inR,
     wetL = std::tanh (wetL * 0.4f);
     wetR = std::tanh (wetR * 0.4f);
 
-    return { inL + (wetL - inL) * amount,
-             inR + (wetR - inR) * amount };
+    // Return raw wet signal — caller applies its own wet/dry mix via plate_mix param.
+    return { wetL, wetR };
 }
 
 //==============================================================================
@@ -447,10 +417,14 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     eqMid.setPeakingEQ   (400.0f,  0.8f, eqMidParam   * kEqMaxDb, currentSampleRate);
     eqTreble.setHighShelf (2000.0f, eqTrebleParam * kEqMaxDb, currentSampleRate);
 
-    const int   fxType       = juce::roundToInt (apvts.getRawParameterValue ("fx_type")->load());
-    const float fxP1         = apvts.getRawParameterValue ("fx_p1") ->load();
-    const float fxP2         = apvts.getRawParameterValue ("fx_p2") ->load();
-    const float fxWet        = apvts.getRawParameterValue ("fx_wet") ->load();
+    const float ringAmount      = apvts.getRawParameterValue ("fx_type")        ->load();
+    const float fxP1            = apvts.getRawParameterValue ("fx_p1")          ->load();
+    const float fxP2            = apvts.getRawParameterValue ("fx_p2")          ->load();
+    const float fxWet           = apvts.getRawParameterValue ("fx_wet")         ->load();
+    const float delayFeedback   = apvts.getRawParameterValue ("delay_feedback") ->load();
+    const float delayMix        = apvts.getRawParameterValue ("delay_mix")      ->load();
+    const float platePre        = apvts.getRawParameterValue ("plate_predelay") ->load();
+    const float plateMix        = apvts.getRawParameterValue ("plate_mix")      ->load();
 
     const bool  trig1        = apvts.getRawParameterValue ("trigger1")->load() > 0.5f;
     const bool  trig2        = apvts.getRawParameterValue ("trigger2")->load() > 0.5f;
@@ -502,10 +476,12 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     //── Pre-compute spread cutoffs ────────────────────────────────────────────
     // Spread: semitone-based, unipolar [0,1].
-    // 0 → unison (both filters at cutoff), 1 → ±12 semitones (one octave apart).
-    // Filter i always lower, filter ii always higher.
-    const float spreadSemitones = spread * 12.0f;
-    const float spreadFactor    = std::pow (2.0f, spreadSemitones / 12.0f);
+    // Minimum 3-semitone total detuning (±1.5 semi) baked in at spread=0.
+    // This guarantees the two filters are NEVER in unison so filt1×filt2 always
+    // produces inharmonic sidebands rather than a clean octave (filt1² = f+2f).
+    // At spread=1: ±12 semitones per side (full octave apart each way).
+    const float halfSpreadSemi  = 1.5f + spread * 10.5f;   // [1.5, 12.0] semitones per side
+    const float spreadFactor    = std::pow (2.0f, halfSpreadSemi / 12.0f);
     const float cutoff1Base = juce::jlimit (20.0f, 15000.0f, cutoff / spreadFactor);  // i  — lower
     const float cutoff2Base = juce::jlimit (20.0f, 15000.0f, cutoff * spreadFactor);  // ii — higher
 
@@ -549,27 +525,33 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         pitch1State *= pitchDc1;
         pitch2State *= pitchDc2;
 
-        // ── Envelope → cutoff modulation ─────────────────────────────────
-        // The same AD envelope that gates the noise burst also pushes the cutoff
-        // up by up to 1 octave on trigger, then decays with it.  This sweeps the
-        // resonant peak through a wider range on each hit — more organic "ping".
-        const float envCutoffMod1 = 1.0f + env1Level;   // 1× (idle) → 2× (peak) = +1 oct
-        const float envCutoffMod2 = 1.0f + env2Level;
+        // ── Envelope → cutoff modulation (scaled by pitch sweep amount) ──
+        // Envelope pushes cutoff up on trigger — but only when sweep > 0.
+        // sweepNorm=0 → no pitch movement at all; sweepNorm=1 → up to +1 oct.
+        // At sweep=0 the filter stays locked on the cutoff knob frequency.
+        const float sweepNorm1    = pitchSweep1 / 24.0f;
+        const float sweepNorm2    = pitchSweep2 / 24.0f;
+        const float envCutoffMod1 = 1.0f + env1Level * sweepNorm1;
+        const float envCutoffMod2 = 1.0f + env2Level * sweepNorm2;
         const float instCutoff1 = cutoff1Base * std::pow (2.0f, pitch1State / 12.0f) * envCutoffMod1;
         const float instCutoff2 = cutoff2Base * std::pow (2.0f, pitch2State / 12.0f) * envCutoffMod2;
         filter1.updateCoeffs (instCutoff1, smoothedResonance, currentSampleRate);
         filter2.updateCoeffs (instCutoff2, smoothedResonance, currentSampleRate);
 
         // ── Dual SVF filters ──────────────────────────────────────────────
-        // No input scaling: noise is now bipolar [-1,+1] (DC = 0), so integrator
-        // ICs oscillate around 0.  The hard-clip guard in tick() bounds them to
-        // ±1 only when the ring amplitude genuinely overloads — not constantly.
-        // High resonance → large ring amplitude → healthy output level. ✓
         const float filt1 = filter1.tick (noise1, filter1Mode);
         const float filt2 = filter2.tick (noise2, filter2Mode);
 
-        // ── Sum filter paths ──────────────────────────────────────────────
-        float sig = (filt1 + filt2) * 0.5f;
+        // ── Ring mod blend ────────────────────────────────────────────────
+        // directSum:   (filt1+filt2)/2 — normal parallel mix, range ±1
+        // ringProduct: filt1×filt2     — creates sum (f1+f2) and difference
+        //              (f1−f2) sidebands.  At spread=0 (min 3 semi) this is
+        //              always inharmonic; at large spread gives metallic clang.
+        //              Product of two ±1 signals is bounded ±1 — same range.
+        // ringAmount=0 → pure sum; ringAmount=1 → pure product; blend between.
+        const float directSum   = (filt1 + filt2) * 0.5f;
+        const float ringProduct =  filt1 * filt2;
+        float sig = directSum * (1.0f - ringAmount) + ringProduct * ringAmount;
 
         // ── 3-band EQ (Bass shelf → Mid peak → Treble shelf) ─────────────
         sig = eqBass.tick (sig);
@@ -582,10 +564,18 @@ void GazelleAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         // ── VCA — output level after saturation ───────────────────────────
         const float vcaSig = distOut * outputLevel;
 
-        // ── FX engine ─────────────────────────────────────────────────────
-        auto [fxL, fxR] = processFX (vcaSig, vcaSig, fxType, fxP1, fxP2);
+        // ── FX engine: tape delay → plate (series) ────────────────────────
+        // 1. Tape delay: fxP1 = time, delayFeedback = feedback amount
+        auto [dlWetL, dlWetR] = processTapeDelay (vcaSig, vcaSig, fxP1, delayFeedback);
+        const float afterDelL = vcaSig + (dlWetL - vcaSig) * delayMix;
+        const float afterDelR = vcaSig + (dlWetR - vcaSig) * delayMix;
 
-        // ── FX wet/dry mix ────────────────────────────────────────────────
+        // 2. Plate reverb: platePre = pre-delay, fxP2 = decay; returns raw wet
+        auto [plWetL, plWetR] = processVintagePlate (afterDelL, afterDelR, platePre, fxP2);
+        const float fxL = afterDelL + (plWetL - afterDelL) * plateMix;
+        const float fxR = afterDelR + (plWetR - afterDelR) * plateMix;
+
+        // 3. Master FX wet/dry — blends full FX chain against dry VCA signal
         const float mixL = vcaSig + (fxL - vcaSig) * fxWet;
         const float mixR = vcaSig + (fxR - vcaSig) * fxWet;
 
