@@ -58,11 +58,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     auto logTo   = [] (float start, float end, float value)
         { return std::log (value / start) / std::log (end / start); };
 
-    auto atkRange = juce::NormalisableRange<float> (0.0001f, 0.3f, logFrom, logTo); // 0.1–300 ms
+    auto atkRange = juce::NormalisableRange<float> (0.0005f, 0.3f, logFrom, logTo); // 0.5–300 ms
     auto relRange = juce::NormalisableRange<float> (0.001f, 1.0f, logFrom, logTo); // 1 ms–1 s
     auto linRange = juce::NormalisableRange<float> (0.0f, 1.0f);
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack",  "Attack",  atkRange,  0.005f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack",  "Attack",  atkRange,  0.0005f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay",   "Decay",   atkRange,  0.1f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_sustain", "Sustain", linRange,  1.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_release", "Release", relRange,  0.1f));
@@ -123,8 +123,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     layout.add (std::make_unique<juce::AudioParameterFloat> ("pitch", "Pitch",
         juce::NormalisableRange<float> (-24.0f, 24.0f), 0.0f));
     layout.add (std::make_unique<juce::AudioParameterInt>   ("root_note", "Root Note", 0, 127, 60));
-    layout.add (std::make_unique<juce::AudioParameterChoice> ("speed", "Speed",
-        juce::StringArray { "/3", "/2", "x1", "x1.5", "x2", "x3", "x4", "x8", "x16", "x32", "x64" }, 2));  // default x1
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("speed", "Speed",
+        juce::NormalisableRange<float> (0.0f, 8.0f, 1.0f), 2.0f));  // 9 steps: 0=/3 … 8=x16, default=2=x1
     layout.add (std::make_unique<juce::AudioParameterFloat> ("pan",     "Pan",
         juce::NormalisableRange<float> (-1.0f, 1.0f), 0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("pan_rnd", "Pan Rnd", linRange, 0.0f));
@@ -209,11 +209,14 @@ std::pair<int, int> SpliceAudioProcessor::getSliceRange (int sliceIdx) const
 }
 
 void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int sliceIdx,
-                                          float atk, float dec, float sus)
+                                          float atk, float dec, float sus,
+                                          int dirOverride, float extraPitchSt)
 {
     if (reelBuffer.getNumSamples() == 0) return;
 
-    const int sliceDirIdx = static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
+    const int sliceDirIdx = (dirOverride >= 0)
+        ? dirOverride
+        : static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
 
     // Voice stealing priority: idle → oldest releasing → oldest sustaining
     int victimIdx = -1;
@@ -261,7 +264,7 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.age                = voiceAge++;
     v.slicePhase         = 0.0;
 
-    setupSlicePlayback (v, sliceDirIdx);
+    setupSlicePlayback (v, sliceDirIdx, extraPitchSt);
     v.ampEnv.noteOn (atk, dec, sus, currentSampleRate);
 
     // Filter envelope — AD shape (sustain=0, decays fully back to base cutoff)
@@ -281,26 +284,114 @@ void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
 }
 
 //==============================================================================
-void SpliceAudioProcessor::setupSlicePlayback (SpliceVoice& v, int sliceDirIdx)
+// RubberBand pitch-shift: extract the slice, process offline, store in v.pitchBuffer.
+// totalPitchSt = semitones (positive = up). reverse = play backwards.
+// Slice lengths > 10 s are skipped (fall back to rate-based) to avoid audio-thread spikes.
+void SpliceAudioProcessor::renderPitchBuffer (SpliceVoice& v, float totalPitchSt, bool reverse)
+{
+#if SPLICE_HAS_RUBBERBAND
+    using RBS = RubberBand::RubberBandStretcher;
+
+    auto [start, end] = getSliceRange (v.currentSliceIdx);
+    const int numSamples = end - start;
+    if (numSamples <= 0 || numSamples > static_cast<int> (reelSampleRate * 10.0)) return;
+
+    const int nCh = reelBuffer.getNumChannels();
+
+    // Build a temporary buffer of the slice (reversed if needed)
+    juce::AudioBuffer<float> sliceBuf (nCh, numSamples);
+    for (int ch = 0; ch < nCh; ++ch)
+    {
+        const float* src = reelBuffer.getReadPointer (ch) + start;
+        float*       dst = sliceBuf.getWritePointer (ch);
+        if (reverse)
+            for (int i = 0; i < numSamples; ++i)
+                dst[i] = src[numSamples - 1 - i];
+        else
+            std::memcpy (dst, src, static_cast<size_t> (numSamples) * sizeof (float));
+    }
+
+    // Set up RubberBand (offline, high-quality pitch)
+    RBS rb (static_cast<size_t> (reelSampleRate),
+            static_cast<size_t> (nCh),
+            RBS::OptionProcessOffline |
+            RBS::OptionPitchHighConsistency);
+    rb.setTimeRatio  (1.0);
+    rb.setPitchScale (std::pow (2.0, static_cast<double> (totalPitchSt) / 12.0));
+
+    // Build input pointer array
+    std::vector<const float*> inPtrs (static_cast<size_t> (nCh));
+    for (int ch = 0; ch < nCh; ++ch)
+        inPtrs[static_cast<size_t> (ch)] = sliceBuf.getReadPointer (ch);
+
+    // Study + process passes (offline mode)
+    rb.study (inPtrs.data(), static_cast<size_t> (numSamples), true);
+    rb.process (inPtrs.data(), static_cast<size_t> (numSamples), true);
+
+    // Retrieve output
+    const int available = rb.available();
+    if (available <= 0) return;
+
+    v.pitchBuffer.setSize (nCh, available, false, true, false);
+    std::vector<float*> outPtrs (static_cast<size_t> (nCh));
+    for (int ch = 0; ch < nCh; ++ch)
+        outPtrs[static_cast<size_t> (ch)] = v.pitchBuffer.getWritePointer (ch);
+    rb.retrieve (outPtrs.data(), static_cast<size_t> (available));
+
+    v.usesPitchBuffer = true;
+    v.pitchBufEnd     = available;
+    // startSample/endSample mirror the pitch buffer bounds (used for Poly sustain clamp)
+    v.startSample = 0;
+    v.endSample   = available;
+#else
+    juce::ignoreUnused (v, totalPitchSt, reverse);
+#endif
+}
+
+//==============================================================================
+void SpliceAudioProcessor::setupSlicePlayback (SpliceVoice& v, int sliceDirIdx,
+                                                float extraPitchSt)
 {
     auto [start, end] = getSliceRange (v.currentSliceIdx);
     if (end <= start) return;
 
+    v.usesPitchBuffer = false;
+
+    const float globalPitch  = apvts.getRawParameterValue ("pitch")->load();
+    const int   rootNote     = static_cast<int> (apvts.getRawParameterValue ("root_note")->load());
+    const int   modeForPitch = static_cast<int> (apvts.getRawParameterValue ("playback_mode")->load());
+    const float chromatic    = (modeForPitch == 1 || modeForPitch == 2 || modeForPitch == 3) ? 0.0f
+                                    : static_cast<float> (v.midiNote - rootNote);
+    const float totalPitchSt = globalPitch + chromatic + extraPitchSt;
+    const bool  reverse      = (sliceDirIdx == 1);
+
+#if SPLICE_HAS_RUBBERBAND
+    if (totalPitchSt != 0.0f)
+    {
+        renderPitchBuffer (v, totalPitchSt, reverse);
+        if (v.usesPitchBuffer)
+        {
+            // Play the pitch buffer at the sample-rate-only rate (no pitch factor)
+            const float srRate = static_cast<float> (reelSampleRate / currentSampleRate);
+            v.playRate = reverse ? -srRate : srRate;
+            v.playhead = reverse ? static_cast<float> (v.pitchBufEnd - 1) : 0.0f;
+            return;
+        }
+    }
+#endif
+
+    // Fallback: rate-based pitch (original behaviour)
     v.startSample = start;
     v.endSample   = end;
+    const float pitchFactor = std::pow (2.0f, totalPitchSt / 12.0f);
+    const float baseRate    = static_cast<float> (reelSampleRate / currentSampleRate) * pitchFactor;
 
-    const float globalPitch    = apvts.getRawParameterValue ("pitch")->load();
-    const int   rootNote       = static_cast<int> (apvts.getRawParameterValue ("root_note")->load());
-    const float chromatic      = static_cast<float> (v.midiNote - rootNote);  // semitones from root
-    const float pitchFactor    = std::pow (2.0f, (globalPitch + chromatic) / 12.0f);
-    const float baseRate       = static_cast<float> (reelSampleRate / currentSampleRate) * pitchFactor;
-
-    if (sliceDirIdx == 1) // reverse
+    if (reverse)
     {
         v.playRate = -baseRate;
         v.playhead = static_cast<float> (end - 1);
     }
-    else // forward (pingpong treated as forward initially; random = forward)
+    else
     {
         v.playRate = baseRate;
         v.playhead = static_cast<float> (start);
@@ -360,6 +451,24 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // Hold toggle: when hold turns OFF, release all voices whose gate we were holding open
+    const bool holdActive = apvts.getRawParameterValue ("arp_hold")->load() > 0.5f;
+    if (lastHoldState && ! holdActive)
+    {
+        for (int i = 0; i < kNumVoices; ++i)
+            if (voices[i].active && voices[i].gateOpen)
+            {
+                voices[i].gateOpen = false;
+                voices[i].ampEnv.noteOff (apvts.getRawParameterValue ("amp_release")->load(),
+                                          currentSampleRate);
+            }
+        polyGateOpen      = false;
+        polyHeldNoteCount = 0;
+        arpNoteCount      = 0;
+        arpPhase          = 0.0;
+    }
+    lastHoldState = holdActive;
+
     // Stuck-note guard: if the Poly gate claims open but all voices are idle,
     // a note-off was missed — reset so the next key press works.
     if (polyGateOpen)
@@ -369,7 +478,6 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             anyActive = voices[i].active;
         if (! anyActive)
         {
-            fprintf (stderr, "[STUCK-NOTE GUARD] polyGateOpen was true but no active voices — resetting\n");
             polyGateOpen      = false;
             polyHeldNoteCount = 0;
         }
@@ -384,6 +492,15 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float sus  = apvts.getRawParameterValue ("amp_sustain")->load();
     const float relS = apvts.getRawParameterValue ("amp_release")->load();
     const int modeIdx = static_cast<int> (apvts.getRawParameterValue ("playback_mode")->load());
+
+    // Reset SEQ phase + step counters when not in SEQ mode.
+    // This aligns all lanes to step 0 on every disable, so re-enabling
+    // always starts from a clean, synced state (traditional sequencer reset).
+    if (modeIdx != 3)
+    {
+        seqPhase.fill (0.0);
+        seqStep.fill  (0);
+    }
 
     const float volDbFactor = std::pow (10.0f, apvts.getRawParameterValue ("vol_db")->load() / 20.0f);
     smoothedOutputVol.setTargetValue (apvts.getRawParameterValue ("output_vol")->load() * volDbFactor);
@@ -406,9 +523,6 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 if (modeIdx == 0) // ── POLY: each key spawns its own voice stream ──
                 {
-                    fprintf (stderr, "[POLY NOTE-ON]  note=%d gateOpen=%d heldCount=%d reelSamples=%d totalSlices=%d\n",
-                             note, (int)polyGateOpen, polyHeldNoteCount, reelBuffer.getNumSamples(), totalSlices);
-
                     polyMidiNote = note;
                     polyVelocity = vel;
 
@@ -428,51 +542,83 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     if (startSlice < 64 && ! sliceActive[static_cast<size_t> (startSlice)])
                         startSlice = advanceSeqSlice (startSlice, polySeqPingDir, reelDirMidi, totalSlices);
 
-                    fprintf (stderr, "[POLY NOTE-ON]  -> startSlice=%d sliceActive=%d\n",
-                             startSlice, (int)(startSlice < 64 ? sliceActive[startSlice] : false));
-
                     if (startSlice < 64 && sliceActive[static_cast<size_t> (startSlice)])
                         allocateVoice (note, vel, startSlice, atkS, decS, sus);
                 }
-                else // ── SLICE / ARP / SEQ ─────────────────────────────────
+                else if (modeIdx == 1) // ── SLICE: each key = one slice, one-shot ──
                 {
-                    int sliceIdx = 0;
-                    if (modeIdx == 1) // SLICE: C1 (24) → slice 0
-                        sliceIdx = juce::jlimit (0, totalSlices - 1, note - 24);
-
-                    const bool sliceMuted = (modeIdx == 1)
-                        && (sliceIdx < 64)
-                        && ! sliceActive[static_cast<size_t> (sliceIdx)];
-
-                    if (! sliceMuted)
+                    const int sliceIdx = juce::jlimit (0, totalSlices - 1, note - 24);
+                    if (sliceIdx < 64 && sliceActive[static_cast<size_t> (sliceIdx)])
                         allocateVoice (note, vel, sliceIdx, atkS, decS, sus);
+                }
+                else if (modeIdx == 2) // ── ARP: add note to held list ────────────
+                {
+                    // Avoid duplicates
+                    bool found = false;
+                    for (int n = 0; n < arpNoteCount; ++n)
+                        if (arpHeldNotes[n] == note) { found = true; break; }
+                    if (! found && arpNoteCount < kMaxArpNotes)
+                    {
+                        arpHeldNotes[arpNoteCount] = note;
+                        arpHeldVels [arpNoteCount] = vel;
+                        ++arpNoteCount;
+                    }
+                    // Reset phase on first note so playback starts promptly
+                    if (arpNoteCount == 1)
+                    {
+                        arpPhase   = 0.0;
+                        arpSeqIdx  = 0;
+                        arpPingDir = 1;
+                    }
                 }
             }
             else if (msg.isNoteOff() || (msg.isNoteOn() && msg.getVelocity() == 0))
             {
                 if (modeIdx == 0) // ── POLY note-off ──────────────────────────
                 {
-                    fprintf (stderr, "[POLY NOTE-OFF] note=%d gateOpen=%d heldCount=%d\n",
-                             msg.getNoteNumber(), (int)polyGateOpen, polyHeldNoteCount);
-
-                    // Always release this key's voice(s)
-                    releaseVoice (msg.getNoteNumber(), relS);
-
-                    if (polyHeldNoteCount > 0)
+                    if (holdActive)
                     {
-                        polyHeldNoteCount--;
-                        fprintf (stderr, "[POLY NOTE-OFF] -> key up, heldCount now=%d gate stays open\n", polyHeldNoteCount);
+                        // Hold is active: ignore key-up, keep voice running
                     }
                     else
                     {
-                        // Last key up — close the gate so the sequencer stops spawning
-                        polyGateOpen = false;
-                        fprintf (stderr, "[POLY NOTE-OFF] -> last key up, gate closed\n");
+                        releaseVoice (msg.getNoteNumber(), relS);
+
+                        if (polyHeldNoteCount > 0)
+                            polyHeldNoteCount--;
+                        else
+                            polyGateOpen = false;
                     }
                 }
-                else
+                else if (modeIdx == 1)
                 {
                     releaseVoice (msg.getNoteNumber(), relS);
+                }
+                else if (modeIdx == 2) // ── ARP note-off ──────────────────────────
+                {
+                    if (! holdActive)
+                    {
+                        const int offNote = msg.getNoteNumber();
+                        for (int n = 0; n < arpNoteCount; ++n)
+                        {
+                            if (arpHeldNotes[n] == offNote)
+                            {
+                                // Compact the array
+                                for (int k = n; k < arpNoteCount - 1; ++k)
+                                {
+                                    arpHeldNotes[k] = arpHeldNotes[k + 1];
+                                    arpHeldVels [k] = arpHeldVels [k + 1];
+                                }
+                                --arpNoteCount;
+                                // Keep seqIdx in bounds
+                                if (arpNoteCount > 0)
+                                    arpSeqIdx = arpSeqIdx % arpNoteCount;
+                                else
+                                    arpPhase = 0.0;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -491,8 +637,8 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         // BPM clock parameters
         const float  bpm          = apvts.getRawParameterValue ("bpm")->load();
-        static constexpr float kSpeedTable[] = { 1.0f/3.0f, 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 8.0f, 16.0f, 32.0f, 64.0f };
-        const int    speedIdx     = juce::jlimit (0, 10, static_cast<int> (apvts.getRawParameterValue ("speed")->load()));
+        static constexpr float kSpeedTable[] = { 1.0f/3.0f, 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 8.0f, 16.0f };
+        const int    speedIdx     = juce::jlimit (0, 8, static_cast<int> (apvts.getRawParameterValue ("speed")->load()));
         const float  speedFactor  = kSpeedTable[speedIdx];
         const int    gridVal      = getGridValue();
         const int    totalSlices  = 4 * gridVal;
@@ -502,15 +648,128 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const int reelDirIdx  = static_cast<int> (apvts.getRawParameterValue ("reel_dir")->load());
 
         // SVF type and fenv parameters (read once per block, applied per-sample)
-        const int   filterTypeIdx = static_cast<int> (apvts.getRawParameterValue ("filter_type")->load());
-        const float fenvDepth     = apvts.getRawParameterValue ("fenv_depth")->load();
-        const float fenvAtkBlock  = apvts.getRawParameterValue ("fenv_attack")->load();
-        const float fenvDecBlock  = apvts.getRawParameterValue ("fenv_decay") ->load();
-        const int   sliceDirIdx   = static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
+        const int   filterTypeIdx  = static_cast<int> (apvts.getRawParameterValue ("filter_type")->load());
+        const float filterCutoffHz = apvts.getRawParameterValue ("filter_cutoff")->load();
+        const float filterResVal   = apvts.getRawParameterValue ("filter_res")   ->load();
+        const float fenvDepth      = apvts.getRawParameterValue ("fenv_depth")->load();
+        const float fenvAtkBlock   = apvts.getRawParameterValue ("fenv_attack")->load();
+        const float fenvDecBlock   = apvts.getRawParameterValue ("fenv_decay") ->load();
+        const int   sliceDirIdx    = static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
+
+        // Arp pattern: build sorted note order once per block (≤32 elements)
+        const int arpPatternIdx = static_cast<int> (apvts.getRawParameterValue ("arp_pattern")->load());
+        int arpSorted[kMaxArpNotes];
+        for (int n = 0; n < arpNoteCount; ++n) arpSorted[n] = n;  // indices into arpHeldNotes
+        if (arpPatternIdx == 0 || arpPatternIdx == 1 || arpPatternIdx == 2) // up / down / updown
+        {
+            // Sort by note number ascending
+            for (int a = 0; a < arpNoteCount - 1; ++a)
+                for (int b = a + 1; b < arpNoteCount; ++b)
+                    if (arpHeldNotes[arpSorted[a]] > arpHeldNotes[arpSorted[b]])
+                        std::swap (arpSorted[a], arpSorted[b]);
+            if (arpPatternIdx == 1) // down: reverse
+                for (int a = 0, b = arpNoteCount - 1; a < b; ++a, --b)
+                    std::swap (arpSorted[a], arpSorted[b]);
+        }
+        // as-played (3): arpSorted stays as-is (identity)
+        // random (4): handled per-tick below
 
         // ── Sample-accurate rendering ─────────────────────────────────────────
         for (int s = 0; s < numSamples; ++s)
         {
+            // ── Arp clock ─────────────────────────────────────────────────────
+            if (modeIdx == 2 && arpNoteCount > 0)
+            {
+                arpPhase += slicePhaseInc;
+                if (arpPhase >= 1.0)
+                {
+                    arpPhase -= 1.0;
+
+                    // Advance sequence index
+                    if (arpPatternIdx == 2) // updown pingpong
+                    {
+                        arpSeqIdx += arpPingDir;
+                        if (arpSeqIdx >= arpNoteCount - 1 || arpSeqIdx <= 0)
+                            arpPingDir = -arpPingDir;
+                        arpSeqIdx = juce::jlimit (0, arpNoteCount - 1, arpSeqIdx);
+                    }
+                    else if (arpPatternIdx == 4) // random
+                    {
+                        arpSeqIdx = juce::Random::getSystemRandom().nextInt (arpNoteCount);
+                    }
+                    else
+                    {
+                        arpSeqIdx = (arpSeqIdx + 1) % arpNoteCount;
+                    }
+
+                    const int noteIdx  = (arpPatternIdx == 4) ? arpSeqIdx : arpSorted[arpSeqIdx % arpNoteCount];
+                    const int note     = arpHeldNotes[noteIdx];
+                    const float vel    = arpHeldVels [noteIdx];
+                    const int sliceIdx = juce::jlimit (0, totalSlices - 1, note - 24);
+
+                    if (sliceIdx < 64 && sliceActive[static_cast<size_t> (sliceIdx)])
+                        allocateVoice (note, vel, sliceIdx, atkS, decS, sus);
+                }
+            }
+
+            // ── SEQ clock ─────────────────────────────────────────────────────
+            if (modeIdx == 3)
+            {
+                // Advance each lane independently using the shared speed table
+                for (int L = 0; L < 4; ++L)
+                {
+                    const int   idx    = juce::jlimit (0, 8, seqSpeedMult[L]);
+                    const float lSpeed = kSpeedTable[idx];
+                    seqPhase[L] += slicePhaseInc * lSpeed;
+                }
+
+                // POS lane (L=0) drives triggers
+                if (seqPhase[0] >= 1.0)
+                {
+                    seqPhase[0] -= 1.0;
+                    seqStep[0] = (seqStep[0] + 1) % seqStepCount[0];
+
+                    const float posVal   = laneValues[0][seqStep[0]];
+                    const float velVal   = laneValues[1][seqStep[1]];
+                    const float pitchVal = laneValues[2][seqStep[2]];
+                    const float dirVal   = laneValues[3][seqStep[3]];
+
+                    // Build active-slice pool: all toggle-ON slices across all sections
+                    int activePool[64];
+                    int poolSize = 0;
+                    for (int i = 0; i < totalSlices && i < 64; ++i)
+                        if (sliceActive[static_cast<size_t> (i)])
+                            activePool[poolSize++] = i;
+
+                    if (poolSize > 0)
+                    {
+                        // POS 0-1 → pool index (evenly distributed across active slices)
+                        const int poolIdx  = juce::jlimit (0, poolSize - 1,
+                                                juce::roundToInt (posVal * (poolSize - 1)));
+                        const int sliceIdx = activePool[poolIdx];
+
+                        // PITCH: 0-1 → ±24 semitones (0.5 = 0 st)
+                        const float extraPitch = (pitchVal - 0.5f) * 48.0f;
+
+                        // DIR: binary — below 0.5 = rev, at/above 0.5 = fwd
+                        const int dirOverride = (dirVal < 0.5f) ? 1 : 0;
+
+                        allocateVoice (60, velVal, sliceIdx, atkS, decS, sus,
+                                       dirOverride, extraPitch);
+                    }
+                }
+
+                // Advance non-POS lanes
+                for (int L = 1; L < 4; ++L)
+                {
+                    if (seqPhase[L] >= 1.0)
+                    {
+                        seqPhase[L] -= 1.0;
+                        seqStep[L] = (seqStep[L] + 1) % seqStepCount[L];
+                    }
+                }
+            }
+
             // ── Render all active voices for this sample ──────────────────────
             for (int i = 0; i < kNumVoices; ++i)
             {
@@ -519,11 +778,36 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 if (modeIdx == 0 && v.gateOpen)
                 {
-                    // Per-voice BPM clock: retrigger same voice inline — no deferred spawn, no gap
+                    // Per-voice BPM clock
                     v.slicePhase += slicePhaseInc;
                     if (v.slicePhase >= 1.0)
                     {
                         v.slicePhase -= 1.0;
+
+                        // Ghost copy: duplicate voice state, enter release immediately
+                        // — its tail smears freely into the next slice's audio territory
+                        int ghostIdx = -1;
+                        for (int j = 0; j < kNumVoices && ghostIdx < 0; ++j)
+                            if (j != i && ! voices[j].active) ghostIdx = j;
+                        if (ghostIdx < 0)
+                        {
+                            int minAge = INT_MAX;
+                            for (int j = 0; j < kNumVoices; ++j)
+                                if (j != i && voices[j].active && ! voices[j].gateOpen
+                                    && voices[j].age < minAge)
+                                    { minAge = voices[j].age; ghostIdx = j; }
+                        }
+                        if (ghostIdx >= 0)
+                        {
+                            voices[ghostIdx]            = v;
+                            voices[ghostIdx].gateOpen   = false;
+                            voices[ghostIdx].sliceEnded = true;
+                            voices[ghostIdx].age        = voiceAge++;
+                            voices[ghostIdx].active     = true;
+                            voices[ghostIdx].ampEnv.noteOff (relS, currentSampleRate);
+                        }
+
+                        // Retrigger main voice for next slice (inline — exact timing, no jitter)
                         v.currentSliceIdx = advanceSeqSlice (v.currentSliceIdx, v.pingpongDir,
                                                               reelDirIdx, totalSlices);
                         setupSlicePlayback (v, sliceDirIdx);
@@ -534,26 +818,43 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
                 else if (modeIdx != 0 && ! v.sliceEnded)
                 {
-                    // Non-Poly: detect slice end → trigger release
+                    // Non-Poly: detect slice end → start release, but keep playing
                     const bool hitEnd = (v.playRate >= 0.0f)
                         ? v.playhead >= static_cast<float> (v.endSample - 1)
                         : v.playhead <= static_cast<float> (v.startSample);
                     if (hitEnd)
                     {
-                        v.sliceEnded = true;
+                        v.sliceEnded = true;   // prevents re-triggering noteOff
                         v.ampEnv.noteOff (relS, currentSampleRate);
+                        // playhead continues — release tail plays freely into buffer
                     }
                 }
 
                 const float envGain = v.ampEnv.process();
                 if (v.ampEnv.isIdle()) { v.active = false; continue; }
 
-                const int   pos  = juce::jlimit (0, reelMax, static_cast<int> (v.playhead));
+                // Choose source: pitch-shifted pre-render or raw reel
+                const float* srcL;
+                const float* srcR;
+                int           srcMax;
+                if (v.usesPitchBuffer)
+                {
+                    srcL   = v.pitchBuffer.getReadPointer (0);
+                    srcR   = v.pitchBuffer.getNumChannels() > 1 ? v.pitchBuffer.getReadPointer (1) : srcL;
+                    srcMax = v.pitchBuffer.getNumSamples() - 2;
+                }
+                else
+                {
+                    srcL   = reelL;
+                    srcR   = reelR;
+                    srcMax = reelMax;
+                }
+
+                const int   pos  = juce::jlimit (0, srcMax, static_cast<int> (v.playhead));
                 const float frac = juce::jlimit (0.0f, 1.0f, v.playhead - static_cast<float> (pos));
 
-                // Raw sample from reel
-                float rawL = reelL[pos] + frac * (reelL[pos + 1] - reelL[pos]);
-                float rawR = (outR != outL) ? reelR[pos] + frac * (reelR[pos + 1] - reelR[pos]) : rawL;
+                float rawL = srcL[pos] + frac * (srcL[pos + 1] - srcL[pos]);
+                float rawR = (outR != outL) ? srcR[pos] + frac * (srcR[pos + 1] - srcR[pos]) : rawL;
 
                 // Reset SVF state if it's gone NaN (safety net)
                 if (! std::isfinite (v.svfIc1L)) v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
@@ -563,9 +864,9 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 const float fenvVal   = v.fenvEnv.process();
                 const float fenvShift = fenvVal * fenvDepth;   // −1..+1
                 const float modCutoff = juce::jlimit (20.0f, 19000.0f,
-                    v.filterCutoff * std::pow (2.0f, fenvShift * 4.0f));  // ±4 octaves
+                    filterCutoffHz * std::pow (2.0f, fenvShift * 4.0f));  // ±4 octaves
                 const float svfG  = std::tan (juce::MathConstants<float>::pi * modCutoff / (float) currentSampleRate);
-                const float svfK  = 2.0f * (1.0f - v.filterRes) + 1e-4f;
+                const float svfK  = 2.0f * (1.0f - filterResVal) + 1e-4f;
                 const float svfA1 = 1.0f / (1.0f + svfG * (svfG + svfK));
                 struct { float a1, a2, a3, k; } c { svfA1, svfG * svfA1, svfG * svfG * svfA1, svfK };
                 {
@@ -594,19 +895,24 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 outL[s] += rawL * gainL;
                 if (outR != outL) outR[s] += rawR * gainR;
 
-                if (! v.sliceEnded)
-                {
-                    v.playhead += v.playRate;
+                v.playhead += v.playRate;
 
-                    // Poly sustaining: clamp to slice boundary so audio stays in the right slice
-                    // until the per-voice BPM tick fires. Releasing voices run free for ring-out.
-                    if (modeIdx == 0 && v.gateOpen)
-                    {
-                        if (v.playRate >= 0.0f)
-                            v.playhead = std::min (v.playhead, static_cast<float> (v.endSample - 1));
-                        else
-                            v.playhead = std::max (v.playhead, static_cast<float> (v.startSample));
-                    }
+                if (modeIdx == 0 && v.gateOpen)
+                {
+                    // Poly sustaining: clamp to slice boundary until the BPM tick fires
+                    if (v.playRate >= 0.0f)
+                        v.playhead = std::min (v.playhead, static_cast<float> (v.endSample - 1));
+                    else
+                        v.playhead = std::max (v.playhead, static_cast<float> (v.startSample));
+                }
+                else
+                {
+                    // All other voices run free — deactivate at buffer boundary
+                    const int   srcSamples = v.usesPitchBuffer ? v.pitchBuffer.getNumSamples()
+                                                               : reelBuffer.getNumSamples();
+                    const float bufEnd = static_cast<float> (srcSamples - 2);
+                    if (v.playhead >= bufEnd || v.playhead < 0.0f)
+                        v.active = false;
                 }
             }
 
@@ -645,6 +951,12 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 { youngestAge = voices[i].age; litSlice = voices[i].currentSliceIdx; }
         activeSliceIdx.store (litSlice);
     }
+
+    // SEQ: push current step per lane for UI highlight
+    seqLitStep0.store (seqStep[0]);
+    seqLitStep1.store (seqStep[1]);
+    seqLitStep2.store (seqStep[2]);
+    seqLitStep3.store (seqStep[3]);
 }
 
 //==============================================================================
@@ -713,6 +1025,11 @@ void SpliceAudioProcessor::loadReelFile (const juce::File& file)
 
     reelSampleRate = reader->sampleRate;
     reelName = file.getFileNameWithoutExtension();
+
+    // Kill all voices — stale playheads into the old buffer cause erratic playback
+    for (auto& v : voices) v.active = false;
+    arpPhase = 0.0; polySlicePhase = 0.0;
+    seqPhase.fill (0.0); seqStep.fill (0);
 
     // Persist path so "open last file?" dialog works on next launch
     if (auto* settings = appProperties.getUserSettings())

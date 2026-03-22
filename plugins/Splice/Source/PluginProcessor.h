@@ -7,6 +7,10 @@
 #include <vector>
 #include <atomic>
 
+#if SPLICE_HAS_RUBBERBAND
+  #include <rubberband/RubberBandStretcher.h>
+#endif
+
 //==============================================================================
 class SpliceAudioProcessor : public juce::AudioProcessor
 {
@@ -69,6 +73,16 @@ public:
     // Metering (written audio thread → read by UI timer)
     std::atomic<float> outputPeakLevel  { 0.0f };
     std::atomic<int>   activeSliceIdx   { -1   };  // -1 = no voice playing
+
+    // SEQ step counts + speed mults (written UI thread via resource provider)
+    std::array<int, 4> seqStepCount { 16, 16, 16, 16 };
+    std::array<int, 4> seqSpeedMult { 2, 2, 2, 2 };  // index into kSpeedTable; 2 = x1
+
+    // SEQ active step per lane (written audio thread, read UI timer)
+    std::atomic<int>   seqLitStep0 { 0 };
+    std::atomic<int>   seqLitStep1 { 0 };
+    std::atomic<int>   seqLitStep2 { 0 };
+    std::atomic<int>   seqLitStep3 { 0 };
 
 private:
     //==========================================================================
@@ -176,6 +190,11 @@ private:
         int    age             = 0;
         double slicePhase      = 0.0;    // BPM clock accumulator [0..1)
         AmpEnvelope ampEnv;
+
+        // RubberBand pitch-shifted pre-render (populated on note-on when pitch ≠ 0)
+        juce::AudioBuffer<float> pitchBuffer;
+        bool  usesPitchBuffer = false;
+        int   pitchBufEnd     = 0;       // last valid sample index in pitchBuffer
     };
 
     static constexpr int kNumVoices = 32;
@@ -190,14 +209,32 @@ private:
     float  polyVelocity      = 1.0f;
     bool   polyGateOpen      = false;
     int    polyHeldNoteCount = 0;
+    bool   lastHoldState     = false;
+
+    // Arp state
+    static constexpr int kMaxArpNotes = 32;
+    int    arpHeldNotes[kMaxArpNotes] {};
+    float  arpHeldVels [kMaxArpNotes] {};
+    int    arpNoteCount  = 0;
+    int    arpSeqIdx     = 0;
+    int    arpPingDir    = 1;
+    double arpPhase      = 0.0;
+
+    // SEQ engine state
+    std::array<double, 4> seqPhase     {};
+    std::array<int, 4>    seqStep      {};
+    int    seqPingDir    = 1;
 
     // Voice helpers
     int getGridValue() const;
     std::pair<int, int> getSliceRange (int sliceIdx) const;
+    void renderPitchBuffer (SpliceVoice& v, float totalPitchSt, bool reverse);
     void allocateVoice      (int midiNote, float velocity, int sliceIdx,
-                             float atk, float dec, float sus);
+                             float atk, float dec, float sus,
+                             int dirOverride = -1, float extraPitchSt = 0.0f);
     void releaseVoice       (int midiNote, float rel);
-    void setupSlicePlayback (SpliceVoice& v, int sliceDirIdx);
+    void setupSlicePlayback (SpliceVoice& v, int sliceDirIdx,
+                             float extraPitchSt = 0.0f);
     int  advanceSeqSlice    (int currentIdx, int& pingDir, int reelDirIdx, int totalSlices) const;
     void advanceToNextSlice (SpliceVoice& v, int reelDirIdx, int sliceDirIdx, int totalSlices);
 

@@ -47,6 +47,19 @@ elseif(APC_PLATFORM_LINUX)
 endif()
 
 # ============================================
+# RUBBER BAND (pitch-shifting, duration-preserving)
+# ============================================
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(RUBBERBAND IMPORTED_TARGET rubberband)
+endif()
+if(RUBBERBAND_FOUND)
+    message(STATUS "RubberBand: found via pkg-config (${RUBBERBAND_VERSION})")
+else()
+    message(STATUS "RubberBand: not found — pitch shifting will use rate-only fallback")
+endif()
+
+# ============================================
 # EXTERNAL TOOLS
 # ============================================
 set(JUCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/_tools/JUCE")

@@ -40,7 +40,8 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     reelDirAttachment      = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("reel_dir"),      reelDirRelay);
     sliceDirAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("slice_dir"),     sliceDirRelay);
 
-    arpHoldAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment> (*audioProcessor.apvts.getParameter ("arp_hold"), arpHoldRelay);
+    arpHoldAttachment    = std::make_unique<juce::WebToggleButtonParameterAttachment> (*audioProcessor.apvts.getParameter ("arp_hold"),    arpHoldRelay);
+    arpPatternAttachment = std::make_unique<juce::WebSliderParameterAttachment>       (*audioProcessor.apvts.getParameter ("arp_pattern"), arpPatternRelay);
 
     // Create WebView
     webView = std::make_unique<juce::WebBrowserComponent> (
@@ -74,6 +75,7 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
             .withOptionsFrom (reelDirRelay)
             .withOptionsFrom (sliceDirRelay)
             .withOptionsFrom (arpHoldRelay)
+            .withOptionsFrom (arpPatternRelay)
             .withOptionsFrom (bpmRelay)
             .withOptionsFrom (eqLowRelay)
             .withOptionsFrom (eqLowMidRelay)
@@ -186,6 +188,13 @@ void SpliceAudioProcessorEditor::timerCallback()
         webView->evaluateJavascript (
             "if (window.updateActiveSlice) window.updateActiveSlice(" +
             juce::String (slice) + ");");
+
+        webView->evaluateJavascript (
+            "if (window.updateSeqSteps) window.updateSeqSteps(" +
+            juce::String (audioProcessor.seqLitStep0.load()) + "," +
+            juce::String (audioProcessor.seqLitStep1.load()) + "," +
+            juce::String (audioProcessor.seqLitStep2.load()) + "," +
+            juce::String (audioProcessor.seqLitStep3.load()) + ");");
     }
     catch (...) {}
 }
@@ -214,6 +223,38 @@ SpliceAudioProcessorEditor::getResource (const juce::String& url)
     // JS calls: fetch(window.location.origin + '/_/slice/N')
     // On macOS the scheme handler passes only the URL path ("/_/slice/N"), not the full URL,
     // so resourcePath (stripped of root) will be empty. Check url directly.
+    // ── SEQ cell value API ───────────────────────────────────────────────────
+    // JS calls: fetch('/_/seq/v/LANE/STEP/VALUE1000')
+    // JS calls: fetch('/_/seq/s/LANE/COUNT')
+    // JS calls: fetch('/_/seq/m/LANE/MULT')
+    if (url.contains ("/_/seq/"))
+    {
+        auto parts = juce::StringArray::fromTokens (
+                         url.fromFirstOccurrenceOf ("/_/seq/", false, false), "/", "");
+        if (parts.size() >= 3)
+        {
+            const auto type = parts[0];
+            const int  lane = juce::jlimit (0, 3, parts[1].getIntValue());
+            if (type == "v" && parts.size() >= 4)
+            {
+                const int   step = juce::jlimit (0, 15, parts[2].getIntValue());
+                const float val  = juce::jlimit (0.0f, 1.0f, parts[3].getIntValue() / 1000.0f);
+                audioProcessor.laneValues[static_cast<size_t>(lane)][static_cast<size_t>(step)] = val;
+            }
+            else if (type == "s")
+            {
+                audioProcessor.seqStepCount[static_cast<size_t>(lane)] =
+                    juce::jlimit (1, 16, parts[2].getIntValue());
+            }
+            else if (type == "m")
+            {
+                audioProcessor.seqSpeedMult[static_cast<size_t>(lane)] =
+                    juce::jlimit (0, 8, parts[2].getIntValue());
+            }
+        }
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
+    }
+
     if (url.contains ("/_/slice/") || resourcePath.startsWith ("_/slice/"))
     {
         const int idx = url.fromLastOccurrenceOf ("/", false, false).getIntValue();

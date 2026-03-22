@@ -178,6 +178,20 @@
       background: var(--seq-lit);
     }
 
+    /* Arp pattern buttons */
+    .arp-pat-btn {
+      padding: 3px 7px;
+      font-size: 11px;
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-2);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .arp-pat-btn:hover { border-color: var(--border); color: var(--text); }
+    .arp-pat-btn.active { color: var(--text); border-color: #C08030; }
+
     /* Hold button */
     .hold-btn {
       padding: 4px 10px;
@@ -207,7 +221,20 @@
     }
 
     /* ── PAGES ───────────────────────────────────────────── */
-    .page { display: none; flex-direction: column; height: calc(600px - 52px); }
+    #arp-bar {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 24px;
+      gap: 5px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #arp-bar > * { visibility: hidden; }
+    #arp-bar.visible > * { visibility: visible; }
+
+    .page { display: none; flex-direction: column; height: calc(600px - 52px - 30px); }
     .page.active { display: flex; }
 
     /* ── GRID AREA ───────────────────────────────────────── */
@@ -417,7 +444,7 @@
     .lane-header {
       padding: 7px 9px 4px;
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 6px;
       flex-shrink: 0;
     }
@@ -433,6 +460,18 @@
       color: var(--text-2);
       margin-left: auto;
     }
+    /* Draggable pattern badge in lane header */
+    .lane-pat-btn {
+      width: 16px; height: 16px; border-radius: 2px;
+      font-size: 7px; font-weight: 800; color: rgba(255,255,255,0.85);
+      display: flex; align-items: center; justify-content: center;
+      cursor: ns-resize; flex-shrink: 0;
+      user-select: none; -webkit-user-select: none;
+    }
+    [data-lane="pos"]   .lane-pat-btn { background: #C05840; }
+    [data-lane="vel"]   .lane-pat-btn { background: #4A8A60; }
+    [data-lane="pitch"] .lane-pat-btn { background: #3A70A0; }
+    [data-lane="dir"]   .lane-pat-btn { background: #A09030; }
 
     .lane-cells {
       display: grid;
@@ -450,6 +489,16 @@
       aspect-ratio: 1;
     }
     .lcell.lit      { background: var(--seq-lit); }
+
+    #drag-tooltip {
+      position: fixed; pointer-events: none; display: none;
+      background: rgba(20,20,20,0.92); color: var(--text);
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+      padding: 3px 7px; border-radius: 3px;
+      border: 1px solid var(--border);
+      white-space: nowrap; z-index: 9999;
+      transform: translate(-50%, -140%);
+    }
     .lcell.inactive { background: var(--bg-cell-off); cursor: default; }
 
     .step-val, .speed-val { cursor: ns-resize; user-select: none; -webkit-user-select: none; }
@@ -458,20 +507,65 @@
     #page-loop .grid-area { align-items: flex-start; }
 
     .lane-footer {
-      padding: 6px 9px;
+      padding: 5px 9px;
       display: flex;
-      gap: 14px;
+      align-items: center;
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .lane-meta { display: flex; flex-direction: column; gap: 2px; }
-    .lane-meta-label {
-      font-size: 8px;
-      color: var(--text-3);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+    /* Inline "On / Gen / Reset" text controls */
+    .lane-footer-links {
+      display: flex; align-items: center;
+      font-size: 9px; color: var(--text-3); letter-spacing: 0.04em;
     }
-    .lane-meta-value { font-size: 10px; color: var(--text); }
+    .lane-footer-link { cursor: pointer; transition: color 0.1s; }
+    .lane-footer-link:hover { color: var(--text-2); }
+    .lane-on-text.active { color: var(--seq-lit); }
+    .lane-footer-sep { margin: 0 3px; opacity: 0.4; }
+    /* Steps / Speed on the right */
+    .lane-footer-meta {
+      margin-left: auto; display: flex; gap: 10px;
+      font-size: 9px; color: var(--text-3);
+    }
+    .step-val, .speed-val {
+      cursor: ns-resize; user-select: none; -webkit-user-select: none;
+    }
+    .step-val:hover, .speed-val:hover { color: var(--text); }
+
+    /* ── SEQ COMPACT CONTROLS STRIP ─────────────────────── */
+    .seq-compact-strip {
+      display: flex; align-items: center; height: 80px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+      padding: 0 22px; overflow: hidden;
+    }
+    .scs-group {
+      display: flex; align-items: center; height: 100%;
+      padding-right: 20px; margin-right: 20px;
+      border-right: 1px solid var(--border);
+    }
+    .scs-group:last-child { border-right: none; }
+    .scs-group-inner { display: flex; gap: 12px; align-items: flex-end; padding: 12px 0 10px; }
+    .scs-label {
+      font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-3); writing-mode: vertical-rl;
+      transform: rotate(180deg); align-self: center; margin-right: 6px;
+    }
+    .scs-group .env-icon { opacity: 0.55; }
+    .scs-group .env-icon:hover { opacity: 0.85; }
+    .scs-knob {
+      display: flex; flex-direction: column; align-items: center;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none; min-width: 36px;
+    }
+    .scs-val { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+    .scs-lbl { font-size: 8px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
+    .scs-ftype-btn {
+      padding: 2px 5px; font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; background: var(--hover); border: 1px solid transparent;
+      border-radius: 2px; color: var(--text-3); cursor: pointer;
+    }
+    .scs-ftype-btn.active { border-color: #555; color: var(--text); }
+    .scs-filter-col { display: flex; flex-direction: column; gap: 5px; }
+    .scs-hslider { width: 72px; cursor: pointer; accent-color: var(--text-2); }
 
     /* ── SEQ GLOBAL BAR ──────────────────────────────────── */
     .seq-bar {
@@ -543,9 +637,12 @@
       cursor: pointer;
     }
     .gen-btn:hover { color: var(--text); border-color: #555; }
+
+
   </style>
 </head>
 <body>
+<div id="drag-tooltip"></div>
 
 <!-- TOP BAR -->
 <div class="top-bar">
@@ -571,6 +668,16 @@
     <div class="mode-sep"></div>
     <button class="hold-btn" id="hold-btn" onclick="toggleHold()">Hold</button>
   </div>
+</div>
+
+<!-- ARP BAR — always 30px in flow; buttons hidden until arp mode active -->
+<div id="arp-bar">
+  <span style="font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-right:6px">Pattern</span>
+  <button class="arp-pat-btn active" data-idx="0" onclick="setArpPattern(0)" title="Up">↑</button>
+  <button class="arp-pat-btn"        data-idx="1" onclick="setArpPattern(1)" title="Down">↓</button>
+  <button class="arp-pat-btn"        data-idx="2" onclick="setArpPattern(2)" title="Up-Down">↕</button>
+  <button class="arp-pat-btn"        data-idx="3" onclick="setArpPattern(3)" title="As Played">ord</button>
+  <button class="arp-pat-btn"        data-idx="4" onclick="setArpPattern(4)" title="Random">∿</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ -->
@@ -715,32 +822,32 @@
       <div class="ctrl-body active" id="ampenv-body">
         <div class="env-controls">
           <div class="env-item">
-            <svg class="env-icon" data-type="attack" data-param="amp_attack" data-value="0.489" data-default="0.489" viewBox="0 0 36 60" width="36" height="60">
+            <svg class="env-icon" data-type="attack" data-param="amp_attack" data-value="0" data-default="0" viewBox="0 0 36 60" width="36" height="60">
               <line class="env-line" x1="6" y1="54" x2="6" y2="6"/>
             </svg>
             <div class="env-label">Attack</div>
-            <div class="env-val" id="envval-amp_attack">5ms</div>
+            <div class="env-val" id="envval-amp_attack" class="env-val envval-amp_attack">1ms</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="decay" data-param="amp_decay" data-value="0.863" data-default="0.863" viewBox="0 0 36 60" width="36" height="60">
+            <svg class="env-icon" data-type="decay" data-param="amp_decay" data-value="0.828" data-default="0.828" viewBox="0 0 36 60" width="36" height="60">
               <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
             </svg>
             <div class="env-label">Decay</div>
-            <div class="env-val" id="envval-amp_decay">100ms</div>
+            <div class="env-val" id="envval-amp_decay" class="env-val envval-amp_decay">100ms</div>
           </div>
           <div class="env-item">
             <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1.0" data-default="1.0" viewBox="0 0 36 60" width="36" height="60">
               <line class="env-line" x1="6" y1="6" x2="30" y2="6"/>
             </svg>
             <div class="env-label">Sustain</div>
-            <div class="env-val" id="envval-amp_sustain">100%</div>
+            <div class="env-val" id="envval-amp_sustain" class="env-val envval-amp_sustain">100%</div>
           </div>
           <div class="env-item">
             <svg class="env-icon" data-type="release" data-param="amp_release" data-value="0.667" data-default="0.667" viewBox="0 0 36 60" width="36" height="60">
               <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
             </svg>
             <div class="env-label">Release</div>
-            <div class="env-val" id="envval-amp_release">100ms</div>
+            <div class="env-val" id="envval-amp_release" class="env-val envval-amp_release">100ms</div>
           </div>
         </div>
       </div>
@@ -809,12 +916,22 @@
     <div class="lane-block" data-lane="pos">
       <div class="lane-header">
         <span class="lane-name">Pos</span>
-        <span class="lane-val" id="pos-val">8 / 16</span>
+        <div class="lane-pat-btn" data-lane="pos">1</div>
+        <span class="lane-val" id="pos-val">–</span>
       </div>
       <div class="lane-cells" id="lane-pos"></div>
       <div class="lane-footer">
-        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-lane="pos" data-steps="16">16</div></div>
-        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-lane="pos" data-speed="16">*16</div></div>
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text active" data-lane="pos">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('pos')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('pos')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="pos" data-steps="16">16</span>
+          <span class="speed-val" data-lane="pos" data-speed="2">×1</span>
+        </div>
       </div>
     </div>
 
@@ -822,12 +939,22 @@
     <div class="lane-block" data-lane="vel">
       <div class="lane-header">
         <span class="lane-name">Vel</span>
-        <span class="lane-val" id="vel-val">75%</span>
+        <div class="lane-pat-btn" data-lane="vel">1</div>
+        <span class="lane-val" id="vel-val">–</span>
       </div>
       <div class="lane-cells" id="lane-vel"></div>
       <div class="lane-footer">
-        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-lane="vel" data-steps="12">12</div></div>
-        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-lane="vel" data-speed="8">*8</div></div>
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="vel">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('vel')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('vel')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="vel" data-steps="16">16</span>
+          <span class="speed-val" data-lane="vel" data-speed="2">×1</span>
+        </div>
       </div>
     </div>
 
@@ -835,12 +962,22 @@
     <div class="lane-block" data-lane="pitch">
       <div class="lane-header">
         <span class="lane-name">Pitch</span>
-        <span class="lane-val" id="pitch-val">+7 st</span>
+        <div class="lane-pat-btn" data-lane="pitch">1</div>
+        <span class="lane-val" id="pitch-val">–</span>
       </div>
       <div class="lane-cells" id="lane-pitch"></div>
       <div class="lane-footer">
-        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-lane="pitch" data-steps="9">9</div></div>
-        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-lane="pitch" data-speed="16">*16</div></div>
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="pitch">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('pitch')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('pitch')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="pitch" data-steps="16">16</span>
+          <span class="speed-val" data-lane="pitch" data-speed="2">×1</span>
+        </div>
       </div>
     </div>
 
@@ -848,24 +985,119 @@
     <div class="lane-block" data-lane="dir">
       <div class="lane-header">
         <span class="lane-name">Dir</span>
-        <span class="lane-val" id="dir-val">Fwd</span>
+        <div class="lane-pat-btn" data-lane="dir">1</div>
+        <span class="lane-val" id="dir-val">–</span>
       </div>
       <div class="lane-cells" id="lane-dir"></div>
       <div class="lane-footer">
-        <div class="lane-meta"><div class="lane-meta-label">Steps</div><div class="lane-meta-value step-val" data-lane="dir" data-steps="7">7</div></div>
-        <div class="lane-meta"><div class="lane-meta-label">Speed</div><div class="lane-meta-value speed-val" data-lane="dir" data-speed="4">*4</div></div>
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="dir">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('dir')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('dir')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="dir" data-steps="16">16</span>
+          <span class="speed-val" data-lane="dir" data-speed="2">×1</span>
+        </div>
       </div>
     </div>
 
   </div><!-- /grid-area -->
 
-  <!-- SEQ GLOBAL BAR -->
-  <div class="seq-bar">
-    <div class="gen-btns">
-      <button class="gen-btn" onclick="genRandomize()">Gen</button>
-      <button class="gen-btn" onclick="genReset()">Reset</button>
+  <!-- COMPACT CONTROLS STRIP (mirrors page-loop controls) -->
+  <div class="seq-compact-strip">
+
+    <!-- AMP ENV -->
+    <div class="scs-group">
+      <span class="scs-label">Amp</span>
+      <div class="scs-group-inner">
+        <div class="env-item">
+          <svg class="env-icon" data-type="attack" data-param="amp_attack" data-value="0" data-default="0" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="42" x2="4" y2="4"/></svg>
+          <div class="env-val envval-amp_attack">1ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="decay" data-param="amp_decay" data-value="0.828" data-default="0.828" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <div class="env-val envval-amp_decay">100ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1" data-default="1" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="4"/></svg>
+          <div class="env-val envval-amp_sustain">100%</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="release" data-param="amp_release" data-value="0.001" data-default="0.001" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <div class="env-val envval-amp_release">1ms</div>
+        </div>
+      </div>
     </div>
-  </div>
+
+    <!-- FILTER ENV -->
+    <div class="scs-group">
+      <span class="scs-label">FEnv</span>
+      <div class="scs-group-inner">
+        <div class="env-item">
+          <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="23" x2="24" y2="23"/></svg>
+          <div class="env-val envval-fenv_depth">0%</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-value="0.575" data-default="0.575" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="42" x2="4" y2="4"/></svg>
+          <div class="env-val envval-fenv_attack">50ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-value="0.767" data-default="0.767" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <div class="env-val envval-fenv_decay">200ms</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="scs-group">
+      <span class="scs-label">Filter</span>
+      <div class="scs-group-inner" style="flex-direction:column;gap:6px;align-items:flex-start;padding:10px 0;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="scs-filter-col">
+            <div class="filter-label">Cut</div>
+            <input type="range" class="hslider scs-hslider" id="scs-cutoff" min="0" max="1" step="0.001" value="1">
+          </div>
+          <div class="scs-filter-col">
+            <div class="filter-label">Res</div>
+            <input type="range" class="hslider scs-hslider" id="scs-res" min="0" max="1" step="0.001" value="0">
+          </div>
+        </div>
+        <div class="filter-type-btns" id="scs-filter-type-btns">
+          <button class="scs-ftype-btn active" onclick="setFilterType(0)">LP</button>
+          <button class="scs-ftype-btn" onclick="setFilterType(1)">BP</button>
+          <button class="scs-ftype-btn" onclick="setFilterType(2)">HP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNAL: Vol, Pitch, Speed, Pan -->
+    <div class="scs-group">
+      <span class="scs-label">Signal</span>
+      <div class="scs-group-inner">
+        <div class="scs-knob" id="scs-vol">
+          <div class="scs-val">75%</div>
+          <div class="scs-lbl">Vol</div>
+        </div>
+        <div class="scs-knob" id="scs-pitch">
+          <div class="scs-val">+0</div>
+          <div class="scs-lbl">Pitch</div>
+        </div>
+        <div class="scs-knob" id="scs-speed">
+          <div class="scs-val">x1</div>
+          <div class="scs-lbl">Speed</div>
+        </div>
+        <div class="scs-knob" id="scs-pan">
+          <div class="scs-val">C</div>
+          <div class="scs-lbl">Pan</div>
+        </div>
+      </div>
+    </div>
+
+
+  </div><!-- /seq-compact-strip -->
 
 </div><!-- /page-seq -->
 
@@ -987,7 +1219,7 @@
         grid: null,
         playback_mode: null,
         reel_dir: null, slice_dir: null,
-        arp_hold: null,
+        arp_hold: null, arp_pattern: null,
         bpm: null,
         eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null
     };
@@ -1039,8 +1271,12 @@
     // ================================================================
 
     var modeBtns = [];
+    function showArpPatterns(visible) {
+        document.getElementById('arp-bar').classList.toggle('visible', visible);
+    }
     window.setMode = function(idx) {
         modeBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+        showArpPatterns(idx === 2);
         if (parameterStates.playback_mode)
             try { parameterStates.playback_mode.sliderDragStarted();
                   parameterStates.playback_mode.setNormalisedValue(idx / 3);
@@ -1049,6 +1285,24 @@
     knobUpdaters['playback_mode'] = function(norm) {
         var idx = Math.round(norm * 3);
         modeBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+        showArpPatterns(idx === 2);
+    };
+
+    // Arp pattern buttons
+    window.setArpPattern = function(idx) {
+        document.querySelectorAll('.arp-pat-btn').forEach(function(b) {
+            b.classList.toggle('active', parseInt(b.dataset.idx) === idx);
+        });
+        if (parameterStates.arp_pattern)
+            try { parameterStates.arp_pattern.sliderDragStarted();
+                  parameterStates.arp_pattern.setNormalisedValue(idx / 4);
+                  parameterStates.arp_pattern.sliderDragEnded(); } catch(e) {}
+    };
+    knobUpdaters['arp_pattern'] = function(norm) {
+        var idx = Math.round(norm * 4);
+        document.querySelectorAll('.arp-pat-btn').forEach(function(b) {
+            b.classList.toggle('active', parseInt(b.dataset.idx) === idx);
+        });
     };
 
     // ================================================================
@@ -1059,9 +1313,13 @@
     window.toggleSeq = function() {
         seqActive = !seqActive;
         document.getElementById('seq-power').classList.toggle('active', seqActive);
-        // Sync to playback_mode: 3=seq when on, 0=poly when off
+        // mode 3=seq, 0=poly; must wrap in drag events for JUCE relay to accept
         if (parameterStates.playback_mode)
-            try { parameterStates.playback_mode.setNormalisedValue(seqActive ? 1.0 : 0.0); } catch(e) {}
+            try {
+                parameterStates.playback_mode.sliderDragStarted();
+                parameterStates.playback_mode.setNormalisedValue(seqActive ? 1.0 : 0.0);
+                parameterStates.playback_mode.sliderDragEnded();
+            } catch(e) {}
     };
 
     // ================================================================
@@ -1116,21 +1374,41 @@
     // FILTER TYPE BUTTONS (filter_type: 0=LP, 1=BP, 2=HP)
     // ================================================================
 
-    window.setFilterType = function(idx) {
+    function syncFilterTypeBtns(idx) {
         document.querySelectorAll('#filter-type-btns .ftype-btn').forEach(function(b, i) {
             b.classList.toggle('active', i === idx);
         });
+        document.querySelectorAll('#scs-filter-type-btns .scs-ftype-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+    }
+    window.setFilterType = function(idx) {
+        syncFilterTypeBtns(idx);
         if (parameterStates.filter_type)
             try { parameterStates.filter_type.sliderDragStarted();
                   parameterStates.filter_type.setNormalisedValue(idx / 2);
                   parameterStates.filter_type.sliderDragEnded(); } catch(e) {}
     };
     knobUpdaters['filter_type'] = function(norm) {
-        var idx = Math.round(norm * 2);
-        document.querySelectorAll('#filter-type-btns .ftype-btn').forEach(function(b, i) {
-            b.classList.toggle('active', i === idx);
-        });
+        syncFilterTypeBtns(Math.round(norm * 2));
     };
+
+    // Env param updaters — sync display + SVG position from JUCE
+    function makeEnvUpdater(paramId) {
+        return function(norm) {
+            // Update ALL env icons with this param (page 1 + compact strip)
+            document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(svg) {
+                svg.dataset.value = norm; updateEnvVisual(svg);
+            });
+            document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                el.textContent = envNormToDisplay(paramId, norm);
+            });
+        };
+    }
+    ['amp_attack','amp_decay','amp_sustain','amp_release',
+     'fenv_attack','fenv_decay','fenv_depth'].forEach(function(id) {
+        knobUpdaters[id] = makeEnvUpdater(id);
+    });
 
     // ================================================================
     // CONTROL PANEL TAB SWITCHING
@@ -1204,9 +1482,10 @@
             return (st >= 0 ? '+' : '') + st;
         }, 1/48, 0.5);
 
-        // speed: AudioParameterChoice, 7 steps, norm = index/6, default index 3 (x1)
+        // speed: AudioParameterChoice, 11 steps (0–10), norm = index/10, default index 2 (x1)
         (function() {
-            var labels = ['/3', '/2', 'x1', 'x1.5', 'x2', 'x3', 'x4', 'x8', 'x16', 'x32', 'x64'];
+            var labels = ['/3', '/2', 'x1', 'x1.5', 'x2', 'x3', 'x4', 'x8', 'x16'];
+            var maxIdx  = labels.length - 1;  // 8
             var el      = document.getElementById('sig-speed');
             if (!el) return;
             var display = el.querySelector('.sig-value');
@@ -1214,9 +1493,9 @@
             var dragging = false, startY = 0, startIdx = 0;
 
             function setIdx(i) {
-                idx = Math.max(0, Math.min(6, i));
+                idx = Math.max(0, Math.min(maxIdx, i));
                 display.textContent = labels[idx];
-                var norm = idx / 10;
+                var norm = idx / maxIdx;
                 if (parameterStates.speed)
                     try { parameterStates.speed.setNormalisedValue(norm); } catch(e) {}
             }
@@ -1243,8 +1522,9 @@
             el.addEventListener('dblclick', function() { setIdx(2); });  // x1 at index 2
 
             knobUpdaters['speed'] = function(n) {
-                idx = Math.round(n * 10);
-                display.textContent = labels[Math.max(0, Math.min(10, idx))];
+                if (dragging) return;
+                idx = Math.round(n * maxIdx);
+                display.textContent = labels[Math.max(0, Math.min(maxIdx, idx))];
             };
         })();
 
@@ -1468,6 +1748,37 @@
     // ENVELOPE ICON DRAG CONTROLS
     // ================================================================
 
+    // ================================================================
+    // ENV CONVERSION HELPERS (module-level, used by drag + knobUpdaters)
+    // ================================================================
+    function envNormToSec(paramId, norm) {
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            return 0.0005 * Math.pow(600, norm);   // 0.5–300ms
+        if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            return 0.001 * Math.pow(1000, norm);   // 1ms–1s
+        return norm;
+    }
+    function envSecToNorm(paramId, s) {
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            return Math.log(s / 0.0005) / Math.log(600);
+        if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            return Math.log(s / 0.001) / Math.log(1000);
+        return s;
+    }
+    function envNormToDisplay(paramId, norm) {
+        if (paramId === 'amp_sustain' || paramId === 'fenv_depth')
+            return Math.round(norm * 100) + '%';
+        var n = Math.max(0, Math.min(1, norm));
+        var s;
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            s = 0.0005 * Math.pow(600, n);
+        else if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            s = 0.001 * Math.pow(1000, n);
+        else return '';
+        var ms = s * 1000;
+        return ms < 999.5 ? Math.round(ms) + 'ms' : s.toFixed(2) + 's';
+    }
+
     function updateEnvVisual(svg) {
         var line = svg.querySelector('.env-line');
         if (!line) return;
@@ -1535,8 +1846,9 @@
                 updateEnvVisual(svg);
                 var isDepth = (svg.dataset.type === 'depth');
                 var norm = isDepth ? (def + 1) / 2 : Math.max(0, Math.min(1, def));
-                var valEl = document.getElementById('envval-' + paramId);
-                if (valEl) valEl.textContent = envNormToDisplay(paramId, norm);
+                document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                    el.textContent = envNormToDisplay(paramId, norm);
+                });
                 if (paramId && parameterStates[paramId]) {
                     try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
                     try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
@@ -1545,20 +1857,37 @@
             });
         });
 
+        // (envNormToSec / envSecToNorm / envNormToDisplay are module-level)
+
         document.addEventListener('mousemove', function(e) {
             if (!drag) return;
             var dy = startY - e.clientY;
-            var isDepth = (drag.dataset.type === 'depth');
-            var sensitivity = isDepth ? 1 / 80 : 1 / 150;
-            drag.dataset.value = startVal + dy * sensitivity;
-            updateEnvVisual(drag);
-
             var paramId = drag.dataset.param;
+            var type = drag.dataset.type;
+            var norm;
+
+            if (type === 'depth') {
+                // Bipolar linear
+                norm = Math.max(0, Math.min(1, (startVal + dy / 80 + 1) / 2));
+                drag.dataset.value = norm * 2 - 1;
+            } else if (type === 'sustain') {
+                // Linear 0–1
+                norm = Math.max(0, Math.min(1, startVal + dy / 100));
+                drag.dataset.value = norm;
+            } else {
+                // Sqrt-norm drag: dragNorm = sqrt(juceNorm), linear drag in sqrt space
+                // Gives ~8x more range to low values vs high values
+                var startDragNorm = Math.sqrt(Math.max(0, startVal));
+                var newDragNorm = Math.max(0, Math.min(1, startDragNorm + dy / 96));
+                norm = newDragNorm * newDragNorm;
+                drag.dataset.value = norm;
+            }
+
+            updateEnvVisual(drag);
             if (paramId) {
-                var visVal = parseFloat(drag.dataset.value);
-                var norm = isDepth ? (visVal + 1) / 2 : Math.max(0, Math.min(1, visVal));
-                var valEl = document.getElementById('envval-' + paramId);
-                if (valEl) valEl.textContent = envNormToDisplay(paramId, norm);
+                document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                    el.textContent = envNormToDisplay(paramId, norm);
+                });
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
             }
@@ -1574,53 +1903,6 @@
             }
         });
 
-        // Convert JUCE norm → human-readable value string
-        // True log scaling: value = start * (end/start)^norm
-        function envNormToDisplay(paramId, norm) {
-            if (paramId === 'amp_sustain') return Math.round(norm * 100) + '%';
-            var s;
-            var n = Math.max(0, Math.min(1, norm));
-            if (paramId === 'amp_attack' || paramId === 'amp_decay')
-                s = 0.0001 * Math.pow(3000, n);  // 0.1–300ms log
-            else if (paramId === 'amp_release')
-                s = 0.001 * Math.pow(1000, n);   // 1ms–1s log
-            else if (paramId === 'fenv_attack')
-                s = 0.0001 * Math.pow(3000, n);  // 0.1–300ms log
-            else if (paramId === 'fenv_decay')
-                s = 0.001 * Math.pow(1000, n);   // 1ms–1s log
-            else return '';
-            var ms = s * 1000;
-            return ms < 999.5 ? Math.round(ms) + 'ms' : s.toFixed(2) + 's';
-        }
-
-        // Also update value display during drag
-        document.querySelectorAll('.env-icon').forEach(function(svg) {
-            svg.addEventListener('mousedown', function() {});  // noop, just ensure listener exists
-        });
-        var origMove = null; // patch mousemove to also update val display
-        // (handled inside knobUpdaters below)
-
-        // Set up knobUpdaters for each env param → update SVG from JUCE
-        var envParams = {
-            amp_attack:  { selector: '.env-icon[data-param="amp_attack"]',  isDepth: false },
-            amp_decay:   { selector: '.env-icon[data-param="amp_decay"]',   isDepth: false },
-            amp_sustain: { selector: '.env-icon[data-param="amp_sustain"]', isDepth: false },
-            amp_release: { selector: '.env-icon[data-param="amp_release"]', isDepth: false },
-            fenv_depth:  { selector: '.env-icon[data-param="fenv_depth"]',  isDepth: true  },
-            fenv_attack: { selector: '.env-icon[data-param="fenv_attack"]', isDepth: false },
-            fenv_decay:  { selector: '.env-icon[data-param="fenv_decay"]',  isDepth: false }
-        };
-        Object.keys(envParams).forEach(function(paramId) {
-            var cfg = envParams[paramId];
-            knobUpdaters[paramId] = function(norm) {
-                var svg = document.querySelector(cfg.selector);
-                if (!svg) return;
-                svg.dataset.value = cfg.isDepth ? (norm * 2 - 1) : norm;
-                updateEnvVisual(svg);
-                var valEl = document.getElementById('envval-' + paramId);
-                if (valEl) valEl.textContent = envNormToDisplay(paramId, norm);
-            };
-        });
     }
 
     // ================================================================
@@ -1772,28 +2054,48 @@
     // SEQ LANE CELLS
     // ================================================================
 
-    var laneData = {
-        pos:   [0.9,0.4,0.7,0.2,0.6,0.9,0.3,0.8,0.5,0.1,0.7,0.4,0.9,0.3,0.6,0.2],
-        vel:   [0.8,0.5,0.9,0.3,0.7,0.4,0.6,0.9,0.2,0.8,0.5,0.3,0.7,0.1,0.6,0.4],
-        pitch: [0.5,0.8,0.3,0.7,0.4,0.9,0.2,0.6,0.1,0.5,0.8,0.3,0.7,0.9,0.4,0.6],
-        dir:   [0.9,0.9,0.1,0.9,0.1,0.9,0.9,0.1,0.9,0.9,0.1,0.9,0.1,0.9,0.9,0.1]
-    };
-    var litStep = { pos: 2, vel: 7, pitch: 11, dir: 4 };
+    var LANE_ORDER = ['pos', 'vel', 'pitch', 'dir'];
 
-    function rebuildLane(id, steps) {
-        var container = document.getElementById('lane-' + id);
+    var laneData = {
+        vel:   Array(16).fill(1.0),   // neutral = full vel
+        pitch: Array(16).fill(0.5),   // neutral = center (0 st)
+        dir:   Array(16).fill(1.0)    // neutral = fwd
+    };
+    // POS uses grid-position model: posGridValues[gridPos] = pool position (0-1)
+    // The pattern defines which grid position is visited at each step.
+    var posGridValues = Array.from({length:16}, function(_,i){ return i/15; });
+    var litStep = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+
+    function laneValToDisplay(id, v) {
+        if (id === 'vel')   return Math.round(v * 100) + '%';
+        if (id === 'pitch') { var st = Math.round((v - 0.5) * 48); return (st >= 0 ? '+' : '') + st + ' st'; }
+        if (id === 'dir')   return v < 0.5 ? 'Rev' : 'Fwd';
+        return Math.round(v * 100) + '%'; // pos
+    }
+
+    // POS lane: grid-position model — cursor traces pattern path
+    function rebuildPosLane(steps) {
+        var container = document.getElementById('lane-pos');
         if (!container) return;
+        if (steps === undefined) {
+            var se = document.querySelector('.step-val[data-lane="pos"]');
+            steps = se ? parseInt(se.dataset.steps) : 16;
+        }
+        var pat = POS_PATTERNS[activeLanePattern.pos];
+        var litGridPos = pat[litStep.pos % steps];
+        var activeSet = {};
+        for (var s = 0; s < steps; s++) activeSet[pat[s]] = true;
         container.innerHTML = '';
-        var vals = laneData[id];
-        var lit  = litStep[id] % steps;
         for (var i = 0; i < 16; i++) {
             var cell = document.createElement('div');
-            var v = vals[i];
-            cell.dataset.value = v;
-            if (i >= steps) {
-                cell.className = 'lcell inactive';
-            } else if (i === lit) {
+            var v = posGridValues[i];
+            cell.dataset.value   = v;
+            cell.dataset.step    = i;   // grid position index
+            cell.dataset.laneIdx = 0;
+            if (i === litGridPos) {
                 cell.className = 'lcell lit';
+            } else if (!activeSet[i]) {
+                cell.className = 'lcell inactive';
             } else {
                 cell.className = 'lcell';
                 cell.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
@@ -1802,36 +2104,225 @@
         }
     }
 
+    function rebuildLane(id, steps) {
+        if (id === 'pos') { rebuildPosLane(steps); return; }
+        var container = document.getElementById('lane-' + id);
+        if (!container) return;
+        var laneIdx = LANE_ORDER.indexOf(id);
+        container.innerHTML = '';
+        var vals = laneData[id];
+        var lit  = litStep[id] % steps;
+        for (var i = 0; i < 16; i++) {
+            var cell = document.createElement('div');
+            var v = vals[i];
+            cell.dataset.value   = v;
+            cell.dataset.step    = i;
+            cell.dataset.laneIdx = laneIdx;
+            if (i >= steps) {
+                cell.className = 'lcell inactive';
+            } else if (i === lit) {
+                cell.className = 'lcell lit';
+            } else {
+                cell.className = 'lcell';
+                cell.style.background = id === 'dir'
+                    ? (v >= 0.5 ? 'rgba(74,138,168,0.55)' : 'rgba(192,88,64,0.55)')
+                    : 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            }
+            container.appendChild(cell);
+        }
+    }
+
     function initSeqLanes() {
         document.querySelectorAll('.step-val').forEach(function(el) {
-            var lane = el.dataset.lane;
-            rebuildLane(lane, parseInt(el.dataset.steps));
+            rebuildLane(el.dataset.lane, parseInt(el.dataset.steps));
+        });
+
+        // Wire On text links
+        document.querySelectorAll('.lane-on-text').forEach(function(el) {
+            el.addEventListener('click', function() { toggleLane(el.dataset.lane); });
         });
     }
 
-    window.genRandomize = function() {
-        ['pos','vel','pitch','dir'].forEach(function(id) {
-            laneData[id] = Array.from({length:16}, function() { return Math.random(); });
+    function syncLanesToCpp() {
+        if (!juceAvailable) return;
+        LANE_ORDER.forEach(function(id, laneIdx) {
+            if (id === 'pos') {
+                if (laneActive.pos) syncPosToCpp();
+                else syncLaneNeutral('pos', 0);
+            } else {
+                var vals = laneActive[id] ? laneData[id] : Array(16).fill(LANE_NEUTRAL[id]);
+                vals.forEach(function(v, step) {
+                    fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + step + '/' + Math.round(v * 1000)).catch(function(){});
+                });
+            }
+        });
+        document.querySelectorAll('.step-val').forEach(function(el) {
+            var li = LANE_ORDER.indexOf(el.dataset.lane);
+            if (li >= 0) fetch(window.location.origin + '/_/seq/s/' + li + '/' + el.dataset.steps).catch(function(){});
+        });
+        document.querySelectorAll('.speed-val').forEach(function(el) {
+            var li = LANE_ORDER.indexOf(el.dataset.lane);
+            if (li >= 0) fetch(window.location.origin + '/_/seq/m/' + li + '/' + el.dataset.speed).catch(function(){});
+        });
+    }
+
+    // Neutral (blank) value per lane when OFF or RST
+    var LANE_NEUTRAL = { pos: 0.0, vel: 1.0, pitch: 0.5, dir: 1.0 };
+
+    // Per-lane active state (POS always starts ON, others OFF)
+    var laneActive = { pos: true, vel: false, pitch: false, dir: false };
+
+    // POS: map grid values through pattern to get per-step values for C++
+    function syncPosToCpp() {
+        if (!juceAvailable) return;
+        var pat = POS_PATTERNS[activeLanePattern.pos];
+        var se  = document.querySelector('.step-val[data-lane="pos"]');
+        var cnt = se ? parseInt(se.dataset.steps) : 16;
+        for (var s = 0; s < 16; s++) {
+            var gridPos = pat[s % cnt];
+            var v = posGridValues[gridPos];
+            fetch(window.location.origin + '/_/seq/v/0/' + s + '/' + Math.round(v * 1000)).catch(function(){});
+        }
+    }
+
+    // Send all neutral values for a lane to C++
+    function syncLaneNeutral(id, laneIdx) {
+        if (!juceAvailable) return;
+        var n = LANE_NEUTRAL[id];
+        for (var s = 0; s < 16; s++)
+            fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + s + '/' + Math.round(n * 1000)).catch(function(){});
+    }
+
+    // Send actual laneData for a lane to C++
+    function syncLaneData(id, laneIdx) {
+        if (!juceAvailable) return;
+        if (id === 'pos') { syncPosToCpp(); return; }
+        laneData[id].forEach(function(v, s) {
+            fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + s + '/' + Math.round(v * 1000)).catch(function(){});
+        });
+    }
+
+    // Toggle ON/OFF for a single lane
+    window.toggleLane = function(id) {
+        laneActive[id] = !laneActive[id];
+        var txt = document.querySelector('.lane-on-text[data-lane="' + id + '"]');
+        if (txt) txt.classList.toggle('active', laneActive[id]);
+        var li = LANE_ORDER.indexOf(id);
+        if (li >= 0) {
+            if (laneActive[id]) syncLaneData(id, li);
+            else                syncLaneNeutral(id, li);
+        }
+    };
+
+    // Randomize one lane
+    window.genLane = function(id) {
+        if (id === 'pos') {
+            for (var i = 0; i < 16; i++) posGridValues[i] = Math.random();
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+            return;
+        }
+        laneData[id] = Array.from({length: 16}, function() {
+            return id === 'dir' ? (Math.random() < 0.5 ? 0.0 : 1.0) : Math.random();
+        });
+        var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+        var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+        rebuildLane(id, steps);
+        if (laneActive[id]) syncLaneData(id, LANE_ORDER.indexOf(id));
+    };
+
+    // Reset one lane to neutral/blank
+    window.resetLane = function(id) {
+        if (id === 'pos') {
+            for (var i = 0; i < 16; i++) posGridValues[i] = i / 15;  // reset to pattern-1 defaults
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+            else syncLaneNeutral('pos', 0);
+            return;
+        }
+        var n = LANE_NEUTRAL[id];
+        laneData[id] = Array.from({length: 16}, function() { return n; });
+        var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+        var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+        rebuildLane(id, steps);
+        var li = LANE_ORDER.indexOf(id);
+        if (li >= 0) syncLaneNeutral(id, li);
+    };
+
+    // ── updateSeqSteps: called by C++ timer to highlight current step per lane ──
+    window.updateSeqSteps = function(s0, s1, s2, s3) {
+        var steps = [s0, s1, s2, s3];
+        LANE_ORDER.forEach(function(id, li) {
+            var newStep = steps[li];
+            if (litStep[id] === newStep) return;
+            litStep[id] = newStep;
             var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
-            var steps = stepEl ? parseInt(stepEl.dataset.steps) : 16;
-            rebuildLane(id, steps);
+            var count  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+
+            if (id === 'pos') {
+                // Cursor traces the pattern path: light up the grid position visited at this step
+                var pat = POS_PATTERNS[activeLanePattern.pos];
+                var litGridPos = pat[newStep % count];
+                var activeSet = {};
+                for (var s = 0; s < count; s++) activeSet[pat[s]] = true;
+                var cells = document.querySelectorAll('#lane-pos .lcell');
+                cells.forEach(function(c, idx) {
+                    var v = posGridValues[idx];
+                    if (idx === litGridPos) {
+                        c.className = 'lcell lit'; c.style.background = '';
+                    } else if (!activeSet[idx]) {
+                        c.className = 'lcell inactive'; c.style.background = '';
+                    } else {
+                        c.className = 'lcell';
+                        c.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+                    }
+                });
+                var valEl = document.getElementById('pos-val');
+                if (valEl) valEl.textContent = laneValToDisplay('pos', posGridValues[litGridPos]);
+                return;
+            }
+
+            var cells  = document.querySelectorAll('#lane-' + id + ' .lcell');
+            cells.forEach(function(c, idx) {
+                if (idx >= count) return;
+                var v = parseFloat(c.dataset.value || 0.5);
+                if (idx === newStep % count) {
+                    c.className = 'lcell lit';
+                    c.style.background = '';
+                } else {
+                    c.className = 'lcell';
+                    c.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+                }
+            });
+            var val = laneData[id][newStep % count];
+            var valEl = document.getElementById(id + '-val');
+            if (valEl) valEl.textContent = laneValToDisplay(id, val);
         });
     };
 
-    window.genReset = function() {
-        laneData.pos   = [0.9,0.4,0.7,0.2,0.6,0.9,0.3,0.8,0.5,0.1,0.7,0.4,0.9,0.3,0.6,0.2];
-        laneData.vel   = [0.8,0.5,0.9,0.3,0.7,0.4,0.6,0.9,0.2,0.8,0.5,0.3,0.7,0.1,0.6,0.4];
-        laneData.pitch = [0.5,0.8,0.3,0.7,0.4,0.9,0.2,0.6,0.1,0.5,0.8,0.3,0.7,0.9,0.4,0.6];
-        laneData.dir   = [0.9,0.9,0.1,0.9,0.1,0.9,0.9,0.1,0.9,0.9,0.1,0.9,0.1,0.9,0.9,0.1];
-        initSeqLanes();
-    };
-
-    // SEQ cell + steps + speed drag
+    // SEQ cell + steps + speed + pattern-badge drag
     (function() {
-        var cellDrag = null, stepDrag = null, speedDrag = null;
-        var startY = 0, startVal = 0;
+        var cellDrag = null, stepDrag = null, speedDrag = null, patDrag = null;
+        var startY = 0, startVal = 0, patDragId = '';
+        var tooltip = document.getElementById('drag-tooltip');
+
+        function showTooltip(x, y, text) {
+            tooltip.textContent = text;
+            tooltip.style.left = x + 'px';
+            tooltip.style.top  = y + 'px';
+            tooltip.style.display = 'block';
+        }
+        function hideTooltip() { tooltip.style.display = 'none'; }
 
         document.addEventListener('mousedown', function(e) {
+            var pb = e.target.closest('.lane-pat-btn');
+            if (pb) {
+                patDragId = pb.closest('[data-lane]').dataset.lane;
+                patDrag = pb;
+                startY   = e.clientY;
+                startVal = activeLanePattern[patDragId];
+                e.preventDefault(); return;
+            }
             var sv = e.target.closest('.step-val');
             if (sv) { stepDrag = sv; startY = e.clientY; startVal = parseInt(sv.dataset.steps); e.preventDefault(); return; }
             var spv = e.target.closest('.speed-val');
@@ -1843,7 +2334,15 @@
             e.preventDefault();
         });
 
+        var SPEED_LABELS = ['/3','/2','×1','×1.5','×2','×3','×4','×8','×16'];
+
         document.addEventListener('mousemove', function(e) {
+            if (patDrag) {
+                var maxPat = LANE_PATTERNS[patDragId].length - 1;
+                var n = Math.max(0, Math.min(maxPat, Math.round(startVal + (startY - e.clientY) / 20)));
+                if (n !== activeLanePattern[patDragId]) applyLanePattern(patDragId, n);
+                return;
+            }
             if (stepDrag) {
                 var n = Math.max(1, Math.min(16, Math.round(startVal + (startY - e.clientY) / 8)));
                 if (n !== parseInt(stepDrag.dataset.steps)) {
@@ -1854,23 +2353,318 @@
                 return;
             }
             if (speedDrag) {
-                var n = Math.max(1, Math.min(16, Math.round(startVal + (startY - e.clientY) / 8)));
+                var n = Math.max(0, Math.min(8, Math.round(startVal + (startY - e.clientY) / 20)));
                 if (n !== parseInt(speedDrag.dataset.speed)) {
                     speedDrag.dataset.speed = n;
-                    speedDrag.textContent = '*' + n;
+                    speedDrag.textContent = SPEED_LABELS[n];
                 }
                 return;
             }
             if (!cellDrag) return;
-            var v = Math.max(0, Math.min(1, startVal + (startY - e.clientY) / 100));
+            var li = parseInt(cellDrag.dataset.laneIdx);
+            var st = parseInt(cellDrag.dataset.step);
+            var v;
+            if (li === 3) {
+                // DIR: binary snap — drag up = Fwd, drag down = Rev
+                v = (e.clientY < startY) ? 1.0 : 0.0;
+                cellDrag.style.background = v >= 0.5 ? 'rgba(74,138,168,0.55)' : 'rgba(192,88,64,0.55)';
+            } else {
+                v = Math.max(0, Math.min(1, startVal + (startY - e.clientY) / 100));
+                cellDrag.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            }
             cellDrag.dataset.value = v;
-            cellDrag.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            if (li === 0) posGridValues[st] = v;
+            else if (li >= 1 && li < 4) laneData[LANE_ORDER[li]][st] = v;
+            showTooltip(e.clientX, e.clientY, laneValToDisplay(LANE_ORDER[li], v));
         });
 
         document.addEventListener('mouseup', function() {
-            cellDrag = null; stepDrag = null; speedDrag = null;
+            if (cellDrag && juceAvailable) {
+                var li  = parseInt(cellDrag.dataset.laneIdx);
+                var st  = parseInt(cellDrag.dataset.step);
+                var val = parseFloat(cellDrag.dataset.value);
+                var id  = LANE_ORDER[li];
+                if (li === 0 && laneActive.pos) {
+                    posGridValues[st] = val;
+                    syncPosToCpp();  // resync entire step mapping after grid edit
+                } else if (li >= 1 && li < 4 && laneActive[id]) {
+                    fetch(window.location.origin + '/_/seq/v/' + li + '/' + st + '/' + Math.round(val * 1000)).catch(function(){});
+                }
+            }
+            if (stepDrag && juceAvailable) {
+                var li = LANE_ORDER.indexOf(stepDrag.dataset.lane);
+                if (li >= 0)
+                    fetch(window.location.origin + '/_/seq/s/' + li + '/' + stepDrag.dataset.steps).catch(function(){});
+            }
+            if (speedDrag && juceAvailable) {
+                var li = LANE_ORDER.indexOf(speedDrag.dataset.lane);
+                if (li >= 0)
+                    fetch(window.location.origin + '/_/seq/m/' + li + '/' + speedDrag.dataset.speed).catch(function(){});
+            }
+            cellDrag = null; stepDrag = null; speedDrag = null; patDrag = null;
+            hideTooltip();
         });
     })();
+
+    // ================================================================
+    // LANE PATTERNS
+    // ================================================================
+
+    // POS — René-style 4×4 traversal sequences (16 patterns × 16 steps)
+    // Each entry is the flat grid index (0-15) visited at that step.
+    var POS_PATTERNS = [
+        [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15],            // 1: rows →
+        [0,1,2,3, 7,6,5,4, 8,9,10,11, 15,14,13,12],            // 2: snake
+        [0,4,8,12, 1,5,9,13, 2,6,10,14, 3,7,11,15],            // 3: cols ↓
+        [0,4,8,12, 13,9,5,1, 2,6,10,14, 15,11,7,3],            // 4: cols snake
+        [0,1,2,3, 7,11,15, 14,13,12, 8,4, 5,6,10,9],           // 5: CW spiral
+        [0,4,8,12, 13,14,15, 11,7,3, 2,1, 5,9,10,6],           // 6: CCW spiral
+        [0, 1,4, 2,5,8, 3,6,9,12, 7,10,13, 11,14, 15],         // 7: diag ↘
+        [12, 13,8, 14,9,4, 15,10,5,0, 11,6,1, 7,2, 3],         // 8: diag ↗
+        [12,0,1,15, 14,2,3,13, 11,4,5,9, 8,6,7,10],            // 9
+        [12,11,6,2, 8,13,4,7, 0,9,14,5, 3,1,10,15],            // 10
+        [12,13,4,5, 10,11,2,3, 8,9,0,1, 14,15,6,7],            // 11
+        [12,4,13,5, 10,2,11,3, 8,0,9,1, 14,6,15,7],            // 12
+        [12,13,14,15, 8,9,10,11, 0,1,2,3, 4,5,6,7],            // 13
+        [12,15,7,6, 14,9,1,0, 8,11,3,2, 10,13,5,4],            // 14
+        [3,6,14,15, 7,4,12,13, 5,8,9,10, 11,0,1,2],            // 15
+        [3,14,10,13, 9,6,2,5, 1,12,8,15, 11,4,0,7]             // 16
+    ];
+
+    // VEL — 8 velocity shapes (0-1)
+    var VEL_PATTERNS = [
+        Array(16).fill(1.0),                                               // 1: flat full
+        Array.from({length:16}, function(_,i){ return i/15; }),            // 2: ascending
+        Array.from({length:16}, function(_,i){ return 1-i/15; }),          // 3: descending
+        Array.from({length:16}, function(_,i){ return i<8 ? i/7 : (15-i)/7; }), // 4: triangle
+        Array.from({length:16}, function(_,i){ return i%4===0 ? 1.0 : 0.5; }),  // 5: accent 1st
+        Array.from({length:16}, function(_,i){ return i%2===0 ? 0.9 : 0.45; }), // 6: alt strong/weak
+        Array.from({length:16}, function(_,i){ return (Math.floor(i/4)+1)/4; }), // 7: stairs up
+        Array.from({length:16}, function(_,i){ return Math.max(0.1, 1.0-i*0.065); }) // 8: decay
+    ];
+
+    // PITCH — 8 scale patterns (0.5 = root, ±24 st → ±0.5)
+    // Each value = 0.5 + semitones/48
+    var PITCH_PATTERNS = (function() {
+        function st(n) { return 0.5 + n/48; }
+        return [
+            Array(16).fill(st(0)),                              // 1: flat (root)
+            [0,2,4,5,7,9,11,12,14,16,17,19,21,23,24,12].map(st),  // 2: major scale ↑
+            [0,2,3,5,7,8,10,12,14,15,17,19,20,22,24,12].map(st),  // 3: natural minor ↑
+            [0,3,5,7,10,12,15,17,19,22,10,7,5,3,0,5].map(st),     // 4: penta minor
+            [0,2,4,7,9,12,14,16,19,21,9,7,4,2,0,7].map(st),       // 5: penta major
+            [0,2,3,5,7,9,10,12,10,9,7,5,3,2,0,3].map(st),         // 6: dorian
+            [0,2,3,6,7,9,10,12,9,7,6,3,2,0,3,7].map(st),          // 7: lydian flat7 / octatonic
+            Array.from({length:16}, function(_,i){ return st(i-8); }) // 8: chromatic glide
+        ];
+    })();
+
+    // DIR — 8 binary patterns (0.0=Rev, 1.0=Fwd)
+    var DIR_PATTERNS = [
+        Array(16).fill(1.0),                                                              // 1: all fwd
+        Array(16).fill(0.0),                                                              // 2: all rev
+        Array.from({length:16}, function(_,i){ return i%2===0 ? 1.0 : 0.0; }),           // 3: alt fwd/rev
+        Array.from({length:16}, function(_,i){ return Math.floor(i/4)%2===0 ? 1.0 : 0.0; }), // 4: 4+4
+        Array.from({length:16}, function(_,i){ return i<8 ? 1.0 : 0.0; }),               // 5: fwd then rev
+        Array.from({length:16}, function(_,i){ return i<8 ? 0.0 : 1.0; }),               // 6: rev then fwd
+        Array.from({length:16}, function(_,i){ return i%4!==3 ? 1.0 : 0.0; }),           // 7: fwd×3 rev×1
+        Array.from({length:16}, function(_,i){ return i%4===0 ? 1.0 : 0.0; })            // 8: fwd×1 rev×3
+    ];
+
+    var LANE_PATTERNS = { pos: POS_PATTERNS, vel: VEL_PATTERNS, pitch: PITCH_PATTERNS, dir: DIR_PATTERNS };
+    var activeLanePattern = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+
+    // Apply a named pattern to any lane and update UI/C++
+    function applyLanePattern(id, patIdx) {
+        var patterns = LANE_PATTERNS[id];
+        patIdx = Math.max(0, Math.min(patterns.length - 1, patIdx));
+        activeLanePattern[id] = patIdx;
+        if (id === 'pos') {
+            // POS: pattern changes cursor path only — grid values are preserved
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+        } else {
+            var pat = patterns[patIdx];
+            for (var s = 0; s < 16; s++) laneData[id][s] = pat[s];
+            var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+            var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+            rebuildLane(id, steps);
+            if (laneActive[id]) syncLaneData(id, LANE_ORDER.indexOf(id));
+        }
+        var badge = document.querySelector('[data-lane="' + id + '"] .lane-pat-btn');
+        if (badge) badge.textContent = patIdx + 1;
+    }
+
+    function initLanePatterns() {
+        activeLanePattern = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+        rebuildPosLane();
+        if (laneActive.pos) syncPosToCpp();
+        ['vel', 'pitch', 'dir'].forEach(function(id) { applyLanePattern(id, 0); });
+    }
+
+    // ================================================================
+    // COMPACT STRIP WIRING
+    // ================================================================
+
+    function initCompactStrip() {
+        // ── Filter sliders ──────────────────────────────────────────
+        var scsCut = document.getElementById('scs-cutoff');
+        var scsRes = document.getElementById('scs-res');
+
+        if (scsCut) {
+            scsCut.addEventListener('mousedown', function() {
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
+            });
+            scsCut.addEventListener('input', function() {
+                var n = parseFloat(scsCut.value);
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.setNormalisedValue(n); } catch(e) {}
+            });
+            scsCut.addEventListener('mouseup', function() {
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
+            });
+        }
+        if (scsRes) {
+            scsRes.addEventListener('mousedown', function() {
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
+            });
+            scsRes.addEventListener('input', function() {
+                var n = parseFloat(scsRes.value);
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.setNormalisedValue(n); } catch(e) {}
+            });
+            scsRes.addEventListener('mouseup', function() {
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
+            });
+        }
+
+        // Extend knobUpdaters to also update SCS sliders
+        var origCut = knobUpdaters['filter_cutoff'];
+        knobUpdaters['filter_cutoff'] = function(n) {
+            if (origCut) origCut(n);
+            if (scsCut) scsCut.value = n;
+        };
+        var origRes = knobUpdaters['filter_res'];
+        knobUpdaters['filter_res'] = function(n) {
+            if (origRes) origRes(n);
+            if (scsRes) scsRes.value = n;
+        };
+
+        // ── Signal knobs ────────────────────────────────────────────
+        // Factory: wire a scs-knob and chain it onto existing knobUpdater
+        function wireScsKnob(elId, paramId, toDisplay, sensitivity, defaultNorm) {
+            var el = document.getElementById(elId);
+            if (!el) return;
+            var valEl = el.querySelector('.scs-val');
+            var norm = defaultNorm;
+            var dragging = false, startY = 0, startNorm = 0;
+
+            if (valEl) valEl.textContent = toDisplay(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * sensitivity));
+                if (valEl) valEl.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = defaultNorm;
+                if (valEl) valEl.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+
+            // Chain onto existing knobUpdater (set by page-1 initSignalControls)
+            var orig = knobUpdaters[paramId];
+            knobUpdaters[paramId] = function(n) {
+                norm = n;
+                if (valEl) valEl.textContent = toDisplay(n);
+                if (orig) orig(n);
+            };
+        }
+
+        // output_vol: 0-1 → "75%"
+        wireScsKnob('scs-vol', 'output_vol', function(n) {
+            return Math.round(n * 100) + '%';
+        }, 0.007, 0.75);
+
+        // pitch: norm 0-1 → "±N st" (same range as sig-pitch)
+        wireScsKnob('scs-pitch', 'pitch', function(n) {
+            var st = Math.round(n * 48 - 24);
+            return (st >= 0 ? '+' : '') + st;
+        }, 1/48, 0.5);
+
+        // pan: norm 0-1 → "L/C/R"
+        wireScsKnob('scs-pan', 'pan', function(n) {
+            var p = Math.round((n * 2 - 1) * 100);
+            if (p === 0) return 'C';
+            return (p < 0 ? 'L' : 'R') + Math.abs(p);
+        }, 0.008, 0.5);
+
+        // speed: index-based (same labels as sig-speed)
+        (function() {
+            var labels  = ['/3', '/2', 'x1', 'x1.5', 'x2', 'x3', 'x4', 'x8', 'x16'];
+            var maxIdx  = labels.length - 1;
+            var el      = document.getElementById('scs-speed');
+            if (!el) return;
+            var valEl   = el.querySelector('.scs-val');
+            var idx     = 2;
+            var dragging = false, startY = 0, startIdx = 0;
+
+            function setIdx(i) {
+                idx = Math.max(0, Math.min(maxIdx, i));
+                if (valEl) valEl.textContent = labels[idx];
+                if (parameterStates.speed)
+                    try { parameterStates.speed.setNormalisedValue(idx / maxIdx); } catch(e) {}
+            }
+            if (valEl) valEl.textContent = labels[idx];
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startIdx = idx;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                setIdx(startIdx + Math.round((startY - e.clientY) / 20));
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() { setIdx(2); });
+
+            // Chain onto existing speed knobUpdater
+            var orig = knobUpdaters['speed'];
+            knobUpdaters['speed'] = function(n) {
+                if (!dragging) {
+                    idx = Math.round(n * maxIdx);
+                    if (valEl) valEl.textContent = labels[Math.max(0, Math.min(maxIdx, idx))];
+                }
+                if (orig) orig(n);
+            };
+        })();
+    }
 
     // ================================================================
     // PARAMETER STATE INITIALIZATION (connects UI to JUCE)
@@ -1920,12 +2714,17 @@
         initBpmDrag();
         initSliceCells();
         initSeqLanes();
+        initLanePatterns();
+        initCompactStrip();   // must be after initSignalControls + initFilterSliders
 
         // Initial grid build
         rebuildSections(STEPS[gridIdx]);
 
         // Connect JUCE parameter states
-        if (juceAvailable) initializeParameterStates();
+        if (juceAvailable) {
+            initializeParameterStates();
+            syncLanesToCpp();
+        }
 
         // Debug indicator
         var dbg = document.getElementById('debug-status');

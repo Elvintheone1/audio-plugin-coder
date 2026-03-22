@@ -68,9 +68,15 @@ target_sources(Splice
 # ============================================
 # LINK LIBRARIES
 # ============================================
+if(RUBBERBAND_FOUND)
+    target_compile_definitions(Splice PRIVATE SPLICE_HAS_RUBBERBAND=1)
+    target_include_directories(Splice PRIVATE ${RUBBERBAND_INCLUDE_DIRS})
+endif()
+
 target_link_libraries(Splice
     PRIVATE
         Splice_WebUI
+        $<$<BOOL:${RUBBERBAND_FOUND}>:PkgConfig::RUBBERBAND>
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats

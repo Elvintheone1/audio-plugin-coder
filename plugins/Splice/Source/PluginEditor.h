@@ -132,7 +132,8 @@ private:
     juce::WebSliderRelay reelDirRelay      { "reel_dir"      };
     juce::WebSliderRelay sliceDirRelay     { "slice_dir"     };
 
-    juce::WebToggleButtonRelay arpHoldRelay { "arp_hold" };
+    juce::WebToggleButtonRelay arpHoldRelay    { "arp_hold"    };
+    juce::WebSliderRelay       arpPatternRelay { "arp_pattern" };
 
     // 2. WEBBROWSERCOMPONENT (destroyed middle)
     std::unique_ptr<juce::WebBrowserComponent> webView;
@@ -171,6 +172,7 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> sliceDirAttachment;
 
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> arpHoldAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment>       arpPatternAttachment;
 
     //==========================================================================
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
