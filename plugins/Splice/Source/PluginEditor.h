@@ -114,6 +114,18 @@ private:
     juce::WebSliderRelay fenvDecayRelay  { "fenv_decay"  };
 
     juce::WebSliderRelay outputVolRelay { "output_vol" };
+    juce::WebSliderRelay volDbRelay     { "vol_db"     };
+    juce::WebSliderRelay pitchRelay     { "pitch"      };
+    juce::WebSliderRelay rootNoteRelay  { "root_note"  };
+    juce::WebSliderRelay speedRelay     { "speed"      };
+    juce::WebSliderRelay panRelay       { "pan"        };
+    juce::WebSliderRelay panRndRelay    { "pan_rnd"    };
+    juce::WebSliderRelay bpmRelay       { "bpm" };
+
+    juce::WebSliderRelay eqLowRelay     { "eq_low"      };
+    juce::WebSliderRelay eqLowMidRelay  { "eq_low_mid"  };
+    juce::WebSliderRelay eqHighMidRelay { "eq_high_mid" };
+    juce::WebSliderRelay eqHighRelay    { "eq_high"     };
 
     juce::WebSliderRelay gridRelay         { "grid"          };
     juce::WebSliderRelay playbackModeRelay { "playback_mode" };
@@ -140,6 +152,18 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> fenvDecayAttachment;
 
     std::unique_ptr<juce::WebSliderParameterAttachment> outputVolAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> volDbAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> pitchAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> rootNoteAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> speedAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> panAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> panRndAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> bpmAttachment;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> eqLowAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> eqLowMidAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> eqHighMidAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> eqHighAttachment;
 
     std::unique_ptr<juce::WebSliderParameterAttachment> gridAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> playbackModeAttachment;
@@ -152,6 +176,8 @@ private:
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
 
     SpliceAudioProcessor& audioProcessor;
+
+    bool startupDialogShown = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpliceAudioProcessorEditor)
 };

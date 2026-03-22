@@ -22,6 +22,18 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     fenvDecayAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("fenv_decay"),  fenvDecayRelay);
 
     outputVolAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("output_vol"), outputVolRelay);
+    volDbAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("vol_db"),     volDbRelay);
+    pitchAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("pitch"),      pitchRelay);
+    rootNoteAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("root_note"),  rootNoteRelay);
+    speedAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("speed"),      speedRelay);
+    panAttachment       = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("pan"),        panRelay);
+    panRndAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("pan_rnd"),    panRndRelay);
+    bpmAttachment       = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("bpm"),        bpmRelay);
+
+    eqLowAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("eq_low"),      eqLowRelay);
+    eqLowMidAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("eq_low_mid"),  eqLowMidRelay);
+    eqHighMidAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("eq_high_mid"), eqHighMidRelay);
+    eqHighAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("eq_high"),     eqHighRelay);
 
     gridAttachment         = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("grid"),          gridRelay);
     playbackModeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("playback_mode"), playbackModeRelay);
@@ -51,11 +63,22 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
             .withOptionsFrom (fenvAttackRelay)
             .withOptionsFrom (fenvDecayRelay)
             .withOptionsFrom (outputVolRelay)
+            .withOptionsFrom (volDbRelay)
+            .withOptionsFrom (pitchRelay)
+            .withOptionsFrom (rootNoteRelay)
+            .withOptionsFrom (speedRelay)
+            .withOptionsFrom (panRelay)
+            .withOptionsFrom (panRndRelay)
             .withOptionsFrom (gridRelay)
             .withOptionsFrom (playbackModeRelay)
             .withOptionsFrom (reelDirRelay)
             .withOptionsFrom (sliceDirRelay)
             .withOptionsFrom (arpHoldRelay)
+            .withOptionsFrom (bpmRelay)
+            .withOptionsFrom (eqLowRelay)
+            .withOptionsFrom (eqLowMidRelay)
+            .withOptionsFrom (eqHighMidRelay)
+            .withOptionsFrom (eqHighRelay)
     );
 
     addAndMakeVisible (*webView);
@@ -109,6 +132,34 @@ void SpliceAudioProcessorEditor::launchFileChooser()
 //==============================================================================
 void SpliceAudioProcessorEditor::timerCallback()
 {
+    // One-shot startup: offer to re-open the last loaded reel
+    if (! startupDialogShown)
+    {
+        startupDialogShown = true;
+        auto lastFile = audioProcessor.getLastReelFile();
+        if (lastFile.existsAsFile())
+        {
+            juce::Component::SafePointer<SpliceAudioProcessorEditor> safeThis (this);
+            juce::MessageManager::callAsync ([safeThis, lastFile]
+            {
+                if (safeThis == nullptr) return;
+                juce::AlertWindow::showAsync (
+                    juce::MessageBoxOptions()
+                        .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                        .withTitle ("Load last reel?")
+                        .withMessage (lastFile.getFileName())
+                        .withButton ("Load")
+                        .withButton ("Skip"),
+                    [safeThis, lastFile] (int result)
+                    {
+                        if (safeThis == nullptr) return;
+                        if (result == 1)
+                            safeThis->audioProcessor.loadReelFile (lastFile);
+                    });
+            });
+        }
+    }
+
     // Update header bar label
     auto name = audioProcessor.getReelName();
     auto newLabel = name.isEmpty()
@@ -130,6 +181,11 @@ void SpliceAudioProcessorEditor::timerCallback()
         webView->evaluateJavascript (
             "if (window.updateReelName) window.updateReelName('" +
             display.replace ("'", "\\'") + "');");
+
+        const int slice = audioProcessor.activeSliceIdx.load();
+        webView->evaluateJavascript (
+            "if (window.updateActiveSlice) window.updateActiveSlice(" +
+            juce::String (slice) + ");");
     }
     catch (...) {}
 }
@@ -153,6 +209,19 @@ SpliceAudioProcessorEditor::getResource (const juce::String& url)
 
     auto resourcePath = url.fromFirstOccurrenceOf (
         juce::WebBrowserComponent::getResourceProviderRoot(), false, false);
+
+    // ── Slice toggle API ─────────────────────────────────────────────────────
+    // JS calls: fetch(window.location.origin + '/_/slice/N')
+    // On macOS the scheme handler passes only the URL path ("/_/slice/N"), not the full URL,
+    // so resourcePath (stripped of root) will be empty. Check url directly.
+    if (url.contains ("/_/slice/") || resourcePath.startsWith ("_/slice/"))
+    {
+        const int idx = url.fromLastOccurrenceOf ("/", false, false).getIntValue();
+        if (idx >= 0 && idx < 64)
+            audioProcessor.sliceActive[static_cast<size_t> (idx)]
+                = ! audioProcessor.sliceActive[static_cast<size_t> (idx)];
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte> {}, "text/plain" });
+    }
 
     if (resourcePath.isEmpty() || resourcePath == "/")
         resourcePath = "/index.html";
