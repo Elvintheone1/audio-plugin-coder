@@ -284,78 +284,11 @@ void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
 }
 
 //==============================================================================
-// RubberBand pitch-shift: extract the slice, process offline, store in v.pitchBuffer.
-// totalPitchSt = semitones (positive = up). reverse = play backwards.
-// Slice lengths > 10 s are skipped (fall back to rate-based) to avoid audio-thread spikes.
-void SpliceAudioProcessor::renderPitchBuffer (SpliceVoice& v, float totalPitchSt, bool reverse)
-{
-#if SPLICE_HAS_RUBBERBAND
-    using RBS = RubberBand::RubberBandStretcher;
-
-    auto [start, end] = getSliceRange (v.currentSliceIdx);
-    const int numSamples = end - start;
-    if (numSamples <= 0 || numSamples > static_cast<int> (reelSampleRate * 10.0)) return;
-
-    const int nCh = reelBuffer.getNumChannels();
-
-    // Build a temporary buffer of the slice (reversed if needed)
-    juce::AudioBuffer<float> sliceBuf (nCh, numSamples);
-    for (int ch = 0; ch < nCh; ++ch)
-    {
-        const float* src = reelBuffer.getReadPointer (ch) + start;
-        float*       dst = sliceBuf.getWritePointer (ch);
-        if (reverse)
-            for (int i = 0; i < numSamples; ++i)
-                dst[i] = src[numSamples - 1 - i];
-        else
-            std::memcpy (dst, src, static_cast<size_t> (numSamples) * sizeof (float));
-    }
-
-    // Set up RubberBand (offline, high-quality pitch)
-    RBS rb (static_cast<size_t> (reelSampleRate),
-            static_cast<size_t> (nCh),
-            RBS::OptionProcessOffline |
-            RBS::OptionPitchHighConsistency);
-    rb.setTimeRatio  (1.0);
-    rb.setPitchScale (std::pow (2.0, static_cast<double> (totalPitchSt) / 12.0));
-
-    // Build input pointer array
-    std::vector<const float*> inPtrs (static_cast<size_t> (nCh));
-    for (int ch = 0; ch < nCh; ++ch)
-        inPtrs[static_cast<size_t> (ch)] = sliceBuf.getReadPointer (ch);
-
-    // Study + process passes (offline mode)
-    rb.study (inPtrs.data(), static_cast<size_t> (numSamples), true);
-    rb.process (inPtrs.data(), static_cast<size_t> (numSamples), true);
-
-    // Retrieve output
-    const int available = rb.available();
-    if (available <= 0) return;
-
-    v.pitchBuffer.setSize (nCh, available, false, true, false);
-    std::vector<float*> outPtrs (static_cast<size_t> (nCh));
-    for (int ch = 0; ch < nCh; ++ch)
-        outPtrs[static_cast<size_t> (ch)] = v.pitchBuffer.getWritePointer (ch);
-    rb.retrieve (outPtrs.data(), static_cast<size_t> (available));
-
-    v.usesPitchBuffer = true;
-    v.pitchBufEnd     = available;
-    // startSample/endSample mirror the pitch buffer bounds (used for Poly sustain clamp)
-    v.startSample = 0;
-    v.endSample   = available;
-#else
-    juce::ignoreUnused (v, totalPitchSt, reverse);
-#endif
-}
-
-//==============================================================================
 void SpliceAudioProcessor::setupSlicePlayback (SpliceVoice& v, int sliceDirIdx,
                                                 float extraPitchSt)
 {
     auto [start, end] = getSliceRange (v.currentSliceIdx);
     if (end <= start) return;
-
-    v.usesPitchBuffer = false;
 
     const float globalPitch  = apvts.getRawParameterValue ("pitch")->load();
     const int   rootNote     = static_cast<int> (apvts.getRawParameterValue ("root_note")->load());
@@ -365,22 +298,7 @@ void SpliceAudioProcessor::setupSlicePlayback (SpliceVoice& v, int sliceDirIdx,
     const float totalPitchSt = globalPitch + chromatic + extraPitchSt;
     const bool  reverse      = (sliceDirIdx == 1);
 
-#if SPLICE_HAS_RUBBERBAND
-    if (totalPitchSt != 0.0f)
-    {
-        renderPitchBuffer (v, totalPitchSt, reverse);
-        if (v.usesPitchBuffer)
-        {
-            // Play the pitch buffer at the sample-rate-only rate (no pitch factor)
-            const float srRate = static_cast<float> (reelSampleRate / currentSampleRate);
-            v.playRate = reverse ? -srRate : srRate;
-            v.playhead = reverse ? static_cast<float> (v.pitchBufEnd - 1) : 0.0f;
-            return;
-        }
-    }
-#endif
-
-    // Fallback: rate-based pitch (original behaviour)
+    // Rate-based pitch
     v.startSample = start;
     v.endSample   = end;
     const float pitchFactor = std::pow (2.0f, totalPitchSt / 12.0f);
@@ -833,22 +751,9 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 const float envGain = v.ampEnv.process();
                 if (v.ampEnv.isIdle()) { v.active = false; continue; }
 
-                // Choose source: pitch-shifted pre-render or raw reel
-                const float* srcL;
-                const float* srcR;
-                int           srcMax;
-                if (v.usesPitchBuffer)
-                {
-                    srcL   = v.pitchBuffer.getReadPointer (0);
-                    srcR   = v.pitchBuffer.getNumChannels() > 1 ? v.pitchBuffer.getReadPointer (1) : srcL;
-                    srcMax = v.pitchBuffer.getNumSamples() - 2;
-                }
-                else
-                {
-                    srcL   = reelL;
-                    srcR   = reelR;
-                    srcMax = reelMax;
-                }
+                const float* srcL   = reelL;
+                const float* srcR   = reelR;
+                const int    srcMax = reelMax;
 
                 const int   pos  = juce::jlimit (0, srcMax, static_cast<int> (v.playhead));
                 const float frac = juce::jlimit (0.0f, 1.0f, v.playhead - static_cast<float> (pos));
@@ -908,9 +813,7 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 else
                 {
                     // All other voices run free — deactivate at buffer boundary
-                    const int   srcSamples = v.usesPitchBuffer ? v.pitchBuffer.getNumSamples()
-                                                               : reelBuffer.getNumSamples();
-                    const float bufEnd = static_cast<float> (srcSamples - 2);
+                    const float bufEnd = static_cast<float> (reelBuffer.getNumSamples() - 2);
                     if (v.playhead >= bufEnd || v.playhead < 0.0f)
                         v.active = false;
                 }

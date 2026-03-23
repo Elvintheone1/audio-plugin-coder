@@ -7,9 +7,6 @@
 #include <vector>
 #include <atomic>
 
-#if SPLICE_HAS_RUBBERBAND
-  #include <rubberband/RubberBandStretcher.h>
-#endif
 
 //==============================================================================
 class SpliceAudioProcessor : public juce::AudioProcessor
@@ -191,10 +188,6 @@ private:
         double slicePhase      = 0.0;    // BPM clock accumulator [0..1)
         AmpEnvelope ampEnv;
 
-        // RubberBand pitch-shifted pre-render (populated on note-on when pitch ≠ 0)
-        juce::AudioBuffer<float> pitchBuffer;
-        bool  usesPitchBuffer = false;
-        int   pitchBufEnd     = 0;       // last valid sample index in pitchBuffer
     };
 
     static constexpr int kNumVoices = 32;
@@ -228,7 +221,6 @@ private:
     // Voice helpers
     int getGridValue() const;
     std::pair<int, int> getSliceRange (int sliceIdx) const;
-    void renderPitchBuffer (SpliceVoice& v, float totalPitchSt, bool reverse);
     void allocateVoice      (int midiNote, float velocity, int sliceIdx,
                              float atk, float dec, float sus,
                              int dirOverride = -1, float extraPitchSt = 0.0f);
