@@ -298,14 +298,18 @@
 
     /* ── CONTROLS AREA (Loop page) ───────────────────────── */
     .controls-area {
-      height: 160px;
+      height: 220px;
       display: flex;
+      align-items: flex-start;
+      overflow: hidden;
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
 
     .ctrl-panel {
       flex: 1;
+      height: 220px;
+      overflow: hidden;
       padding: 13px 22px 10px;
       display: flex;
       flex-direction: column;
@@ -344,6 +348,7 @@
 
     .ctrl-body { display: none; }
     .ctrl-body.active { display: flex; gap: 24px; align-items: flex-start; }
+    #signal-body.active { flex-direction: column; gap: 8px; }
 
     /* Direction groups */
     .dir-group { display: flex; flex-direction: column; gap: 5px; }
@@ -384,7 +389,7 @@
     }
 
     /* Envelope icon controls */
-    .env-controls { display: flex; gap: 22px; align-items: flex-end; }
+    .env-controls { display: flex; gap: 26px; align-items: flex-end; }
     .env-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 
     .env-icon {
@@ -400,8 +405,22 @@
       stroke: var(--text-2);
       stroke-width: 1.5;
       stroke-linecap: round;
+      fill: none;
     }
     .env-icon.dragging .env-line { stroke: var(--text); }
+
+    /* Shape-curve drag handle */
+    .shape-handle {
+      fill: transparent;
+      stroke: var(--text-3);
+      stroke-width: 1.5;
+      cursor: ew-resize;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: all;
+    }
+    .env-icon:hover .shape-handle { opacity: 0.7; }
+    .env-icon.shape-dragging .shape-handle { opacity: 1; stroke: var(--text); }
 
     .env-label {
       font-size: 9px;
@@ -554,7 +573,7 @@
     .scs-group .env-icon:hover { opacity: 0.85; }
     .scs-knob {
       display: flex; flex-direction: column; align-items: center;
-      cursor: ns-resize; user-select: none; -webkit-user-select: none; min-width: 36px;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none; width: 44px; flex-shrink: 0;
     }
     .scs-val { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
     .scs-lbl { font-size: 8px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
@@ -581,10 +600,7 @@
     .seq-item-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.06em; text-transform: uppercase; }
     .seq-item-value { font-size: 12px; color: var(--text); }
 
-    .env-val {
-      font-size: 8px; color: var(--text-3); margin-top: 2px;
-      text-align: center; letter-spacing: 0.03em;
-    }
+    .env-val { display: none; }
 
     /* ── SIGNAL KNOBS ────────────────────────────────────── */
     .sig-controls { display: flex; gap: 20px; align-items: flex-start; padding: 4px 0; }
@@ -776,8 +792,7 @@
             <div class="sig-label">Root</div>
           </div>
         </div>
-        <div style="height:10px"></div>
-        <div style="font-size:8px;color:var(--text-2);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:6px">EQ</div>
+        <div style="font-size:8px;color:var(--text-2);letter-spacing:0.07em;text-transform:uppercase">EQ</div>
         <div class="circle-controls" id="eq-controls">
           <div class="circle-ctrl" id="eq-low">
             <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
@@ -822,29 +837,32 @@
       <div class="ctrl-body active" id="ampenv-body">
         <div class="env-controls">
           <div class="env-item">
-            <svg class="env-icon" data-type="attack" data-param="amp_attack" data-value="0" data-default="0" viewBox="0 0 36 60" width="36" height="60">
-              <line class="env-line" x1="6" y1="54" x2="6" y2="6"/>
+            <svg class="env-icon" data-type="attack" data-param="amp_attack" data-shape="0" data-value="0" data-default="0" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 54 L 6 6"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
             </svg>
             <div class="env-label">Attack</div>
             <div class="env-val" id="envval-amp_attack" class="env-val envval-amp_attack">1ms</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="decay" data-param="amp_decay" data-value="0.828" data-default="0.828" viewBox="0 0 36 60" width="36" height="60">
-              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            <svg class="env-icon" data-type="decay" data-param="amp_decay" data-shape="0" data-value="0.828" data-default="0.828" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
             </svg>
             <div class="env-label">Decay</div>
             <div class="env-val" id="envval-amp_decay" class="env-val envval-amp_decay">100ms</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1.0" data-default="1.0" viewBox="0 0 36 60" width="36" height="60">
+            <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1.0" data-default="1.0" viewBox="0 0 36 60" width="41" height="69">
               <line class="env-line" x1="6" y1="6" x2="30" y2="6"/>
             </svg>
             <div class="env-label">Sustain</div>
             <div class="env-val" id="envval-amp_sustain" class="env-val envval-amp_sustain">100%</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="release" data-param="amp_release" data-value="0.667" data-default="0.667" viewBox="0 0 36 60" width="36" height="60">
-              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            <svg class="env-icon" data-type="release" data-param="amp_release" data-shape="0" data-value="0.667" data-default="0.667" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
             </svg>
             <div class="env-label">Release</div>
             <div class="env-val" id="envval-amp_release" class="env-val envval-amp_release">100ms</div>
@@ -879,20 +897,22 @@
       <div class="ctrl-body" id="fenv-body">
         <div class="env-controls">
           <div class="env-item">
-            <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 36 60" width="36" height="60">
+            <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 36 60" width="41" height="69">
               <line class="env-line" x1="6" y1="30" x2="30" y2="30"/>
             </svg>
             <div class="env-label">Depth</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-value="0.575" data-default="0.575" viewBox="0 0 36 60" width="36" height="60">
-              <line class="env-line" x1="6" y1="54" x2="6" y2="6"/>
+            <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-shape="0" data-value="0.575" data-default="0.575" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 54 L 6 6"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
             </svg>
             <div class="env-label">Attack</div>
           </div>
           <div class="env-item">
-            <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-value="0.767" data-default="0.767" viewBox="0 0 36 60" width="36" height="60">
-              <line class="env-line" x1="6" y1="6" x2="6" y2="54"/>
+            <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-shape="0" data-value="0.767" data-default="0.767" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
             </svg>
             <div class="env-label">Decay</div>
           </div>
@@ -1014,19 +1034,19 @@
       <span class="scs-label">Amp</span>
       <div class="scs-group-inner">
         <div class="env-item">
-          <svg class="env-icon" data-type="attack" data-param="amp_attack" data-value="0" data-default="0" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="42" x2="4" y2="4"/></svg>
+          <svg class="env-icon" data-type="attack" data-param="amp_attack" data-shape="0" data-value="0" data-default="0" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 42 L 4 4"/></svg>
           <div class="env-val envval-amp_attack">1ms</div>
         </div>
         <div class="env-item">
-          <svg class="env-icon" data-type="decay" data-param="amp_decay" data-value="0.828" data-default="0.828" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <svg class="env-icon" data-type="decay" data-param="amp_decay" data-shape="0" data-value="0.828" data-default="0.828" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
           <div class="env-val envval-amp_decay">100ms</div>
         </div>
         <div class="env-item">
-          <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1" data-default="1" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="4"/></svg>
+          <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1" data-default="1" viewBox="0 0 28 46" width="32" height="53"><line class="env-line" x1="4" y1="4" x2="24" y2="4"/></svg>
           <div class="env-val envval-amp_sustain">100%</div>
         </div>
         <div class="env-item">
-          <svg class="env-icon" data-type="release" data-param="amp_release" data-value="0.001" data-default="0.001" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <svg class="env-icon" data-type="release" data-param="amp_release" data-shape="0" data-value="0.001" data-default="0.001" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
           <div class="env-val envval-amp_release">1ms</div>
         </div>
       </div>
@@ -1037,15 +1057,15 @@
       <span class="scs-label">FEnv</span>
       <div class="scs-group-inner">
         <div class="env-item">
-          <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="23" x2="24" y2="23"/></svg>
+          <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 28 46" width="32" height="53"><line class="env-line" x1="4" y1="23" x2="24" y2="23"/></svg>
           <div class="env-val envval-fenv_depth">0%</div>
         </div>
         <div class="env-item">
-          <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-value="0.575" data-default="0.575" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="42" x2="4" y2="4"/></svg>
+          <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-shape="0" data-value="0.575" data-default="0.575" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 42 L 4 4"/></svg>
           <div class="env-val envval-fenv_attack">50ms</div>
         </div>
         <div class="env-item">
-          <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-value="0.767" data-default="0.767" viewBox="0 0 28 46" width="28" height="46"><line class="env-line" x1="4" y1="4" x2="24" y2="42"/></svg>
+          <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-shape="0" data-value="0.767" data-default="0.767" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
           <div class="env-val envval-fenv_decay">200ms</div>
         </div>
       </div>
@@ -1211,8 +1231,10 @@
 
     var parameterStates = {
         amp_attack: null, amp_decay: null, amp_sustain: null, amp_release: null,
+        amp_attack_shape: null, amp_decay_shape: null, amp_release_shape: null,
         filter_cutoff: null, filter_res: null, filter_type: null,
         fenv_depth: null, fenv_attack: null, fenv_decay: null,
+        fenv_attack_shape: null, fenv_decay_shape: null,
         output_vol: null,
         vol_db: null, pitch: null, speed: null, root_note: null,
         pan: null, pan_rnd: null,
@@ -1286,6 +1308,10 @@
         var idx = Math.round(norm * 3);
         modeBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
         showArpPatterns(idx === 2);
+        // keep seqActive in sync so the toggle button always reflects reality
+        seqActive = (idx === 3);
+        var pw = document.getElementById('seq-power');
+        if (pw) pw.classList.toggle('active', seqActive);
     };
 
     // Arp pattern buttons
@@ -1398,7 +1424,9 @@
         return function(norm) {
             // Update ALL env icons with this param (page 1 + compact strip)
             document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(svg) {
-                svg.dataset.value = norm; updateEnvVisual(svg);
+                // depth icons store raw bipolar value (-1..1) so drag handler math works correctly
+                svg.dataset.value = (svg.dataset.type === 'depth') ? (norm * 2 - 1) : norm;
+                updateEnvVisual(svg);
             });
             document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
                 el.textContent = envNormToDisplay(paramId, norm);
@@ -1408,6 +1436,22 @@
     ['amp_attack','amp_decay','amp_sustain','amp_release',
      'fenv_attack','fenv_decay','fenv_depth'].forEach(function(id) {
         knobUpdaters[id] = makeEnvUpdater(id);
+    });
+
+    // Shape param updaters — sync data-shape + redraw for all icons with the base param
+    function makeShapeUpdater(shapeParamId) {
+        var baseId = shapeParamId.replace('_shape', '');
+        return function(norm) {
+            var shape = norm * 2 - 1;
+            document.querySelectorAll('.env-icon[data-param="' + baseId + '"]').forEach(function(svg) {
+                svg.dataset.shape = shape;
+                updateEnvVisual(svg);
+            });
+        };
+    }
+    ['amp_attack_shape','amp_decay_shape','amp_release_shape',
+     'fenv_attack_shape','fenv_decay_shape'].forEach(function(id) {
+        knobUpdaters[id] = makeShapeUpdater(id);
     });
 
     // ================================================================
@@ -1780,55 +1824,98 @@
     }
 
     function updateEnvVisual(svg) {
-        var line = svg.querySelector('.env-line');
-        if (!line) return;
-        var type = svg.dataset.type;
-        var raw  = parseFloat(svg.dataset.value);
-        var HL = 15, cx = 18, cy = 30;
+        var type  = svg.dataset.type;
+        var raw   = parseFloat(svg.dataset.value);
+        var shape = parseFloat(svg.dataset.shape || '0');
+
+        // Geometry derived from viewBox so all icon sizes work correctly
+        var vb  = (svg.getAttribute('viewBox') || '0 0 36 60').trim().split(/\s+/);
+        var vw  = parseFloat(vb[2]) || 36;
+        var vh  = parseFloat(vb[3]) || 60;
+        var cx  = vw / 2;
+        var cy  = vh / 2;
+        var HL  = vh / 4;
+        var bow = HL * 0.8;  // max perpendicular bow displacement
         var maxA = 50 * Math.PI / 180;
         var f = function(n) { return +n.toFixed(2); };
 
-        if (type === 'attack') {
+        if (type === 'attack' || type === 'decay' || type === 'release') {
             var v = Math.max(0, Math.min(1, raw));
             svg.dataset.value = v;
             var theta = v * maxA;
-            line.setAttribute('x1', f(cx - HL * Math.sin(theta)));
-            line.setAttribute('y1', f(cy + HL * Math.cos(theta)));
-            line.setAttribute('x2', f(cx + HL * Math.sin(theta)));
-            line.setAttribute('y2', f(cy - HL * Math.cos(theta)));
-        } else if (type === 'decay' || type === 'release') {
-            var v = Math.max(0, Math.min(1, raw));
-            svg.dataset.value = v;
-            var theta = v * maxA;
-            line.setAttribute('x1', f(cx - HL * Math.sin(theta)));
-            line.setAttribute('y1', f(cy - HL * Math.cos(theta)));
-            line.setAttribute('x2', f(cx + HL * Math.sin(theta)));
-            line.setAttribute('y2', f(cy + HL * Math.cos(theta)));
+            var x1, y1, x2, y2;
+
+            if (type === 'attack') {
+                x1 = f(cx - HL * Math.sin(theta)); y1 = f(cy + HL * Math.cos(theta));
+                x2 = f(cx + HL * Math.sin(theta)); y2 = f(cy - HL * Math.cos(theta));
+            } else {
+                x1 = f(cx - HL * Math.sin(theta)); y1 = f(cy - HL * Math.cos(theta));
+                x2 = f(cx + HL * Math.sin(theta)); y2 = f(cy + HL * Math.cos(theta));
+            }
+
+            // Control point truly perpendicular to line:
+            // attack direction=(sin θ,-cos θ), perp=(cos θ, sin θ)
+            // decay/release direction=(sin θ, cos θ), perp=(cos θ,-sin θ)
+            var cpx = f(cx + shape * bow * Math.cos(theta));
+            var cpy = f(cy + shape * bow * (type === 'attack' ? Math.sin(theta) : -Math.sin(theta)));
+
+            var pathEl = svg.querySelector('.env-line');
+            if (pathEl) {
+                if (Math.abs(shape) < 0.005) {
+                    pathEl.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2);
+                } else {
+                    pathEl.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' Q ' + cpx + ' ' + cpy + ' ' + x2 + ' ' + y2);
+                }
+            }
+
+            // Move shape handle to bezier midpoint t=0.5: (p1 + 2*cp + p2) / 4
+            var handle = svg.querySelector('.shape-handle');
+            if (handle) {
+                handle.setAttribute('cx', f((x1 + 2*cpx + x2) / 4));
+                handle.setAttribute('cy', f((y1 + 2*cpy + y2) / 4));
+            }
+
         } else if (type === 'sustain') {
             var v = Math.max(0, Math.min(1, raw));
             svg.dataset.value = v;
-            var y = f(6 + (1 - v) * 48);
-            line.setAttribute('x1', cx - HL); line.setAttribute('y1', y);
-            line.setAttribute('x2', cx + HL); line.setAttribute('y2', y);
+            var y = f(vh * 0.1 + (1 - v) * vh * 0.8);
+            var lineEl = svg.querySelector('.env-line');
+            if (lineEl) {
+                lineEl.setAttribute('x1', f(cx - HL)); lineEl.setAttribute('y1', y);
+                lineEl.setAttribute('x2', f(cx + HL)); lineEl.setAttribute('y2', y);
+            }
         } else if (type === 'depth') {
             var v = Math.max(-1, Math.min(1, raw));
             svg.dataset.value = v;
-            var y = f(cy - v * 24);
-            line.setAttribute('x1', cx - HL); line.setAttribute('y1', y);
-            line.setAttribute('x2', cx + HL); line.setAttribute('y2', y);
+            var y = f(cy - v * vh * 0.4);
+            var lineEl = svg.querySelector('.env-line');
+            if (lineEl) {
+                lineEl.setAttribute('x1', f(cx - HL)); lineEl.setAttribute('y1', y);
+                lineEl.setAttribute('x2', f(cx + HL)); lineEl.setAttribute('y2', y);
+            }
         }
     }
+
+    // Map from env param id → its shape param id
+    var ENV_SHAPE_PARAM = {
+        amp_attack: 'amp_attack_shape', amp_decay: 'amp_decay_shape',
+        amp_release: 'amp_release_shape',
+        fenv_attack: 'fenv_attack_shape', fenv_decay: 'fenv_decay_shape'
+    };
 
     function initEnvIcons() {
         document.querySelectorAll('.env-icon').forEach(function(svg) {
             updateEnvVisual(svg);
         });
 
-        var drag = null, startY = 0, startVal = 0;
+        // ── Time drag (vertical, on whole SVG) ──────────────────────────
+        var timeDrag = null, startY = 0, startVal = 0;
 
         document.querySelectorAll('.env-icon').forEach(function(svg) {
             svg.addEventListener('mousedown', function(e) {
-                drag = svg;
+                // Skip if the click was on the shape handle
+                if (e.target && e.target.classList.contains('shape-handle')) return;
+                timeDrag = svg;
                 startY = e.clientY;
                 startVal = parseFloat(svg.dataset.value);
                 svg.classList.add('dragging');
@@ -1838,6 +1925,7 @@
                     try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
             });
             svg.addEventListener('dblclick', function(e) {
+                if (e.target && e.target.classList.contains('shape-handle')) return;
                 e.preventDefault();
                 var paramId = svg.dataset.param;
                 var def = parseFloat(svg.dataset.default);
@@ -1857,33 +1945,27 @@
             });
         });
 
-        // (envNormToSec / envSecToNorm / envNormToDisplay are module-level)
-
         document.addEventListener('mousemove', function(e) {
-            if (!drag) return;
+            if (!timeDrag) return;
             var dy = startY - e.clientY;
-            var paramId = drag.dataset.param;
-            var type = drag.dataset.type;
+            var paramId = timeDrag.dataset.param;
+            var type = timeDrag.dataset.type;
             var norm;
 
             if (type === 'depth') {
-                // Bipolar linear
                 norm = Math.max(0, Math.min(1, (startVal + dy / 80 + 1) / 2));
-                drag.dataset.value = norm * 2 - 1;
+                timeDrag.dataset.value = norm * 2 - 1;
             } else if (type === 'sustain') {
-                // Linear 0–1
                 norm = Math.max(0, Math.min(1, startVal + dy / 100));
-                drag.dataset.value = norm;
+                timeDrag.dataset.value = norm;
             } else {
-                // Sqrt-norm drag: dragNorm = sqrt(juceNorm), linear drag in sqrt space
-                // Gives ~8x more range to low values vs high values
                 var startDragNorm = Math.sqrt(Math.max(0, startVal));
                 var newDragNorm = Math.max(0, Math.min(1, startDragNorm + dy / 96));
                 norm = newDragNorm * newDragNorm;
-                drag.dataset.value = norm;
+                timeDrag.dataset.value = norm;
             }
 
-            updateEnvVisual(drag);
+            updateEnvVisual(timeDrag);
             if (paramId) {
                 document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
                     el.textContent = envNormToDisplay(paramId, norm);
@@ -1894,15 +1976,79 @@
         });
 
         document.addEventListener('mouseup', function() {
-            if (drag) {
-                var paramId = drag.dataset.param;
+            if (timeDrag) {
+                var paramId = timeDrag.dataset.param;
                 if (paramId && parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragEnded(); } catch(err) {}
-                drag.classList.remove('dragging');
-                drag = null;
+                timeDrag.classList.remove('dragging');
+                timeDrag = null;
             }
         });
 
+        // ── Shape drag (horizontal, on .shape-handle circles) ────────────
+        var shapeDrag = null, shapeStartX = 0, shapeStartVal = 0;
+
+        document.querySelectorAll('.shape-handle').forEach(function(handle) {
+            handle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();   // prevent time drag from also starting
+                e.preventDefault();
+                var svg = handle.closest('.env-icon');
+                if (!svg) return;
+                shapeDrag = svg;
+                shapeStartX = e.clientX;
+                shapeStartVal = parseFloat(svg.dataset.shape || '0');
+                svg.classList.add('shape-dragging');
+                var shapeParamId = ENV_SHAPE_PARAM[svg.dataset.param];
+                if (shapeParamId && parameterStates[shapeParamId])
+                    try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
+            });
+            handle.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                var svg = handle.closest('.env-icon');
+                if (!svg) return;
+                var paramId = svg.dataset.param;
+                // Reset ALL icons with this param to shape=0
+                document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
+                    s.dataset.shape = 0;
+                    updateEnvVisual(s);
+                });
+                var shapeParamId = ENV_SHAPE_PARAM[paramId];
+                if (shapeParamId && parameterStates[shapeParamId]) {
+                    try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
+                    try { parameterStates[shapeParamId].setNormalisedValue(0.5); } catch(err) {}
+                    try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
+                }
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!shapeDrag) return;
+            var dx = e.clientX - shapeStartX;
+            var newShape = Math.max(-1, Math.min(1, shapeStartVal + dx / 80));
+            shapeDrag.dataset.shape = newShape;
+
+            // Update ALL icons sharing this param (main panel + compact strip)
+            var paramId = shapeDrag.dataset.param;
+            document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
+                s.dataset.shape = newShape;
+                updateEnvVisual(s);
+            });
+
+            var shapeParamId = ENV_SHAPE_PARAM[paramId];
+            if (shapeParamId && parameterStates[shapeParamId])
+                try { parameterStates[shapeParamId].setNormalisedValue((newShape + 1) / 2); } catch(err) {}
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (shapeDrag) {
+                var shapeParamId = ENV_SHAPE_PARAM[shapeDrag.dataset.param];
+                if (shapeParamId && parameterStates[shapeParamId])
+                    try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
+                shapeDrag.classList.remove('shape-dragging');
+                shapeDrag = null;
+            }
+        });
     }
 
     // ================================================================

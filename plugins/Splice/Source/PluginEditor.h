@@ -113,6 +113,12 @@ private:
     juce::WebSliderRelay fenvAttackRelay { "fenv_attack" };
     juce::WebSliderRelay fenvDecayRelay  { "fenv_decay"  };
 
+    juce::WebSliderRelay ampAttackShapeRelay  { "amp_attack_shape"  };
+    juce::WebSliderRelay ampDecayShapeRelay   { "amp_decay_shape"   };
+    juce::WebSliderRelay ampReleaseShapeRelay { "amp_release_shape" };
+    juce::WebSliderRelay fenvAttackShapeRelay { "fenv_attack_shape" };
+    juce::WebSliderRelay fenvDecayShapeRelay  { "fenv_decay_shape"  };
+
     juce::WebSliderRelay outputVolRelay { "output_vol" };
     juce::WebSliderRelay volDbRelay     { "vol_db"     };
     juce::WebSliderRelay pitchRelay     { "pitch"      };
@@ -151,6 +157,12 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> fenvDepthAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> fenvAttackAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> fenvDecayAttachment;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> ampAttackShapeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> ampDecayShapeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> ampReleaseShapeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> fenvAttackShapeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> fenvDecayShapeAttachment;
 
     std::unique_ptr<juce::WebSliderParameterAttachment> outputVolAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> volDbAttachment;

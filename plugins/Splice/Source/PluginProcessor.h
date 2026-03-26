@@ -107,17 +107,30 @@ private:
     {
         enum class State { IDLE, ATTACK, DECAY, SUSTAIN, RELEASE } state = State::IDLE;
         float value        = 0.0f;
+        float progress     = 0.0f;   // linear 0..1 within current stage
         float attackRate   = 0.0f;
         float decayRate    = 0.0f;
         float sustainLevel = 1.0f;
         float releaseRate  = 0.0f;
+        float releaseStart = 1.0f;   // amplitude captured at noteOff
+        float attackShape  = 0.0f;   // -1..+1 (0 = linear)
+        float decayShape   = 0.0f;
+        float releaseShape = 0.0f;
+
+        // exponent = 4^shape → [0.25 .. 1.0 .. 4.0]
+        static float applyShape (float p, float shape) noexcept
+        {
+            if (std::abs (shape) < 0.001f) return p;
+            return std::pow (p, std::pow (4.0f, shape));
+        }
 
         void noteOn (float atk, float dec, float sus, double sr)
         {
-            value        = 0.0f;   // reset for clean retrigger at each slice
+            progress     = 0.0f;
+            value        = 0.0f;
             sustainLevel = juce::jlimit (0.0f, 1.0f, sus);
             attackRate   = (atk > 0.0f) ? (1.0f / (atk  * (float) sr)) : 1.0f;
-            decayRate    = (dec > 0.0f) ? ((1.0f - sustainLevel) / (dec * (float) sr)) : (1.0f - sustainLevel);
+            decayRate    = (dec > 0.0f) ? (1.0f / (dec  * (float) sr)) : 1.0f;
             state = State::ATTACK;
         }
 
@@ -125,7 +138,9 @@ private:
         {
             if (state != State::IDLE)
             {
-                releaseRate = (rel > 0.0f) ? (value / (rel * (float) sr)) : value;
+                releaseStart = value;
+                releaseRate  = (rel > 0.0f) ? (1.0f / (rel * (float) sr)) : 1.0f;
+                progress = 0.0f;
                 state = State::RELEASE;
             }
         }
@@ -135,25 +150,37 @@ private:
             switch (state)
             {
                 case State::ATTACK:
-                    value += attackRate;
-                    if (value >= 1.0f)
+                    progress += attackRate;
+                    if (progress >= 1.0f)
                     {
-                        value = 1.0f;
-                        state = (sustainLevel >= 1.0f) ? State::SUSTAIN : State::DECAY;
+                        progress = 0.0f;
+                        value    = 1.0f;
+                        state    = (sustainLevel >= 1.0f) ? State::SUSTAIN : State::DECAY;
                     }
+                    else { value = applyShape (progress, attackShape); }
                     break;
 
                 case State::DECAY:
-                    value -= decayRate;
-                    if (value <= sustainLevel) { value = sustainLevel; state = State::SUSTAIN; }
+                    progress += decayRate;
+                    if (progress >= 1.0f)
+                    {
+                        value = sustainLevel;
+                        state = State::SUSTAIN;
+                    }
+                    else { value = 1.0f - applyShape (progress, decayShape) * (1.0f - sustainLevel); }
                     break;
 
                 case State::SUSTAIN:
                     break;
 
                 case State::RELEASE:
-                    value -= releaseRate;
-                    if (value <= 0.0f) { value = 0.0f; state = State::IDLE; }
+                    progress += releaseRate;
+                    if (progress >= 1.0f)
+                    {
+                        value = 0.0f;
+                        state = State::IDLE;
+                    }
+                    else { value = releaseStart * (1.0f - applyShape (progress, releaseShape)); }
                     break;
 
                 default: break;

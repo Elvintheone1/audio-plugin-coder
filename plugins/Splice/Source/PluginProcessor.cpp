@@ -62,10 +62,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     auto relRange = juce::NormalisableRange<float> (0.001f, 1.0f, logFrom, logTo); // 1 ms–1 s
     auto linRange = juce::NormalisableRange<float> (0.0f, 1.0f);
 
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack",  "Attack",  atkRange,  0.0005f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay",   "Decay",   atkRange,  0.1f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack",  "Attack",  linRange,  0.02f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay",   "Decay",   linRange,  0.70f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_sustain", "Sustain", linRange,  1.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_release", "Release", relRange,  0.1f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_release", "Release", relRange,  0.08f));
 
     // ── Group 4: Filter ───────────────────────────────────
     auto cutoffRange = juce::NormalisableRange<float> (20.0f, 20000.0f, 0.0f, 0.25f);
@@ -77,8 +77,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     // ── Group 5: Filter Envelope ──────────────────────────
     auto bipolarRange = juce::NormalisableRange<float> (-1.0f, 1.0f);
     layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_depth",  "FEnv Depth",  bipolarRange, 0.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_attack", "FEnv Attack", atkRange,     0.01f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_decay",  "FEnv Decay",  relRange,     0.2f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_attack", "FEnv Attack", linRange, 0.05f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_decay",  "FEnv Decay",  linRange, 0.50f));
+
+    // ── Group 5b: Envelope Shapes ─────────────────────────
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack_shape",  "Amp Atk Shape",  bipolarRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay_shape",   "Amp Dec Shape",  bipolarRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_release_shape", "Amp Rel Shape",  bipolarRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_attack_shape", "FEnv Atk Shape", bipolarRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("fenv_decay_shape",  "FEnv Dec Shape", bipolarRange, 0.0f));
 
     // ── Group 6: ARP ──────────────────────────────────────
     juce::StringArray arpRates { "1/4", "1/8", "1/16", "1/32" };
@@ -208,6 +215,20 @@ std::pair<int, int> SpliceAudioProcessor::getSliceRange (int sliceIdx) const
     return { start, end };
 }
 
+// Two-segment envelope time mapping:
+//   0–40% knob  → 0.5ms–40ms absolute (linear)
+//   40–100% knob → 40ms–95% of slice duration (linear)
+static float normToEnvTime (float norm, float sliceDur) noexcept
+{
+    const float kAbsMin = 0.0005f;   // 0.5ms
+    const float kAbsMax = 0.040f;    // 40ms
+    const float kBreak  = 0.4f;
+    if (norm <= kBreak)
+        return kAbsMin + (norm / kBreak) * (kAbsMax - kAbsMin);
+    const float t = (norm - kBreak) / (1.0f - kBreak);
+    return kAbsMax + t * (juce::jmax (kAbsMax, 0.95f * sliceDur) - kAbsMax);
+}
+
 void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int sliceIdx,
                                           float atk, float dec, float sus,
                                           int dirOverride, float extraPitchSt)
@@ -265,12 +286,33 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.slicePhase         = 0.0;
 
     setupSlicePlayback (v, sliceDirIdx, extraPitchSt);
-    v.ampEnv.noteOn (atk, dec, sus, currentSampleRate);
+
+    // Convert normalized time params (0-1) → actual seconds using slice duration
+    const float sliceDur = (v.endSample - v.startSample) / (float) currentSampleRate;
+    const float atkSec   = normToEnvTime (atk, sliceDur);
+    const float decSec   = normToEnvTime (dec, sliceDur);
+
+    v.ampEnv.noteOn (atkSec, decSec, sus, currentSampleRate);
+    v.ampEnv.attackShape  = apvts.getRawParameterValue ("amp_attack_shape") ->load();
+    v.ampEnv.decayShape   = apvts.getRawParameterValue ("amp_decay_shape")  ->load();
+    v.ampEnv.releaseShape = apvts.getRawParameterValue ("amp_release_shape")->load();
 
     // Filter envelope — AD shape (sustain=0, decays fully back to base cutoff)
-    const float fenvAtk = apvts.getRawParameterValue ("fenv_attack")->load();
-    const float fenvDec = apvts.getRawParameterValue ("fenv_decay") ->load();
-    v.fenvEnv.noteOn (fenvAtk, fenvDec, 0.0f, currentSampleRate);
+    const float fenvAtkNorm = apvts.getRawParameterValue ("fenv_attack")->load();
+    const float fenvDecNorm = apvts.getRawParameterValue ("fenv_decay") ->load();
+    const float fenvAtkSec  = normToEnvTime (fenvAtkNorm, sliceDur);
+    const float fenvDecSec  = normToEnvTime (fenvDecNorm, sliceDur);
+    v.fenvEnv.noteOn (fenvAtkSec, fenvDecSec, 0.0f, currentSampleRate);
+    v.fenvEnv.attackShape = apvts.getRawParameterValue ("fenv_attack_shape")->load();
+    v.fenvEnv.decayShape  = apvts.getRawParameterValue ("fenv_decay_shape") ->load();
+
+    const float relSec = apvts.getRawParameterValue ("amp_release")->load();
+    fprintf (stderr, "[Splice] voice sliceIdx=%d/%d  start=%d  end=%d  slice=%.1fms  reelSamples=%d\n",
+             sliceIdx, 4 * getGridValue(), v.startSample, v.endSample, sliceDur * 1000.f, reelBuffer.getNumSamples());
+    fprintf (stderr, "[Splice] AmpEnv  atk=%.1fms sh=%.3f  dec=%.1fms sh=%.3f  sus=%.3f  rel=%.1fms relSh=%.3f\n",
+             atkSec * 1000.f, v.ampEnv.attackShape, decSec * 1000.f, v.ampEnv.decayShape, sus, relSec * 1000.f, v.ampEnv.releaseShape);
+    fprintf (stderr, "[Splice] FEnv    atk=%.1fms sh=%.3f  dec=%.1fms sh=%.3f\n",
+             fenvAtkSec * 1000.f, v.fenvEnv.attackShape, fenvDecSec * 1000.f, v.fenvEnv.decayShape);
 }
 
 void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
@@ -560,7 +602,7 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float  speedFactor  = kSpeedTable[speedIdx];
         const int    gridVal      = getGridValue();
         const int    totalSlices  = 4 * gridVal;
-        const double sampPerSlice = (60.0 / (bpm * speedFactor)) * currentSampleRate;
+        const double sampPerSlice = (60.0 * 4.0 / (bpm * speedFactor * gridVal)) * currentSampleRate;
         const double slicePhaseInc= 1.0 / sampPerSlice;
 
         const int reelDirIdx  = static_cast<int> (apvts.getRawParameterValue ("reel_dir")->load());
@@ -729,8 +771,11 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                         v.currentSliceIdx = advanceSeqSlice (v.currentSliceIdx, v.pingpongDir,
                                                               reelDirIdx, totalSlices);
                         setupSlicePlayback (v, sliceDirIdx);
-                        v.ampEnv.noteOn  (atkS, decS, sus, currentSampleRate);
-                        v.fenvEnv.noteOn (fenvAtkBlock, fenvDecBlock, 0.0f, currentSampleRate);
+                        {
+                            const float rsd = (v.endSample - v.startSample) / (float) currentSampleRate;
+                            v.ampEnv.noteOn  (normToEnvTime (atkS, rsd), normToEnvTime (decS, rsd), sus, currentSampleRate);
+                            v.fenvEnv.noteOn (normToEnvTime (fenvAtkBlock, rsd), normToEnvTime (fenvDecBlock, rsd), 0.0f, currentSampleRate);
+                        }
                         v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
                     }
                 }
@@ -742,9 +787,11 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                         : v.playhead <= static_cast<float> (v.startSample);
                     if (hitEnd)
                     {
-                        v.sliceEnded = true;   // prevents re-triggering noteOff
-                        v.ampEnv.noteOff (relS, currentSampleRate);
-                        // playhead continues — release tail plays freely into buffer
+                        v.sliceEnded = true;
+                        // Only start release from slice-end if key is still held.
+                        // If already released, MIDI noteOff already started the release — don't restart it.
+                        if (v.gateOpen)
+                            v.ampEnv.noteOff (relS, currentSampleRate);
                     }
                 }
 

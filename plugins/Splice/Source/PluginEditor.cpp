@@ -21,6 +21,12 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     fenvAttackAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("fenv_attack"), fenvAttackRelay);
     fenvDecayAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("fenv_decay"),  fenvDecayRelay);
 
+    ampAttackShapeAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("amp_attack_shape"),  ampAttackShapeRelay);
+    ampDecayShapeAttachment   = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("amp_decay_shape"),   ampDecayShapeRelay);
+    ampReleaseShapeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("amp_release_shape"), ampReleaseShapeRelay);
+    fenvAttackShapeAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("fenv_attack_shape"), fenvAttackShapeRelay);
+    fenvDecayShapeAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("fenv_decay_shape"),  fenvDecayShapeRelay);
+
     outputVolAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("output_vol"), outputVolRelay);
     volDbAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("vol_db"),     volDbRelay);
     pitchAttachment     = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("pitch"),      pitchRelay);
@@ -81,6 +87,11 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
             .withOptionsFrom (eqLowMidRelay)
             .withOptionsFrom (eqHighMidRelay)
             .withOptionsFrom (eqHighRelay)
+            .withOptionsFrom (ampAttackShapeRelay)
+            .withOptionsFrom (ampDecayShapeRelay)
+            .withOptionsFrom (ampReleaseShapeRelay)
+            .withOptionsFrom (fenvAttackShapeRelay)
+            .withOptionsFrom (fenvDecayShapeRelay)
     );
 
     addAndMakeVisible (*webView);
