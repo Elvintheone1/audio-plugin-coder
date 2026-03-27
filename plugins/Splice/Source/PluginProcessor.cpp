@@ -150,6 +150,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_vol",    "Rand Vol",    linRange, 0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_jitter", "Rand Jitter", linRange, 0.0f));
 
+    // ── Group 12: Tape ────────────────────────────────────
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("tape_age",    "Tape Age",    linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("wow_flutter", "Wow Flutter", linRange, 0.0f));
+
     // ── Group 11: Tempo ───────────────────────────────────
     layout.add (std::make_unique<juce::AudioParameterFloat> ("bpm", "BPM",
         juce::NormalisableRange<float> (60.0f, 200.0f), 120.0f));
@@ -199,6 +203,13 @@ void SpliceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
         v.ladderL.prepare (monoSpec);
         v.ladderR.prepare (monoSpec);
     }
+
+    // Tape / Wow&Flutter reset
+    tapeLP_L = tapeLP_R = 0.0f;
+    wfBufL.fill (0.0f);
+    wfBufR.fill (0.0f);
+    wfWritePos = 0;
+    wfPhaseWow = wfPhaseFlutter = 0.0;
 }
 
 void SpliceAudioProcessor::releaseResources()
@@ -974,6 +985,75 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float gain = smoothedOutputVol.getNextValue();
         for (int ch = 0; ch < numChannels; ++ch)
             buffer.getWritePointer (ch)[s] *= gain;
+    }
+
+    // ── Tape: Wow & Flutter + Age ─────────────────────────────────────────────
+    {
+        const float wfDepth  = apvts.getRawParameterValue ("wow_flutter")->load();
+        const float ageDepth = apvts.getRawParameterValue ("tape_age")   ->load();
+
+        // Wow & Flutter: modulated stereo delay line
+        // wow: 0.8 Hz, up to ±12ms depth; flutter: 8.0 Hz, up to ±1.5ms depth
+        const double wfWowInc     = juce::MathConstants<double>::twoPi * 0.8  / currentSampleRate;
+        const double wfFlutterInc = juce::MathConstants<double>::twoPi * 8.0  / currentSampleRate;
+        const float  wowMaxSamp   = static_cast<float> (0.012 * currentSampleRate);   // 12ms
+        const float  fltMaxSamp   = static_cast<float> (0.0015 * currentSampleRate);  // 1.5ms
+        const float  wfCenter     = wowMaxSamp + fltMaxSamp + 2.0f;                   // min delay to stay positive
+
+        // Tape Age: one-pole HF rolloff
+        // alpha: age=0 → ~20kHz (alpha≈0), age=1 → ~2kHz
+        const float ageCutoff = 20000.0f * std::pow (0.10f, ageDepth);  // 20k→2k log
+        const float ageAlpha  = std::exp (-juce::MathConstants<float>::twoPi
+                                          * ageCutoff / (float) currentSampleRate);
+        // Saturation drive: 0 (bypass) → ~4x at age=1
+        const float ageDrive  = 1.0f + ageDepth * 4.0f;
+        const float ageDriveInv = 1.0f / std::tanh (ageDrive);
+
+        float* chanL = buffer.getWritePointer (0);
+        float* chanR = numChannels > 1 ? buffer.getWritePointer (1) : chanL;
+
+        for (int s = 0; s < numSamples; ++s)
+        {
+            // --- Wow & Flutter ---
+            if (wfDepth > 0.0f)
+            {
+                // Write current sample into circular buffer
+                wfBufL[wfWritePos] = chanL[s];
+                wfBufR[wfWritePos] = chanR[s];
+
+                // Compute modulated read offset (samples)
+                const float wowMod  = static_cast<float> (std::sin (wfPhaseWow))    * wowMaxSamp;
+                const float fltMod  = static_cast<float> (std::sin (wfPhaseFlutter)) * fltMaxSamp;
+                const float delayF  = wfCenter + (wowMod + fltMod) * wfDepth;
+                const float readF   = static_cast<float> (wfWritePos) - delayF;
+                const int   readI   = (static_cast<int> (std::floor (readF)) + kWFBufSize * 4) % kWFBufSize;
+                const int   readI1  = (readI + 1) % kWFBufSize;
+                const float frac    = readF - std::floor (readF);
+
+                chanL[s] = wfBufL[readI] + frac * (wfBufL[readI1] - wfBufL[readI]);
+                chanR[s] = wfBufR[readI] + frac * (wfBufR[readI1] - wfBufR[readI]);
+
+                wfWritePos = (wfWritePos + 1) % kWFBufSize;
+                wfPhaseWow    += wfWowInc;
+                wfPhaseFlutter += wfFlutterInc;
+                if (wfPhaseWow    > juce::MathConstants<double>::twoPi) wfPhaseWow    -= juce::MathConstants<double>::twoPi;
+                if (wfPhaseFlutter > juce::MathConstants<double>::twoPi) wfPhaseFlutter -= juce::MathConstants<double>::twoPi;
+            }
+
+            // --- Tape Age: HF rolloff + saturation ---
+            if (ageDepth > 0.0f)
+            {
+                // One-pole lowpass (one-pole per channel, separate state)
+                tapeLP_L = ageAlpha * tapeLP_L + (1.0f - ageAlpha) * chanL[s];
+                tapeLP_R = ageAlpha * tapeLP_R + (1.0f - ageAlpha) * chanR[s];
+                chanL[s] = tapeLP_L;
+                chanR[s] = tapeLP_R;
+
+                // Soft saturation
+                chanL[s] = std::tanh (chanL[s] * ageDrive) * ageDriveInv;
+                chanR[s] = std::tanh (chanR[s] * ageDrive) * ageDriveInv;
+            }
+        }
     }
 
     // ── Global EQ ────────────────────────────────────────────────────────────

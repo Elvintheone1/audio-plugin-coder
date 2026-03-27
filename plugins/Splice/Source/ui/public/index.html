@@ -846,6 +846,8 @@
         <button class="ctrl-tab" onclick="switchCtrl(this,'filter-body')">Filter</button>
         <span class="ctrl-tab-sep">/</span>
         <button class="ctrl-tab" onclick="switchCtrl(this,'fenv-body')">Filter Env</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'tape-body')">Tape</button>
       </div>
 
       <!-- Amp Env body -->
@@ -932,6 +934,11 @@
             <div class="env-label">Decay</div>
           </div>
         </div>
+      </div>
+
+      <!-- Tape body -->
+      <div class="ctrl-body" id="tape-body">
+        <div id="tape-controls" style="display:flex;gap:32px;align-items:flex-end;padding:8px 0;"></div>
       </div>
 
     </div><!-- /ctrl-panel right -->
@@ -1259,7 +1266,8 @@
         arp_hold: null, arp_pattern: null,
         bpm: null,
         eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null,
-        rand_oct: null, rand_fifth: null, rand_cutoff: null, rand_env: null, rand_vol: null, rand_jitter: null
+        rand_oct: null, rand_fifth: null, rand_cutoff: null, rand_env: null, rand_vol: null, rand_jitter: null,
+        tape_age: null, wow_flutter: null
     };
 
     var knobUpdaters = {};
@@ -1787,6 +1795,77 @@
         // Jitter: max ms label
         makeRandCircle('rand-jitter-ctrl', 'rand_jitter', function(n) {
             return n < 0.01 ? '0ms' : Math.round(n * 50) + 'ms';
+        });
+    }
+
+    function initTapeControls() {
+        var container = document.getElementById('tape-controls');
+        if (!container) return;
+
+        // Build two circle controls matching the rand/filter circle style
+        var defs = [
+            { id: 'tape-age-ctrl',    paramId: 'tape_age',    label: 'Age',
+              labelFn: function(n) { return n < 0.01 ? 'Off' : Math.round(n * 100) + '%'; } },
+            { id: 'tape-wf-ctrl',     paramId: 'wow_flutter', label: 'W&F',
+              labelFn: function(n) { return n < 0.01 ? 'Off' : Math.round(n * 100) + '%'; } }
+        ];
+
+        defs.forEach(function(def) {
+            var wrap = document.createElement('div');
+            wrap.className = 'circle-ctrl';
+            wrap.id = def.id;
+            wrap.innerHTML =
+                '<div class="circle-well"><div class="circle-dot"></div></div>' +
+                '<div class="circle-val"></div>' +
+                '<div class="circle-label">' + def.label + '</div>';
+            container.appendChild(wrap);
+
+            var dot = wrap.querySelector('.circle-dot');
+            var valEl = wrap.querySelector('.circle-val');
+            var norm = 0, dragging = false, startY = 0, startNorm = 0;
+
+            function update(n) {
+                norm = Math.max(0, Math.min(1, n));
+                var sz = Math.round(6 + norm * 38);
+                dot.style.width  = sz + 'px';
+                dot.style.height = sz + 'px';
+                dot.style.background = norm > 0.01 ? 'var(--text)' : 'var(--text-2)';
+                valEl.textContent = def.labelFn(norm);
+            }
+            update(0);
+
+            wrap.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragStarted(); } catch(ex) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var delta = (startY - e.clientY) / 120;
+                var n = Math.max(0, Math.min(1, startNorm + delta));
+                update(n);
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.setNormalisedValue(n); } catch(ex) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragEnded(); } catch(ex) {}
+            });
+            wrap.addEventListener('dblclick', function() {
+                update(0);
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragStarted(); ps.setNormalisedValue(0); ps.sliderDragEnded(); } catch(ex) {}
+            });
+
+            // Receive updates from JUCE
+            if (window.__JUCE__ && window.__JUCE__.addValueChangedListener) {
+                try {
+                    window.__JUCE__.addValueChangedListener(def.paramId, function(v) { update(v); });
+                } catch(ex) {}
+            }
         });
     }
 
@@ -3001,6 +3080,7 @@
         initSignalControls();
         initEqControls();
         initRandControls();
+        initTapeControls();
         initFilterSliders();
         initEnvIcons();
         initGridDrag();

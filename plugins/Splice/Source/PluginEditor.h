@@ -119,6 +119,9 @@ private:
     juce::WebSliderRelay fenvAttackShapeRelay { "fenv_attack_shape" };
     juce::WebSliderRelay fenvDecayShapeRelay  { "fenv_decay_shape"  };
 
+    juce::WebSliderRelay tapeAgeRelay    { "tape_age"    };
+    juce::WebSliderRelay wowFlutterRelay { "wow_flutter" };
+
     juce::WebSliderRelay randOctRelay    { "rand_oct"    };
     juce::WebSliderRelay randFifthRelay  { "rand_fifth"  };
     juce::WebSliderRelay randCutoffRelay { "rand_cutoff" };
@@ -192,6 +195,9 @@ private:
 
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> arpHoldAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment>       arpPatternAttachment;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> tapeAgeAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> wowFlutterAttachment;
 
     std::unique_ptr<juce::WebSliderParameterAttachment> randOctAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> randFifthAttachment;

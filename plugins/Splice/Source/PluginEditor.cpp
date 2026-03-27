@@ -49,6 +49,9 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     arpHoldAttachment    = std::make_unique<juce::WebToggleButtonParameterAttachment> (*audioProcessor.apvts.getParameter ("arp_hold"),    arpHoldRelay);
     arpPatternAttachment = std::make_unique<juce::WebSliderParameterAttachment>       (*audioProcessor.apvts.getParameter ("arp_pattern"), arpPatternRelay);
 
+    tapeAgeAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("tape_age"),    tapeAgeRelay);
+    wowFlutterAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("wow_flutter"), wowFlutterRelay);
+
     randOctAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_oct"),    randOctRelay);
     randFifthAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_fifth"),  randFifthRelay);
     randCutoffAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_cutoff"), randCutoffRelay);
@@ -99,6 +102,8 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
             .withOptionsFrom (ampReleaseShapeRelay)
             .withOptionsFrom (fenvAttackShapeRelay)
             .withOptionsFrom (fenvDecayShapeRelay)
+            .withOptionsFrom (tapeAgeRelay)
+            .withOptionsFrom (wowFlutterRelay)
             .withOptionsFrom (randOctRelay)
             .withOptionsFrom (randFifthRelay)
             .withOptionsFrom (randCutoffRelay)

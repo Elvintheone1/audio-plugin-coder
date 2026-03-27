@@ -107,6 +107,16 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighMidSmooth;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighSmooth;
 
+    // Tape Age — one-pole HF rolloff state (L/R)
+    float tapeLP_L = 0.0f, tapeLP_R = 0.0f;
+
+    // Wow & Flutter — stereo modulated delay line
+    static constexpr int kWFBufSize = 4096;   // ~85ms @ 48kHz
+    std::array<float, kWFBufSize> wfBufL {}, wfBufR {};
+    int    wfWritePos    = 0;
+    double wfPhaseWow    = 0.0;   // 0.8 Hz LFO
+    double wfPhaseFlutter = 0.0;  // 8.0 Hz LFO
+
     //==========================================================================
     // Amp Envelope — linear ADSR, one instance per voice
     struct AmpEnvelope
