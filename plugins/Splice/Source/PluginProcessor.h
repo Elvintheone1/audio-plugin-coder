@@ -101,6 +101,12 @@ private:
                                                    juce::dsp::IIR::Coefficients<float>>;
     juce::dsp::ProcessorChain<EqBand, EqBand, EqBand, EqBand> eqChain;
 
+    // Smoothed dB values for EQ — prevents coefficient-change crackling
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqLowSmooth;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqLowMidSmooth;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighMidSmooth;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighSmooth;
+
     //==========================================================================
     // Amp Envelope — linear ADSR, one instance per voice
     struct AmpEnvelope
@@ -208,6 +214,7 @@ private:
         float  pan             = 0.0f;   // stereo position [-1..1], computed at spawn
         float  filterCutoff   = 18000.0f; // Hz, set at spawn (randomizable)
         float  filterRes      = 0.0f;     // 0..1
+        float  volRandMult    = 1.0f;     // per-voice volume randomization multiplier
         float  svfIc1L = 0.0f, svfIc2L = 0.0f; // SVF state — left
         float  svfIc1R = 0.0f, svfIc2R = 0.0f; // SVF state — right
         AmpEnvelope fenvEnv;              // filter envelope (sustain=0 → AD shape)

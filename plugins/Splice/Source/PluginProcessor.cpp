@@ -63,7 +63,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     auto linRange = juce::NormalisableRange<float> (0.0f, 1.0f);
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_attack",  "Attack",  linRange,  0.02f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay",   "Decay",   linRange,  0.70f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_decay",   "Decay",   linRange,  0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_sustain", "Sustain", linRange,  1.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("amp_release", "Release", relRange,  0.08f));
 
@@ -142,6 +142,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     layout.add (std::make_unique<juce::AudioParameterFloat> ("eq_high_mid", "EQ High Mid", juce::NormalisableRange<float> (-12.0f, 12.0f), 0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("eq_high",     "EQ High",     juce::NormalisableRange<float> (-12.0f, 12.0f), 0.0f));
 
+    // ── Group 13: Randomization depths ───────────────────
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_oct",    "Rand Oct",    linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_fifth",  "Rand Fifth",  linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_cutoff", "Rand Cutoff", linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_env",    "Rand Env",    linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_vol",    "Rand Vol",    linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_jitter", "Rand Jitter", linRange, 0.0f));
+
     // ── Group 11: Tempo ───────────────────────────────────
     layout.add (std::make_unique<juce::AudioParameterFloat> ("bpm", "BPM",
         juce::NormalisableRange<float> (60.0f, 200.0f), 120.0f));
@@ -168,6 +176,15 @@ void SpliceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     currentSampleRate = sampleRate;
     smoothedOutputVol.reset (sampleRate, 0.05);  // 50 ms ramp
     smoothedOutputVol.setCurrentAndTargetValue (apvts.getRawParameterValue ("output_vol")->load());
+
+    eqLowSmooth    .reset (sampleRate, 0.05);
+    eqLowMidSmooth .reset (sampleRate, 0.05);
+    eqHighMidSmooth.reset (sampleRate, 0.05);
+    eqHighSmooth   .reset (sampleRate, 0.05);
+    eqLowSmooth    .setCurrentAndTargetValue (apvts.getRawParameterValue ("eq_low")     ->load());
+    eqLowMidSmooth .setCurrentAndTargetValue (apvts.getRawParameterValue ("eq_low_mid") ->load());
+    eqHighMidSmooth.setCurrentAndTargetValue (apvts.getRawParameterValue ("eq_high_mid")->load());
+    eqHighSmooth   .setCurrentAndTargetValue (apvts.getRawParameterValue ("eq_high")    ->load());
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate       = sampleRate;
@@ -274,8 +291,35 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.active             = true;
     v.gateOpen           = true;
     v.pan                = juce::jlimit (-1.0f, 1.0f, panCenter + rndOffset);
-    v.filterCutoff       = apvts.getRawParameterValue ("filter_cutoff")->load();
-    v.filterRes          = apvts.getRawParameterValue ("filter_res")   ->load();
+    // ── Randomization depths ─────────────────────────────────────────────────
+    auto rnd = [] { return juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f; }; // [-1,1]
+    const float randOctDepth    = apvts.getRawParameterValue ("rand_oct")   ->load();
+    const float randFifthDepth  = apvts.getRawParameterValue ("rand_fifth") ->load();
+    const float randCutoffDepth = apvts.getRawParameterValue ("rand_cutoff")->load();
+    const float randEnvDepth    = apvts.getRawParameterValue ("rand_env")   ->load();
+    const float randVolDepth    = apvts.getRawParameterValue ("rand_vol")   ->load();
+
+    // Oct: discrete octave shift — depth controls max spread (0→1 oct, 0.33→1, 0.67→2, 1→3)
+    {
+        const int maxOct = juce::jlimit (0, 3, static_cast<int> (std::ceil (randOctDepth * 3.0f)));
+        if (maxOct > 0)
+        {
+            const int octShift = static_cast<int> (std::floor (
+                (juce::Random::getSystemRandom().nextFloat() * (2 * maxOct + 1)))) - maxOct;
+            extraPitchSt += static_cast<float> (octShift * 12);
+        }
+    }
+
+    // 5ths: depth = probability of applying ±7 semitone shift
+    if (juce::Random::getSystemRandom().nextFloat() < randFifthDepth)
+        extraPitchSt += (juce::Random::getSystemRandom().nextFloat() < 0.5f) ? 7.0f : -7.0f;
+
+    // Cutoff: bipolar ±3 octaves (log) at depth=1
+    const float baseCutoff = apvts.getRawParameterValue ("filter_cutoff")->load();
+    v.filterCutoff = juce::jlimit (20.0f, 20000.0f,
+                         baseCutoff * std::pow (2.0f, rnd() * randCutoffDepth * 3.0f));
+
+    v.filterRes          = apvts.getRawParameterValue ("filter_res")->load();
     v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
     v.sliceEnded         = false;
     v.midiNote           = midiNote;
@@ -285,12 +329,21 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.age                = voiceAge++;
     v.slicePhase         = 0.0;
 
+    // Vol: bipolar ±50% at depth=1 (clamped 0.1..2.0 to prevent silence/clipping)
+    v.volRandMult = juce::jlimit (0.1f, 2.0f, 1.0f + rnd() * randVolDepth * 0.5f);
+
     setupSlicePlayback (v, sliceDirIdx, extraPitchSt);
 
     // Convert normalized time params (0-1) → actual seconds using slice duration
     const float sliceDur = (v.endSample - v.startSample) / (float) currentSampleRate;
-    const float atkSec   = normToEnvTime (atk, sliceDur);
-    const float decSec   = normToEnvTime (dec, sliceDur);
+
+    // ENV: bipolar randomization on atk/dec norms before time conversion
+    const float envRnd = rnd() * randEnvDepth * 0.4f;
+    const float atkRnd = juce::jlimit (0.0f, 1.0f, atk + rnd() * randEnvDepth * 0.4f);
+    const float decRnd = juce::jlimit (0.0f, 1.0f, dec + rnd() * randEnvDepth * 0.4f);
+    const float atkSec = normToEnvTime (atkRnd, sliceDur);
+    const float decSec = normToEnvTime (decRnd, sliceDur);
+    (void) envRnd;
 
     v.ampEnv.noteOn (atkSec, decSec, sus, currentSampleRate);
     v.ampEnv.attackShape  = apvts.getRawParameterValue ("amp_attack_shape") ->load();
@@ -306,13 +359,6 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.fenvEnv.attackShape = apvts.getRawParameterValue ("fenv_attack_shape")->load();
     v.fenvEnv.decayShape  = apvts.getRawParameterValue ("fenv_decay_shape") ->load();
 
-    const float relSec = apvts.getRawParameterValue ("amp_release")->load();
-    fprintf (stderr, "[Splice] voice sliceIdx=%d/%d  start=%d  end=%d  slice=%.1fms  reelSamples=%d\n",
-             sliceIdx, 4 * getGridValue(), v.startSample, v.endSample, sliceDur * 1000.f, reelBuffer.getNumSamples());
-    fprintf (stderr, "[Splice] AmpEnv  atk=%.1fms sh=%.3f  dec=%.1fms sh=%.3f  sus=%.3f  rel=%.1fms relSh=%.3f\n",
-             atkSec * 1000.f, v.ampEnv.attackShape, decSec * 1000.f, v.ampEnv.decayShape, sus, relSec * 1000.f, v.ampEnv.releaseShape);
-    fprintf (stderr, "[Splice] FEnv    atk=%.1fms sh=%.3f  dec=%.1fms sh=%.3f\n",
-             fenvAtkSec * 1000.f, v.fenvEnv.attackShape, fenvDecSec * 1000.f, v.fenvEnv.decayShape);
 }
 
 void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
@@ -616,6 +662,14 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float fenvDecBlock   = apvts.getRawParameterValue ("fenv_decay") ->load();
         const int   sliceDirIdx    = static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
 
+        // Randomization depths (read once per block, applied at each slice trigger)
+        const float rndOctDepth    = apvts.getRawParameterValue ("rand_oct")   ->load();
+        const float rndFifthDepth  = apvts.getRawParameterValue ("rand_fifth") ->load();
+        const float rndCutoffDepth = apvts.getRawParameterValue ("rand_cutoff")->load();
+        const float rndEnvDepth    = apvts.getRawParameterValue ("rand_env")   ->load();
+        const float rndVolDepth    = apvts.getRawParameterValue ("rand_vol")   ->load();
+        const float rndJitterDepth = apvts.getRawParameterValue ("rand_jitter")->load();
+
         // Arp pattern: build sorted note order once per block (≤32 elements)
         const int arpPatternIdx = static_cast<int> (apvts.getRawParameterValue ("arp_pattern")->load());
         int arpSorted[kMaxArpNotes];
@@ -767,13 +821,41 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                             voices[ghostIdx].ampEnv.noteOff (relS, currentSampleRate);
                         }
 
-                        // Retrigger main voice for next slice (inline — exact timing, no jitter)
+                        // Retrigger main voice for next slice
                         v.currentSliceIdx = advanceSeqSlice (v.currentSliceIdx, v.pingpongDir,
                                                               reelDirIdx, totalSlices);
-                        setupSlicePlayback (v, sliceDirIdx);
+
+                        // Apply per-slice randomization
                         {
+                            auto rndF = [] { return juce::Random::getSystemRandom().nextFloat() * 2.0f - 1.0f; };
+                            float pitchRnd = 0.0f;
+                            const int maxOct = juce::jlimit (0, 3, static_cast<int> (std::ceil (rndOctDepth * 3.0f)));
+                            if (maxOct > 0)
+                            {
+                                const int oct = static_cast<int> (std::floor (
+                                    juce::Random::getSystemRandom().nextFloat() * (2 * maxOct + 1))) - maxOct;
+                                pitchRnd += static_cast<float> (oct * 12);
+                            }
+                            if (juce::Random::getSystemRandom().nextFloat() < rndFifthDepth)
+                                pitchRnd += (juce::Random::getSystemRandom().nextFloat() < 0.5f) ? 7.0f : -7.0f;
+
+                            v.filterCutoff = juce::jlimit (20.0f, 20000.0f,
+                                filterCutoffHz * std::pow (2.0f, rndF() * rndCutoffDepth * 3.0f));
+                            v.volRandMult  = juce::jlimit (0.1f, 2.0f, 1.0f + rndF() * rndVolDepth * 0.5f);
+
+                            // Jitter: shift BPM clock phase ±depth×10% of slice period
+                            // (positive = early trigger, negative = late trigger — both feel like timing instability)
+                            if (rndJitterDepth > 0.0f)
+                            {
+                                v.slicePhase += rndF() * rndJitterDepth * 0.10;
+                                v.slicePhase = juce::jlimit (0.0, 0.99, v.slicePhase);
+                            }
+
+                            setupSlicePlayback (v, sliceDirIdx, pitchRnd);
                             const float rsd = (v.endSample - v.startSample) / (float) currentSampleRate;
-                            v.ampEnv.noteOn  (normToEnvTime (atkS, rsd), normToEnvTime (decS, rsd), sus, currentSampleRate);
+                            const float aR  = juce::jlimit (0.0f, 1.0f, atkS + rndF() * rndEnvDepth * 0.4f);
+                            const float dR  = juce::jlimit (0.0f, 1.0f, decS + rndF() * rndEnvDepth * 0.4f);
+                            v.ampEnv.noteOn  (normToEnvTime (aR, rsd), normToEnvTime (dR, rsd), sus, currentSampleRate);
                             v.fenvEnv.noteOn (normToEnvTime (fenvAtkBlock, rsd), normToEnvTime (fenvDecBlock, rsd), 0.0f, currentSampleRate);
                         }
                         v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
@@ -841,8 +923,8 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 // Equal-power pan + envelope + velocity
                 const float angle = (v.pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
-                const float gainL = envGain * v.velocity * std::cos (angle);
-                const float gainR = envGain * v.velocity * std::sin (angle);
+                const float gainL = envGain * v.velocity * v.volRandMult * std::cos (angle);
+                const float gainR = envGain * v.velocity * v.volRandMult * std::sin (angle);
 
                 outL[s] += rawL * gainL;
                 if (outR != outL) outR[s] += rawR * gainR;
@@ -879,13 +961,18 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // ── Global EQ ────────────────────────────────────────────────────────────
     {
-        auto toLinear = [] (float db) { return std::pow (10.0f, db / 20.0f); };
-        *eqChain.get<0>().state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf  (currentSampleRate,  100.0, 0.707, toLinear (apvts.getRawParameterValue ("eq_low")->load()));
-        *eqChain.get<1>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate,  500.0, 0.707, toLinear (apvts.getRawParameterValue ("eq_low_mid")->load()));
-        *eqChain.get<2>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, 2000.0, 0.707, toLinear (apvts.getRawParameterValue ("eq_high_mid")->load()));
-        *eqChain.get<3>().state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf (currentSampleRate, 8000.0, 0.707, toLinear (apvts.getRawParameterValue ("eq_high")->load()));
+        eqLowSmooth    .setTargetValue (apvts.getRawParameterValue ("eq_low")     ->load());
+        eqLowMidSmooth .setTargetValue (apvts.getRawParameterValue ("eq_low_mid") ->load());
+        eqHighMidSmooth.setTargetValue (apvts.getRawParameterValue ("eq_high_mid")->load());
+        eqHighSmooth   .setTargetValue (apvts.getRawParameterValue ("eq_high")    ->load());
 
-        juce::dsp::AudioBlock<float>            eqBlock (buffer);
+        auto toLinear = [] (float db) { return std::pow (10.0f, db / 20.0f); };
+        *eqChain.get<0>().state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf   (currentSampleRate,  100.0, 0.707, toLinear (eqLowSmooth    .getNextValue()));
+        *eqChain.get<1>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate,  500.0, 0.707, toLinear (eqLowMidSmooth .getNextValue()));
+        *eqChain.get<2>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, 2000.0, 0.707, toLinear (eqHighMidSmooth.getNextValue()));
+        *eqChain.get<3>().state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf  (currentSampleRate, 8000.0, 0.707, toLinear (eqHighSmooth   .getNextValue()));
+
+        juce::dsp::AudioBlock<float>              eqBlock (buffer);
         juce::dsp::ProcessContextReplacing<float> eqCtx (eqBlock);
         eqChain.process (eqCtx);
     }

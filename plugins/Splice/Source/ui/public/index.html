@@ -12,15 +12,6 @@
       --border:       #333333;
       --hover:        #2A2A2A;
 
-      --s1:     #D4604A;
-      --s1-lit: #DF8C7A;
-      --s2:     #4A7BA8;
-      --s2-lit: #7AA0C0;
-      --s3:     #5A8A6A;
-      --s3-lit: #84A892;
-      --s4:     #B87888;
-      --s4-lit: #CDA4B0;
-
       --seq-lit:  #4A8AA8;
 
       --text:    #E8E8E8;
@@ -283,18 +274,11 @@
     }
     .cell.off { background: var(--bg-cell-off); }
 
-    .s1 .cell.on      { background: var(--s1); }
-    .s1 .cell.on.lit  { background: var(--s1-lit); }
-    .s1 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s1-lit); }
-    .s2 .cell.on      { background: var(--s2); }
-    .s2 .cell.on.lit  { background: var(--s2-lit); }
-    .s2 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s2-lit); }
-    .s3 .cell.on      { background: var(--s3); }
-    .s3 .cell.on.lit  { background: var(--s3-lit); }
-    .s3 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s3-lit); }
-    .s4 .cell.on      { background: var(--s4); }
-    .s4 .cell.on.lit  { background: var(--s4-lit); }
-    .s4 .cell.off.lit { background: var(--bg-cell-off); border: 1.5px solid var(--s4-lit); }
+    /* Per-cell colors applied via inline style (randomized on reel load) */
+    .cell.on          { /* background set inline */ }
+    .cell.on.lit      { filter: brightness(1.35); }
+    .cell.off.lit     { background: var(--bg-cell-off) !important; filter: none;
+                        outline: 1.5px solid rgba(255,255,255,0.25); }
 
     /* ── CONTROLS AREA (Loop page) ───────────────────────── */
     .controls-area {
@@ -817,9 +801,40 @@
         </div>
       </div>
 
-      <!-- Random body (placeholder) -->
+      <!-- Random body -->
       <div class="ctrl-body" id="random-body">
-        <span style="font-size:10px;color:var(--text-2)">Randomization — v2</span>
+        <div class="circle-controls" id="rand-controls">
+          <div class="circle-ctrl" id="rand-oct-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Oct</div>
+          </div>
+          <div class="circle-ctrl" id="rand-fifth-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">5ths</div>
+          </div>
+          <div class="circle-ctrl" id="rand-cutoff-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Cutoff</div>
+          </div>
+          <div class="circle-ctrl" id="rand-env-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Env</div>
+          </div>
+          <div class="circle-ctrl" id="rand-vol-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Vol</div>
+          </div>
+          <div class="circle-ctrl" id="rand-jitter-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0ms</div>
+            <div class="circle-label">Jitter</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1243,15 +1258,23 @@
         reel_dir: null, slice_dir: null,
         arp_hold: null, arp_pattern: null,
         bpm: null,
-        eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null
+        eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null,
+        rand_oct: null, rand_fifth: null, rand_cutoff: null, rand_env: null, rand_vol: null, rand_jitter: null
     };
 
     var knobUpdaters = {};
 
     // Called from C++ timer via evaluateJavascript
+    var lastReelName = null;
     window.updateReelName = function(name) {
         var el = document.getElementById('reel-name');
         if (el) el.textContent = name || 'no reel loaded';
+        if (name !== lastReelName) {
+            lastReelName = name;
+            // Palette is deterministic per reel name; color order reshuffled
+            currentPaletteIdx = name ? hashString(name) % PALETTES.length : 0;
+            rebuildSections(STEPS[gridIdx]);
+        }
     };
 
     var lastLitSlice = -1;
@@ -1692,6 +1715,81 @@
         });
     }
 
+    function initRandControls() {
+        function makeRandCircle(id, paramId, labelFn) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            var dot = el.querySelector('.circle-well .circle-dot');
+            var val = el.querySelector('.circle-val');
+            var norm = 0, dragging = false, startY = 0, startNorm = 0;
+
+            function updateDot(n) {
+                var sz = Math.round(6 + n * 38);
+                dot.style.width  = sz + 'px';
+                dot.style.height = sz + 'px';
+                dot.style.background = n > 0.01 ? 'var(--text)' : 'var(--text-2)';
+                val.textContent = labelFn(n);
+            }
+
+            updateDot(0);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
+                updateDot(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = 0; updateDot(0);
+                if (parameterStates[paramId]) {
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                    try { parameterStates[paramId].setNormalisedValue(0); } catch(e) {}
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+                }
+            });
+            knobUpdaters[paramId] = function(n) { norm = n; updateDot(n); };
+        }
+
+        // Oct: discrete label — depth maps to max octave spread
+        makeRandCircle('rand-oct-ctrl', 'rand_oct', function(n) {
+            var oct = Math.ceil(n * 3);
+            return oct === 0 ? 'Off' : '±' + oct + ' oct';
+        });
+        // 5ths: probability label
+        makeRandCircle('rand-fifth-ctrl', 'rand_fifth', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Cutoff: probability/depth label
+        makeRandCircle('rand-cutoff-ctrl', 'rand_cutoff', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Env: depth label
+        makeRandCircle('rand-env-ctrl', 'rand_env', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Vol: depth label
+        makeRandCircle('rand-vol-ctrl', 'rand_vol', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Jitter: max ms label
+        makeRandCircle('rand-jitter-ctrl', 'rand_jitter', function(n) {
+            return n < 0.01 ? '0ms' : Math.round(n * 50) + 'ms';
+        });
+    }
+
     function initFilterSliders() {
         // Cutoff circle — log display 20Hz–18kHz (JUCE range: norm=0→20Hz, norm=1→18kHz)
         (function() {
@@ -2055,6 +2153,45 @@
     // GRID CONTROL DRAG
     // ================================================================
 
+    // ── Slice color palettes ──────────────────────────────────────────────
+    var PALETTES = [
+        // Cycles — coral / steel blue / navy / blush / warm gray
+        ['#CC5548', '#5B8FA8', '#2D4B6B', '#E8B0B0', '#C8C4C0'],
+        // Forest — sage / moss / soft lime / tan / gray-green
+        ['#6A9A6A', '#4A7A58', '#A8C890', '#C8A878', '#8A9888'],
+        // Ocean — sky / deep blue / seafoam / mist / slate
+        ['#4A8EC0', '#1E5A7A', '#7ABAB0', '#A8C8D0', '#5A7A8A']
+    ];
+    var sliceColors = []; // flat array, one hex per slice
+
+    var currentPaletteIdx = 0;
+
+    function hashString(str) {
+        var h = 0;
+        for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xFFFFFF;
+        return h;
+    }
+
+    function randomizeSliceColors(totalSlices, cols) {
+        var palette = PALETTES[currentPaletteIdx];
+        var val = totalSlices / 4; // slices per section
+        sliceColors = new Array(totalSlices);
+        for (var s = 0; s < 4; s++) {
+            for (var p = 0; p < val; p++) {
+                var flatIdx = s * val + p;
+                var row = cols > 0 ? Math.floor(p / cols) : 0;
+                var col = cols > 0 ? p % cols : 0;
+                // Collect colors of already-assigned left and above neighbors
+                var used = [];
+                if (col > 0) used.push(sliceColors[s * val + p - 1]);
+                if (row > 0) used.push(sliceColors[s * val + p - cols]);
+                var available = palette.filter(function(c) { return used.indexOf(c) < 0; });
+                if (available.length === 0) available = palette;
+                sliceColors[flatIdx] = available[Math.floor(Math.random() * available.length)];
+            }
+        }
+    }
+
     var gridIdx = 2; // default = /4
     var STEPS   = [1, 2, 4, 8, 16];
     var LAYOUT  = {
@@ -2067,15 +2204,19 @@
 
     function rebuildSections(val) {
         var layout = LAYOUT[val];
-        ['s1','s2','s3','s4'].forEach(function(id) {
+        var totalSlices = 4 * val;
+        randomizeSliceColors(totalSlices, layout.cols);
+        ['s1','s2','s3','s4'].forEach(function(id, sIdx) {
             var container = document.getElementById('cells-' + id);
             if (!container) return;
             container.style.gridTemplateColumns = 'repeat(' + layout.cols + ', 1fr)';
             container.style.gridTemplateRows    = 'repeat(' + layout.rows + ', 1fr)';
             container.innerHTML = '';
             for (var i = 0; i < val; i++) {
+                var flatIdx = sIdx * val + i;
                 var cell = document.createElement('div');
                 cell.className = 'cell on';
+                cell.style.background = sliceColors[flatIdx] || '#444';
                 container.appendChild(cell);
             }
         });
@@ -2185,11 +2326,16 @@
                 if (!cell) return;
 
                 // Toggle visual
-                if (cell.classList.contains('on')) cell.classList.replace('on', 'off');
-                else                               cell.classList.replace('off', 'on');
+                var flatIdx = cellFlatIndex(id, cell);
+                if (cell.classList.contains('on')) {
+                    cell.classList.replace('on', 'off');
+                    cell.style.background = '';
+                } else {
+                    cell.classList.replace('off', 'on');
+                    cell.style.background = sliceColors[flatIdx] || '#444';
+                }
 
                 // Notify C++ via resource provider fetch
-                var flatIdx = cellFlatIndex(id, cell);
                 if (flatIdx >= 0 && juceAvailable)
                     fetch(window.location.origin + '/_/slice/' + flatIdx).catch(function(){});
             });
@@ -2854,6 +3000,7 @@
         // Initialize UI controls
         initSignalControls();
         initEqControls();
+        initRandControls();
         initFilterSliders();
         initEnvIcons();
         initGridDrag();

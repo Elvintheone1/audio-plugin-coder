@@ -119,6 +119,13 @@ private:
     juce::WebSliderRelay fenvAttackShapeRelay { "fenv_attack_shape" };
     juce::WebSliderRelay fenvDecayShapeRelay  { "fenv_decay_shape"  };
 
+    juce::WebSliderRelay randOctRelay    { "rand_oct"    };
+    juce::WebSliderRelay randFifthRelay  { "rand_fifth"  };
+    juce::WebSliderRelay randCutoffRelay { "rand_cutoff" };
+    juce::WebSliderRelay randEnvRelay    { "rand_env"    };
+    juce::WebSliderRelay randVolRelay    { "rand_vol"    };
+    juce::WebSliderRelay randJitterRelay { "rand_jitter" };
+
     juce::WebSliderRelay outputVolRelay { "output_vol" };
     juce::WebSliderRelay volDbRelay     { "vol_db"     };
     juce::WebSliderRelay pitchRelay     { "pitch"      };
@@ -185,6 +192,13 @@ private:
 
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> arpHoldAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment>       arpPatternAttachment;
+
+    std::unique_ptr<juce::WebSliderParameterAttachment> randOctAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randFifthAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randCutoffAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randEnvAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randVolAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randJitterAttachment;
 
     //==========================================================================
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);
