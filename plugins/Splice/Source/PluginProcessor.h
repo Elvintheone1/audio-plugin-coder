@@ -215,13 +215,26 @@ private:
         float  filterCutoff   = 18000.0f; // Hz, set at spawn (randomizable)
         float  filterRes      = 0.0f;     // 0..1
         float  volRandMult    = 1.0f;     // per-voice volume randomization multiplier
-        float  svfIc1L = 0.0f, svfIc2L = 0.0f; // SVF state — left
-        float  svfIc1R = 0.0f, svfIc2R = 0.0f; // SVF state — right
+        juce::dsp::LadderFilter<float> ladderL, ladderR; // per-voice Moog ladder filter
         AmpEnvelope fenvEnv;              // filter envelope (sustain=0 → AD shape)
         int    age             = 0;
         double slicePhase      = 0.0;    // BPM clock accumulator [0..1)
         AmpEnvelope ampEnv;
 
+        // LadderFilter is non-copyable — copy all scalar state, reset filters on dst
+        void copyStateFrom (const SpliceVoice& src)
+        {
+            active = src.active;  gateOpen = src.gateOpen;  sliceEnded = src.sliceEnded;
+            midiNote = src.midiNote;  currentSliceIdx = src.currentSliceIdx;
+            pingpongDir = src.pingpongDir;  playhead = src.playhead;
+            playRate = src.playRate;  startSample = src.startSample;  endSample = src.endSample;
+            velocity = src.velocity;  pan = src.pan;
+            filterCutoff = src.filterCutoff;  filterRes = src.filterRes;
+            volRandMult = src.volRandMult;
+            fenvEnv = src.fenvEnv;  ampEnv = src.ampEnv;
+            age = src.age;  slicePhase = src.slicePhase;
+            ladderL.reset();  ladderR.reset();
+        }
     };
 
     static constexpr int kNumVoices = 32;

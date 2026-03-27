@@ -191,6 +191,14 @@ void SpliceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
     spec.numChannels      = 2;
     eqChain.prepare (spec);
+
+    // Prepare per-voice ladder filters (mono, one per channel)
+    juce::dsp::ProcessSpec monoSpec { sampleRate, static_cast<juce::uint32> (samplesPerBlock), 1 };
+    for (auto& v : voices)
+    {
+        v.ladderL.prepare (monoSpec);
+        v.ladderR.prepare (monoSpec);
+    }
 }
 
 void SpliceAudioProcessor::releaseResources()
@@ -320,7 +328,8 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
                          baseCutoff * std::pow (2.0f, rnd() * randCutoffDepth * 3.0f));
 
     v.filterRes          = apvts.getRawParameterValue ("filter_res")->load();
-    v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
+    v.ladderL.reset();
+    v.ladderR.reset();
     v.sliceEnded         = false;
     v.midiNote           = midiNote;
     v.currentSliceIdx    = sliceIdx;
@@ -653,11 +662,25 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         const int reelDirIdx  = static_cast<int> (apvts.getRawParameterValue ("reel_dir")->load());
 
-        // SVF type and fenv parameters (read once per block, applied per-sample)
+        // Ladder filter type and fenv parameters (read once per block, applied per-sample)
         const int   filterTypeIdx  = static_cast<int> (apvts.getRawParameterValue ("filter_type")->load());
         const float filterCutoffHz = apvts.getRawParameterValue ("filter_cutoff")->load();
         const float filterResVal   = apvts.getRawParameterValue ("filter_res")   ->load();
         const float fenvDepth      = apvts.getRawParameterValue ("fenv_depth")->load();
+
+        // Map filter type to LadderFilterMode and push to all active voices
+        static constexpr juce::dsp::LadderFilterMode kLadderModes[] = {
+            juce::dsp::LadderFilterMode::LPF24,
+            juce::dsp::LadderFilterMode::BPF24,
+            juce::dsp::LadderFilterMode::HPF24
+        };
+        const auto ladderMode = kLadderModes[juce::jlimit (0, 2, filterTypeIdx)];
+        for (auto& v : voices)
+            if (v.active)
+            {
+                v.ladderL.setMode (ladderMode);
+                v.ladderR.setMode (ladderMode);
+            }
         const float fenvAtkBlock   = apvts.getRawParameterValue ("fenv_attack")->load();
         const float fenvDecBlock   = apvts.getRawParameterValue ("fenv_decay") ->load();
         const int   sliceDirIdx    = static_cast<int> (apvts.getRawParameterValue ("slice_dir")->load());
@@ -813,7 +836,7 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                         }
                         if (ghostIdx >= 0)
                         {
-                            voices[ghostIdx]            = v;
+                            voices[ghostIdx].copyStateFrom (v);
                             voices[ghostIdx].gateOpen   = false;
                             voices[ghostIdx].sliceEnded = true;
                             voices[ghostIdx].age        = voiceAge++;
@@ -858,7 +881,8 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                             v.ampEnv.noteOn  (normToEnvTime (aR, rsd), normToEnvTime (dR, rsd), sus, currentSampleRate);
                             v.fenvEnv.noteOn (normToEnvTime (fenvAtkBlock, rsd), normToEnvTime (fenvDecBlock, rsd), 0.0f, currentSampleRate);
                         }
-                        v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
+                        v.ladderL.reset();
+                        v.ladderR.reset();
                     }
                 }
                 else if (modeIdx != 0 && ! v.sliceEnded)
@@ -890,36 +914,29 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 float rawL = srcL[pos] + frac * (srcL[pos + 1] - srcL[pos]);
                 float rawR = (outR != outL) ? srcR[pos] + frac * (srcR[pos + 1] - srcR[pos]) : rawL;
 
-                // Reset SVF state if it's gone NaN (safety net)
-                if (! std::isfinite (v.svfIc1L)) v.svfIc1L = v.svfIc2L = v.svfIc1R = v.svfIc2R = 0.0f;
-
-                // Compute SVF coefficients per-sample with fenv modulation
-                // fenv value (0..1) × depth (−1..+1) shifts cutoff by up to ±4 octaves
+                // Ladder filter with fenv modulation (±4 octaves) and per-voice rand cutoff
                 const float fenvVal   = v.fenvEnv.process();
-                const float fenvShift = fenvVal * fenvDepth;   // −1..+1
+                const float fenvShift = fenvVal * fenvDepth;
                 const float modCutoff = juce::jlimit (20.0f, 19000.0f,
-                    filterCutoffHz * std::pow (2.0f, fenvShift * 4.0f));  // ±4 octaves
-                const float svfG  = std::tan (juce::MathConstants<float>::pi * modCutoff / (float) currentSampleRate);
-                const float svfK  = 2.0f * (1.0f - filterResVal) + 1e-4f;
-                const float svfA1 = 1.0f / (1.0f + svfG * (svfG + svfK));
-                struct { float a1, a2, a3, k; } c { svfA1, svfG * svfA1, svfG * svfG * svfA1, svfK };
+                    v.filterCutoff * std::pow (2.0f, fenvShift * 4.0f));
+
+                v.ladderL.setCutoffFrequencyHz (modCutoff);
+                v.ladderL.setResonance (filterResVal);
+                v.ladderR.setCutoffFrequencyHz (modCutoff);
+                v.ladderR.setResonance (filterResVal);
+
                 {
-                    const float v3 = rawL - v.svfIc2L;
-                    const float v1 = c.a1 * v.svfIc1L + c.a2 * v3;
-                    const float v2 = v.svfIc2L + c.a2 * v.svfIc1L + c.a3 * v3;
-                    v.svfIc1L = 2.0f * v1 - v.svfIc1L;
-                    v.svfIc2L = 2.0f * v2 - v.svfIc2L;
-                    rawL = (filterTypeIdx == 0) ? v2 : (filterTypeIdx == 1) ? v1 : (rawL - c.k * v1 - v2);
+                    float* pL = &rawL;
+                    juce::dsp::AudioBlock<float> blkL (&pL, 1, 1);
+                    v.ladderL.process (juce::dsp::ProcessContextReplacing<float> (blkL));
                 }
                 if (outR != outL)
                 {
-                    const float v3 = rawR - v.svfIc2R;
-                    const float v1 = c.a1 * v.svfIc1R + c.a2 * v3;
-                    const float v2 = v.svfIc2R + c.a2 * v.svfIc1R + c.a3 * v3;
-                    v.svfIc1R = 2.0f * v1 - v.svfIc1R;
-                    v.svfIc2R = 2.0f * v2 - v.svfIc2R;
-                    rawR = (filterTypeIdx == 0) ? v2 : (filterTypeIdx == 1) ? v1 : (rawR - c.k * v1 - v2);
+                    float* pR = &rawR;
+                    juce::dsp::AudioBlock<float> blkR (&pR, 1, 1);
+                    v.ladderR.process (juce::dsp::ProcessContextReplacing<float> (blkR));
                 }
+                else { rawR = rawL; }
 
                 // Equal-power pan + envelope + velocity
                 const float angle = (v.pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
