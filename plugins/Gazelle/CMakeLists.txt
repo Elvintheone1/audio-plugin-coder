@@ -1,6 +1,5 @@
-# CloudWash - Granular Texture Processor
-# WebView-based UI with multi-mode DSP architecture
-# Cross-platform: Windows (VST3), macOS (VST3/AU), Linux (VST3/LV2)
+# Gazelle - Dual-Path Resonant Percussion Synthesizer
+# WebView-based UI, dual TPT SVF filter, MOSFET distortion, FX engine
 
 # ============================================
 # PLATFORM-SPECIFIC CONFIGURATION
@@ -8,48 +7,49 @@
 if(WIN32)
     set(PLUGIN_FORMATS VST3 Standalone)
     set(NEEDS_WEBVIEW2 TRUE)
+    set(NEEDS_WEB_BROWSER FALSE)
     set(WEBVIEW_BACKEND "WebView2")
 elseif(APPLE)
     set(PLUGIN_FORMATS VST3 AU Standalone)
     set(NEEDS_WEBVIEW2 FALSE)
+    set(NEEDS_WEB_BROWSER FALSE)
     set(WEBVIEW_BACKEND "WKWebView")
-    set(AU_MAIN_TYPE kAudioUnitType_Effect)
+    set(AU_MAIN_TYPE kAudioUnitType_MusicDevice)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)
     set(NEEDS_WEBVIEW2 FALSE)
     set(NEEDS_WEB_BROWSER TRUE)
     set(WEBVIEW_BACKEND "WebKitGTK")
-    set(LV2_URI "https://github.com/noizefield/audio-plugin-coder/CloudWash")
+    set(LV2_URI "https://github.com/noizefield/audio-plugin-coder/Gazelle")
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
 
-message(STATUS "CloudWash: Building for ${PLUGIN_FORMATS}")
-message(STATUS "CloudWash: WebView backend: ${WEBVIEW_BACKEND}")
+message(STATUS "Gazelle: Building for ${PLUGIN_FORMATS}")
+message(STATUS "Gazelle: WebView backend: ${WEBVIEW_BACKEND}")
 
 # ============================================
 # BINARY DATA (Web UI Resources)
 # ============================================
-juce_add_binary_data(CloudWash_WebUI
+juce_add_binary_data(Gazelle_WebUI
     SOURCES
         Source/ui/public/index.html
-        Source/ui/public/js/index.js
-        Source/ui/public/js/juce/index.js
-        Source/ui/public/js/juce/check_native_interop.js
 )
 
 # ============================================
 # PLUGIN DEFINITION
 # ============================================
-juce_add_plugin(CloudWash
+juce_add_plugin(Gazelle
     COMPANY_NAME "Noizefield"
     PLUGIN_MANUFACTURER_CODE AJzz
-    PLUGIN_CODE CldW
+    PLUGIN_CODE Gzll
     FORMATS ${PLUGIN_FORMATS}
-    PRODUCT_NAME "CloudWash"
+    PRODUCT_NAME "Gazelle"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
     NEEDS_WEBVIEW2 ${NEEDS_WEBVIEW2}
     NEEDS_WEB_BROWSER ${NEEDS_WEB_BROWSER}
-    VST3_CATEGORIES Fx Delay Modulation
+    VST3_CATEGORIES Instrument Fx
     AU_MAIN_TYPE ${AU_MAIN_TYPE}
     LV2URI ${LV2_URI}
 )
@@ -57,36 +57,18 @@ juce_add_plugin(CloudWash
 # ============================================
 # SOURCE FILES
 # ============================================
-target_sources(CloudWash
+target_sources(Gazelle
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
-        Source/dsp/clouds/dsp/granular_processor.cc
-        Source/dsp/clouds/resources.cc
-        Source/dsp/clouds/dsp/pvoc/phase_vocoder.cc
-        Source/dsp/clouds/dsp/pvoc/stft.cc
-        Source/dsp/clouds/dsp/pvoc/frame_transformation.cc
-        Source/dsp/clouds/dsp/mu_law.cc
-        Source/dsp/clouds/dsp/correlator.cc
-        Source/dsp/stmlib/dsp/atan.cc
-        Source/dsp/stmlib/utils/random.cc
-        Source/dsp/stmlib/dsp/units.cc
-)
-
-# ============================================
-# INCLUDE DIRECTORIES
-# ============================================
-target_include_directories(CloudWash
-    PRIVATE
-        Source/dsp
 )
 
 # ============================================
 # LINK LIBRARIES
 # ============================================
-target_link_libraries(CloudWash
+target_link_libraries(Gazelle
     PRIVATE
-        CloudWash_WebUI
+        Gazelle_WebUI
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -107,43 +89,23 @@ target_link_libraries(CloudWash
 )
 
 # ============================================
-# COMPILE DEFINITIONS (Platform-Specific)
+# COMPILE DEFINITIONS
 # ============================================
-
-# Base definitions for all platforms
-target_compile_definitions(CloudWash
+target_compile_definitions(Gazelle
     PUBLIC
         JUCE_WEB_BROWSER=1
         JUCE_VST3_CAN_REPLACE_VST2=0
         _USE_MATH_DEFINES=1
 )
 
-# Windows-specific definitions
 if(WIN32)
-    target_compile_definitions(CloudWash
-        PUBLIC
-            JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
-    )
+    target_compile_definitions(Gazelle PUBLIC JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 endif()
 
-# macOS-specific definitions
 if(APPLE)
-    target_compile_definitions(CloudWash
-        PUBLIC
-            JUCE_USE_CURL=0
-    )
+    target_compile_definitions(Gazelle PUBLIC JUCE_USE_CURL=0)
 endif()
 
-# Linux-specific definitions
 if(UNIX AND NOT APPLE)
-    target_compile_definitions(CloudWash
-        PUBLIC
-            JUCE_USE_CURL=0
-            JUCE_JACK=1
-    )
+    target_compile_definitions(Gazelle PUBLIC JUCE_USE_CURL=0 JUCE_JACK=1)
 endif()
-
-# ============================================
-# MACOS UNIVERSAL BINARY SUPPORT
-# ============================================
-# Handled via CMAKE_OSX_ARCHITECTURES at configure time (see workflow)

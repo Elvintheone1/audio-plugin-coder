@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gazelle v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+body{width:1000px;height:500px;overflow:hidden;background:#0E0E0E;font-family:'Courier New',Courier,monospace}
+#ui{position:relative;width:1000px;height:500px}
+
+/* ── ARTWORK ── */
+#artwork{position:absolute;top:0;left:0;width:1000px;height:500px;pointer-events:none}
+
+/* ── DIVIDERS ── */
+.div-line{position:absolute;top:10px;width:1px;height:480px;background:linear-gradient(to bottom,transparent,#C4960A55 15%,#C4960A99 50%,#C4960A55 85%,transparent)}
+
+/* ── LABELS ── */
+#title{position:absolute;top:11px;left:14px;font-size:16px;letter-spacing:6px;color:#C4960A;font-weight:bold;pointer-events:none}
+.sec-label{position:absolute;font-size:9px;letter-spacing:3px;color:#C4960Aaa;text-transform:uppercase;pointer-events:none}
+
+/* ── NEVE PUCK ── */
+.ctrl{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:ns-resize}
+.ctrl svg{display:block;flex-shrink:0}
+.ctrl .lbl{margin-top:4px;font-size:8px;letter-spacing:2px;color:#C4960A;text-transform:uppercase;text-align:center;pointer-events:none}
+.ctrl .val{font-size:7px;color:#C4960Aaa;text-align:center;margin-top:1px;min-width:38px;pointer-events:none}
+
+/* ── MX TRIGGER ── */
+.mx-wrap{display:flex;flex-direction:column;align-items:center}
+.mx-btn{width:50px;height:50px;background:linear-gradient(150deg,#F2EAD0,#E0D4A8 40%,#C8BC88);border-radius:3px;cursor:pointer;position:relative;transition:transform 80ms,box-shadow 80ms;box-shadow:inset 0 1px 2px rgba(255,255,255,0.4),0 5px 0 #6A5A30,0 7px 10px rgba(0,0,0,0.7)}
+.mx-btn:active,.mx-btn.pressed{transform:translateY(4px);box-shadow:inset 0 1px 2px rgba(255,255,255,0.2),0 1px 0 #6A5A30,0 2px 4px rgba(0,0,0,0.5)}
+.mx-led{position:absolute;width:8px;height:8px;border-radius:50%;bottom:7px;right:7px;transition:background 80ms,box-shadow 80ms}
+.mx-led.r-off{background:#3A0808}
+.mx-led.r-on{background:#FF3A1A;box-shadow:0 0 7px #FF3A1A,0 0 14px #FF3A1A88}
+.mx-led.b-off{background:#081830}
+.mx-led.b-on{background:#2080FF;box-shadow:0 0 7px #2080FF,0 0 14px #2080FF88}
+.mx-lbl{margin-top:5px;font-size:10px;color:#C4960A;letter-spacing:1px}
+
+/* ── FX SELECTOR ── */
+#fx-sel{position:absolute;display:flex;gap:2px}
+.fx-btn{padding:5px 9px;background:#0C1828;border:1px solid #1848A033;color:#1848A0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all 120ms}
+.fx-btn:hover{border-color:#1848A077;color:#4070C0}
+.fx-btn.active{background:#103060;border-color:#1848A0;color:#C4C4FF;box-shadow:0 0 8px rgba(24,72,160,0.5),inset 0 0 4px rgba(24,72,160,0.3)}
+
+/* ── FB PATH TOGGLE ── */
+#fb-wrap{position:absolute;display:flex;flex-direction:column;align-items:center}
+.toggle{width:44px;height:22px;background:#1A0808;border:1px solid #C4960A44;border-radius:11px;cursor:pointer;position:relative;transition:background 200ms,border-color 200ms}
+.toggle.on{background:#0A0C18;border-color:#C4960A88}
+.thumb{position:absolute;width:16px;height:16px;border-radius:50%;top:2px;left:3px;transition:left 200ms,background 200ms,box-shadow 200ms;background:#B81212;box-shadow:0 0 4px rgba(184,18,18,0.5)}
+.toggle.on .thumb{left:23px;background:#1848A0;box-shadow:0 0 4px rgba(24,72,160,0.5)}
+.toggle-lbl{margin-top:4px;font-size:7px;letter-spacing:2px;color:#C4960A;text-align:center}
+.toggle-sub{font-size:6px;color:#C4960A66;letter-spacing:1px;margin-top:1px}
+
+/* ── TRIGGER CLUSTER ── */
+/* Both clusters use the same angle — parallel, staggered vertically */
+.trigger-cluster{position:absolute;display:flex;flex-direction:column;align-items:center;gap:12px;width:64px}
+
+/* ── ODYSSEY SLIDER ── */
+.sliders-row{display:flex;gap:18px;align-items:flex-start}
+.ody-slider{display:flex;flex-direction:column;align-items:center;cursor:ns-resize}
+.ody-track{width:8px;height:88px;background:#121212;border:1px solid #C4960A33;border-radius:4px;position:relative;overflow:visible}
+.ody-thumb{position:absolute;left:-5px;width:18px;height:8px;background:linear-gradient(to bottom,#E0D2A4,#B89040);border-radius:2px;cursor:ns-resize;box-shadow:0 1px 5px rgba(0,0,0,0.85),0 0 3px #C4960A33;top:40px}
+.ody-track:hover .ody-thumb{box-shadow:0 1px 5px rgba(0,0,0,0.85),0 0 5px #C4960A66}
+.ody-lbl{font-size:7px;letter-spacing:2px;color:#C4960A88;text-transform:uppercase;margin-top:5px;text-align:center}
+
+/* ── VORONOI / MAKER'S MARK ── */
+#vor{position:absolute;pointer-events:none;opacity:0.10}
+#mark{position:absolute;border:1px solid #C4960A55;padding:3px 6px;font-size:6px;letter-spacing:2px;color:#C4960A55;text-align:center;line-height:1.7;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="ui">
+
+<!-- ════════════════════════════════════════ -->
+<!-- BACKGROUND ARTWORK                      -->
+<!-- ════════════════════════════════════════ -->
+<svg id="artwork" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>.a{fill:none;stroke:#C4960A;stroke-width:0.8}.af{fill:#C4960A;stroke:none}.at{fill:#C4960A;font-family:Georgia,serif;font-style:italic}</style>
+  </defs>
+  <rect x="2" y="2" width="996" height="496" rx="2" class="a" opacity="0.18"/>
+  <rect x="5" y="5" width="990" height="490" rx="1" class="a" opacity="0.10"/>
+  <!-- Star ornaments scattered -->
+  <g class="af">
+    <polygon points="46,238 48,244 54,244 49,248 51,254 46,250 41,254 43,248 38,244 44,244" opacity="0.7"/>
+    <polygon points="128,308 130,313 135,313 131,316 133,321 128,318 123,321 125,316 121,313 126,313" opacity="0.65"/>
+    <polygon points="375,412 377,418 383,418 378,422 380,428 375,424 370,428 372,422 368,418 373,418" opacity="0.6"/>
+    <polygon points="598,58 600,64 606,64 601,67 603,73 598,69 593,73 595,67 591,64 596,64" opacity="0.55"/>
+    <polygon points="755,387 757,392 762,392 758,395 760,400 755,397 750,400 752,395 749,392 753,392" opacity="0.6"/>
+    <polygon points="98,78 100,84 106,84 101,88 103,94 98,90 93,94 95,88 91,84 96,84" opacity="0.7"/>
+    <polygon points="155,178 156.5,183 161,183 157.5,186 159,191 155,188 151,191 152.5,186 149,183 153.5,183" opacity="0.5"/>
+    <polygon points="862,148 864,153 869,153 865,156 867,161 862,158 857,161 859,156 855,153 860,153" opacity="0.45"/>
+    <polygon points="944,275 946,280 951,280 947,283 949,288 944,285 939,288 941,283 937,280 942,280" opacity="0.40"/>
+  </g>
+  <!-- Constellation left -->
+  <g class="a" opacity="0.45">
+    <line x1="38" y1="148" x2="78" y2="128"/>
+    <line x1="78" y1="128" x2="118" y2="158"/>
+    <line x1="118" y1="158" x2="98" y2="198"/>
+    <line x1="38" y1="148" x2="18" y2="188"/>
+  </g>
+  <g class="af" opacity="0.55">
+    <circle cx="38" cy="148" r="2"/>
+    <circle cx="78" cy="128" r="2.5"/>
+    <circle cx="118" cy="158" r="2"/>
+    <circle cx="98" cy="198" r="2"/>
+    <circle cx="18" cy="188" r="1.5"/>
+  </g>
+  <!-- Constellation in trigger zone -->
+  <g class="a" opacity="0.32">
+    <line x1="850" y1="72" x2="880" y2="55"/>
+    <line x1="880" y1="55" x2="912" y2="80"/>
+    <line x1="912" y1="80" x2="898" y2="108"/>
+    <line x1="850" y1="72" x2="836" y2="100"/>
+  </g>
+  <g class="af" opacity="0.42">
+    <circle cx="850" cy="72" r="1.8"/>
+    <circle cx="880" cy="55" r="2.2"/>
+    <circle cx="912" cy="80" r="1.8"/>
+    <circle cx="898" cy="108" r="1.4"/>
+  </g>
+  <!-- Scrollwork curves -->
+  <g class="a" opacity="0.38">
+    <path d="M 185 455 Q 225 435 265 455 Q 305 475 345 455"/>
+    <path d="M 505 462 Q 545 442 585 462 Q 625 482 665 462"/>
+    <path d="M 22 375 C 42 355 62 395 82 375"/>
+    <path d="M 148 345 C 158 335 173 355 163 368"/>
+    <path d="M 700 445 Q 740 430 780 445 Q 810 458 840 448"/>
+    <path d="M 830 418 Q 860 404 892 416 Q 918 426 944 414"/>
+  </g>
+  <!-- Stylized figure -->
+  <g class="a" opacity="0.22" transform="translate(62,265)">
+    <circle cx="0" cy="0" r="8"/>
+    <line x1="0" y1="8" x2="0" y2="40"/>
+    <line x1="-14" y1="20" x2="14" y2="20"/>
+    <line x1="0" y1="40" x2="-10" y2="64"/>
+    <line x1="0" y1="40" x2="10" y2="64"/>
+  </g>
+  <!-- Latin text fragments -->
+  <text class="at" x="28" y="472" opacity="0.32" font-size="9">uti mirant stella</text>
+  <text class="at" x="492" y="480" opacity="0.28" font-size="8">resonat · vibrat</text>
+  <text class="at" x="698" y="28" opacity="0.25" font-size="8">vox machinae</text>
+  <text class="at" x="162" y="488" opacity="0.22" font-size="7">per ignem · per sonum</text>
+  <text class="at" x="833" y="472" opacity="0.18" font-size="7">pulsus · vita</text>
+</svg>
+
+<!-- ════════════════════════════════════════ -->
+<!-- CHROME                                  -->
+<!-- ════════════════════════════════════════ -->
+<div id="title">✦ GAZELLE</div>
+<span class="sec-label" style="left:130px;top:10px">Filter</span>
+<span class="sec-label" style="left:385px;top:10px">Dist</span>
+<span class="sec-label" style="left:565px;top:10px">FX</span>
+
+<!-- ════════════════════════════════════════ -->
+<!-- FILTER  0 – 310 px                      -->
+<!--                                         -->
+<!--  Cutoff  [42]          Resonance  [28]  -->
+<!--  Spread  [192]         LP→HP      [172] -->
+<!--  Lvl i   [345]         Lvl ii     [323] -->
+<!--                                         -->
+<!-- Right column sits 12–22 px higher —     -->
+<!-- breaks the strict grid row feel.        -->
+<!-- ════════════════════════════════════════ -->
+<!-- Cutoff: hero 80px, upper-center. Res below-left. Arc: Spread left, LP→HP right, Lvl i/ii bottom. -->
+<div class="ctrl" id="c-cutoff"        style="left:88px;top:48px"   data-p="cutoff"        data-min="20"  data-max="20000" data-def="800" data-v="800" data-col="#B81212" data-sz="80"><svg width="80" height="80"></svg><div class="lbl">Cutoff</div><div class="val">800Hz</div></div>
+<div class="ctrl" id="c-resonance"     style="left:116px;top:192px" data-p="resonance"     data-min="0"   data-max="1"     data-def="0.6" data-v="0.6" data-col="#B81212" data-sz="62"><svg width="62" height="62"></svg><div class="lbl">Res</div><div class="val">0.60</div></div>
+<div class="ctrl" id="c-spread"        style="left:20px;top:160px"  data-p="spread"        data-min="-1"  data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="52"><svg width="52" height="52"></svg><div class="lbl">Spread</div><div class="val">0.00</div></div>
+<div class="ctrl" id="c-filter_mode"   style="left:240px;top:128px" data-p="filter_mode"   data-min="0"   data-max="1"     data-def="0"   data-v="0"   data-col="#B81212" data-sz="40"><svg width="40" height="40"></svg><div class="lbl">LP→HP</div><div class="val">LP</div></div>
+<div class="ctrl" id="c-filter1_level" style="left:28px;top:330px"  data-p="filter1_level" data-min="0"   data-max="1"     data-def="1"   data-v="1"   data-col="#B81212" data-sz="40"><svg width="40" height="40"></svg><div class="lbl">Lvl i</div><div class="val">1.00</div></div>
+<div class="ctrl" id="c-filter2_level" style="left:220px;top:308px" data-p="filter2_level" data-min="0"   data-max="1"     data-def="0.8" data-v="0.8" data-col="#B81212" data-sz="40"><svg width="40" height="40"></svg><div class="lbl">Lvl ii</div><div class="val">0.80</div></div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- DIST  310 – 510 px                      -->
+<!--                                         -->
+<!--  Drive    [48]         Dist      [34]   -->
+<!--  Feedbk   [205]        Tilt      [186]  -->
+<!--  FB PATH toggle (center, 352)           -->
+<!-- ════════════════════════════════════════ -->
+<!-- Drive: hero 72px, upper-center. Dist_amount below. Arc: Feedbk left, Tilt right. -->
+<div class="ctrl" id="c-drive"         style="left:346px;top:48px"  data-p="drive"         data-min="0"  data-max="1" data-def="0.4" data-v="0.4" data-col="#1C1C1C" data-sz="72"><svg width="72" height="72"></svg><div class="lbl">Drive</div><div class="val">0.40</div></div>
+<div class="ctrl" id="c-dist_amount"   style="left:358px;top:188px" data-p="dist_amount"   data-min="0"  data-max="1" data-def="0.3" data-v="0.3" data-col="#1C1C1C" data-sz="52"><svg width="52" height="52"></svg><div class="lbl">Dist</div><div class="val">0.30</div></div>
+<div class="ctrl" id="c-dist_feedback" style="left:313px;top:152px" data-p="dist_feedback" data-min="0"  data-max="1" data-def="0"   data-v="0"   data-col="#1C1C1C" data-sz="40"><svg width="40" height="40"></svg><div class="lbl">Feedbk</div><div class="val">0.00</div></div>
+<div class="ctrl" id="c-eq_tilt"       style="left:444px;top:132px" data-p="eq_tilt"       data-min="-1" data-max="1" data-def="0"   data-v="0"   data-col="#1C1C1C" data-sz="52"><svg width="52" height="52"></svg><div class="lbl">Tilt EQ</div><div class="val">0.00</div></div>
+
+<div id="fb-wrap" style="left:388px;top:352px">
+  <div class="toggle" id="fb-toggle"><div class="thumb"></div></div>
+  <div class="toggle-lbl">FB PATH</div>
+  <div class="toggle-sub" id="fb-sub">DIRECT</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- FX  510 – 820 px                        -->
+<!--                                         -->
+<!--  [TAPE] [RING] [PLATE]  top:52          -->
+<!--  P1 [159]               P2 [144]        -->
+<!--  Wet [316] (center)                     -->
+<!--                                         -->
+<!-- P2 sits 15 px higher than P1 —          -->
+<!-- avoids the mirrored look.               -->
+<!-- ════════════════════════════════════════ -->
+<!-- FX zone 510–665px. Equal-sized controls, organic arc — no hero. -->
+<div id="fx-sel" style="left:515px;top:42px">
+  <button class="fx-btn active" data-t="0">TAPE</button>
+  <button class="fx-btn" data-t="1">RING</button>
+  <button class="fx-btn" data-t="2">PLATE</button>
+</div>
+
+<div class="ctrl" id="c-fx_p1" style="left:516px;top:100px" data-p="fx_p1" data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="52"><svg width="52" height="52"></svg><div class="lbl" id="p1-lbl">Time</div><div class="val">0.50</div></div>
+<div class="ctrl" id="c-fx_p2" style="left:592px;top:118px" data-p="fx_p2" data-min="0" data-max="1" data-def="0.5" data-v="0.5" data-col="#1848A0" data-sz="52"><svg width="52" height="52"></svg><div class="lbl" id="p2-lbl">Fdbk</div><div class="val">0.50</div></div>
+
+<div class="ctrl" id="c-fx_wet" style="left:543px;top:265px" data-p="fx_wet" data-min="0" data-max="1" data-def="0.3" data-v="0.3" data-col="#1848A0" data-sz="40"><svg width="40" height="40"></svg><div class="lbl">Wet</div><div class="val">0.30</div></div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- TRIGGER ZONE  820 – 1000 px             -->
+<!--                                         -->
+<!-- Both clusters: rotate(−7deg)            -->
+<!-- Cluster i  : top 108  (leads)           -->
+<!-- Cluster ii : top 128  (trails, +20 px)  -->
+<!--                                         -->
+<!-- Parallel angle like Antilope CORE —     -->
+<!-- staggered vertically, not V-splayed.    -->
+<!-- ════════════════════════════════════════ -->
+
+<!-- Cluster i — leads (higher) -->
+<div class="trigger-cluster" id="cluster-i"
+     style="left:690px;top:108px;transform:rotate(7deg);transform-origin:bottom center">
+  <div class="sliders-row">
+    <div class="ody-slider" data-p="attack1" data-min="0.5" data-max="50"   data-def="2"   data-v="2">
+      <div class="ody-track"><div class="ody-thumb"></div></div>
+      <div class="ody-lbl">A</div>
+    </div>
+    <div class="ody-slider" data-p="decay1"  data-min="5"   data-max="8000" data-def="300" data-v="300">
+      <div class="ody-track"><div class="ody-thumb"></div></div>
+      <div class="ody-lbl">D</div>
+    </div>
+  </div>
+  <div class="mx-wrap">
+    <div class="mx-btn" id="mx1"><div class="mx-led r-off" id="led1"></div></div>
+    <div class="mx-lbl">i</div>
+  </div>
+</div>
+
+<!-- Cluster ii — trails (20 px lower) -->
+<div class="trigger-cluster" id="cluster-ii"
+     style="left:848px;top:128px;transform:rotate(7deg);transform-origin:bottom center">
+  <div class="sliders-row">
+    <div class="ody-slider" data-p="attack2" data-min="0.5" data-max="50"   data-def="2"   data-v="2">
+      <div class="ody-track"><div class="ody-thumb"></div></div>
+      <div class="ody-lbl">A</div>
+    </div>
+    <div class="ody-slider" data-p="decay2"  data-min="5"   data-max="8000" data-def="300" data-v="300">
+      <div class="ody-track"><div class="ody-thumb"></div></div>
+      <div class="ody-lbl">D</div>
+    </div>
+  </div>
+  <div class="mx-wrap">
+    <div class="mx-btn" id="mx2"><div class="mx-led b-off" id="led2"></div></div>
+    <div class="mx-lbl">ii</div>
+  </div>
+</div>
+
+<!-- Voronoi in trigger zone lower area -->
+<svg id="vor" style="left:670px;top:355px" width="324" height="140" viewBox="0 0 144 122">
+  <g stroke="#C4A05A" stroke-width="0.7" fill="none">
+    <polygon points="20,10 52,5 74,26 62,52 30,50 8,30"/>
+    <polygon points="52,5 82,8 97,30 74,26"/>
+    <polygon points="74,26 97,30 90,60 62,52"/>
+    <polygon points="8,30 30,50 18,72 0,56"/>
+    <polygon points="30,50 62,52 56,80 28,82 15,70 18,72"/>
+    <polygon points="62,52 90,60 84,84 56,80"/>
+    <polygon points="97,30 120,22 128,50 110,62 90,60"/>
+    <polygon points="110,62 128,50 136,74 120,90 100,84 84,84"/>
+    <polygon points="56,80 84,84 76,106 48,110 35,96 28,82"/>
+    <polygon points="100,84 120,90 110,110 84,114 76,106 84,84"/>
+  </g>
+</svg>
+
+<div id="mark" style="right:8px;bottom:7px">AJ<br>GAZELLE</div>
+
+</div><!-- #ui -->
+
+<script>
+// ════════════════════════════════════════════════════════
+// NEVE PUCK RENDERER
+// ════════════════════════════════════════════════════════
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.max(0, (n >> 16) + amt));
+  const g = Math.min(255, Math.max(0, ((n >> 8) & 0xFF) + amt));
+  const b = Math.min(255, Math.max(0, (n & 0xFF) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderPuck(svg, color, norm) {
+  const sz  = parseInt(svg.getAttribute('width'));
+  const cx  = sz / 2, cy = sz / 2;
+  const oR  = sz / 2 - 1;
+  const wR  = oR - 4;
+  const fR  = oR - 8;
+  const iR  = fR - 5;
+  const ang = (-135 + norm * 270) * Math.PI / 180;
+  const dx  = cx + iR * Math.sin(ang);
+  const dy  = cy - iR * Math.cos(ang);
+  const uid = color.replace('#', '') + sz;
+  svg.innerHTML = `
+    <defs>
+      <radialGradient id="rg${uid}" cx="38%" cy="32%" r="65%">
+        <stop offset="0%" stop-color="${shade(color, 45)}" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="${color}"/>
+      </radialGradient>
+      <filter id="sh${sz}">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.75"/>
+      </filter>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="${oR}" fill="#070707" filter="url(#sh${sz})"/>
+    <circle cx="${cx}" cy="${cy}" r="${wR}" fill="${shade(color, -55)}"/>
+    <circle cx="${cx}" cy="${cy}" r="${fR}" fill="url(#rg${uid})"/>
+    <circle cx="${dx}" cy="${dy}" r="2.5" fill="#C4960A" opacity="0.9"/>
+    <circle cx="${dx}" cy="${dy}" r="1.4" fill="#FFE090"/>`;
+}
+
+// ════════════════════════════════════════════════════════
+// KNOB PARAMETER ENGINE
+// ════════════════════════════════════════════════════════
+
+function getNorm(el) {
+  const mn = +el.dataset.min, mx = +el.dataset.max, v = +el.dataset.v;
+  return (v - mn) / (mx - mn);
+}
+
+function fmtVal(p, v) {
+  if (p === 'cutoff')                       return v >= 1000 ? (v/1000).toFixed(1)+'kHz' : Math.round(v)+'Hz';
+  if (p === 'attack1' || p === 'attack2')   return v < 10 ? v.toFixed(1)+'ms' : Math.round(v)+'ms';
+  if (p === 'decay1'  || p === 'decay2')    return v >= 1000 ? (v/1000).toFixed(1)+'s' : Math.round(v)+'ms';
+  if (p === 'filter_mode')                  return v < 0.25 ? 'LP' : v > 0.75 ? 'HP' : 'BP';
+  return v.toFixed(2);
+}
+
+function applyNorm(el, norm) {
+  norm = Math.max(0, Math.min(1, norm));
+  const mn = +el.dataset.min, mx = +el.dataset.max;
+  const v  = mn + norm * (mx - mn);
+  el.dataset.v = v;
+  renderPuck(el.querySelector('svg'), el.dataset.col, norm);
+  el.querySelector('.val').textContent = fmtVal(el.dataset.p, v);
+  juceSet(el.dataset.p, v);
+}
+
+let drag = null, dragY0 = 0, dragN0 = 0;
+
+document.querySelectorAll('.ctrl').forEach(el => {
+  renderPuck(el.querySelector('svg'), el.dataset.col, getNorm(el));
+  el.addEventListener('mousedown', e => {
+    drag = el; dragY0 = e.clientY; dragN0 = getNorm(el);
+    e.preventDefault();
+  });
+  el.addEventListener('dblclick', () => {
+    const mn = +el.dataset.min, mx = +el.dataset.max, df = +el.dataset.def;
+    applyNorm(el, (df - mn) / (mx - mn));
+  });
+});
+
+// ════════════════════════════════════════════════════════
+// ODYSSEY SLIDER ENGINE
+// ════════════════════════════════════════════════════════
+
+const SLIDER_TRAVEL = 80; // track 88px − thumb 8px
+
+function getSliderNorm(sl) {
+  const mn = +sl.dataset.min, mx = +sl.dataset.max, v = +sl.dataset.v;
+  return (v - mn) / (mx - mn);
+}
+
+function applySliderNorm(sl, norm) {
+  norm = Math.max(0, Math.min(1, norm));
+  const mn = +sl.dataset.min, mx = +sl.dataset.max;
+  sl.dataset.v = mn + norm * (mx - mn);
+  sl.querySelector('.ody-thumb').style.top = ((1 - norm) * SLIDER_TRAVEL) + 'px';
+  juceSet(sl.dataset.p, +sl.dataset.v);
+}
+
+let slDrag = null, slY0 = 0, slN0 = 0;
+
+document.querySelectorAll('.ody-slider').forEach(sl => {
+  applySliderNorm(sl, getSliderNorm(sl));
+  sl.addEventListener('mousedown', e => {
+    slDrag = sl; slY0 = e.clientY; slN0 = getSliderNorm(sl);
+    e.preventDefault(); e.stopPropagation();
+  });
+  sl.addEventListener('dblclick', e => {
+    const mn = +sl.dataset.min, mx = +sl.dataset.max, df = +sl.dataset.def;
+    applySliderNorm(sl, (df - mn) / (mx - mn));
+    e.stopPropagation();
+  });
+});
+
+// ════════════════════════════════════════════════════════
+// UNIFIED INPUT
+// ════════════════════════════════════════════════════════
+
+document.addEventListener('mousemove', e => {
+  if (drag) {
+    const dy = dragY0 - e.clientY;
+    applyNorm(drag, dragN0 + dy * (e.shiftKey ? 0.002 : 0.007));
+  }
+  if (slDrag) {
+    applySliderNorm(slDrag, slN0 + (slY0 - e.clientY) / SLIDER_TRAVEL);
+  }
+});
+document.addEventListener('mouseup', () => { drag = null; slDrag = null; });
+
+// ════════════════════════════════════════════════════════
+// MX TRIGGER BUTTONS
+// ════════════════════════════════════════════════════════
+
+function setupMX(btnId, ledId, offCls, onCls, filter) {
+  const btn = document.getElementById(btnId);
+  const led = document.getElementById(ledId);
+  btn.addEventListener('mousedown', () => {
+    btn.classList.add('pressed');
+    led.className = `mx-led ${onCls}`;
+    juceEvent('triggerPing', { filter });
+  });
+  document.addEventListener('mouseup', () => {
+    btn.classList.remove('pressed');
+    setTimeout(() => { led.className = `mx-led ${offCls}`; }, 130);
+  });
+}
+setupMX('mx1', 'led1', 'r-off', 'r-on', 1);
+setupMX('mx2', 'led2', 'b-off', 'b-on', 2);
+
+// ════════════════════════════════════════════════════════
+// FX TYPE SELECTOR
+// ════════════════════════════════════════════════════════
+
+const fxLabels = [['Time','Fdbk'],['Freq','Depth'],['Pre-D','Decay']];
+document.querySelectorAll('.fx-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.fx-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const t = parseInt(btn.dataset.t);
+    document.getElementById('p1-lbl').textContent = fxLabels[t][0];
+    document.getElementById('p2-lbl').textContent = fxLabels[t][1];
+    juceSet('fx_type', t);
+  });
+});
+
+// ════════════════════════════════════════════════════════
+// FEEDBACK PATH TOGGLE
+// ════════════════════════════════════════════════════════
+
+const fbToggle = document.getElementById('fb-toggle');
+const fbSub    = document.getElementById('fb-sub');
+let   fbOn     = false;
+fbToggle.addEventListener('click', () => {
+  fbOn = !fbOn;
+  fbToggle.classList.toggle('on', fbOn);
+  fbSub.textContent = fbOn ? 'THRU FX' : 'DIRECT';
+  juceSet('feedback_path', fbOn ? 1 : 0);
+});
+
+// ════════════════════════════════════════════════════════
+// JUCE BRIDGE
+// ════════════════════════════════════════════════════════
+
+function juceSet(id, value) {
+  if (window.__JUCE__) window.__JUCE__.backend.emitEvent('paramChange', { id, value });
+}
+function juceEvent(name, data) {
+  if (window.__JUCE__) window.__JUCE__.backend.emitEvent(name, data);
+}
+if (window.__JUCE__) {
+  window.__JUCE__.backend.addEventListener('parameterChanged', e => {
+    const { id, value } = e.detail;
+    const el = document.querySelector(`[data-p="${id}"]`);
+    if (!el) return;
+    const mn = +el.dataset.min, mx = +el.dataset.max;
+    if (el.classList.contains('ody-slider')) applySliderNorm(el, (value-mn)/(mx-mn));
+    else if (el.classList.contains('ctrl'))  applyNorm(el, (value-mn)/(mx-mn));
+  });
+}
+</script>
+</body>
+</html>

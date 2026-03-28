@@ -1,0 +1,3139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Splice</title>
+  <style>
+    :root {
+      --bg:           #1A1A1A;
+      --bg-block:     #252525;
+      --bg-cell-off:  #141414;
+      --bg-panel:     #222222;
+      --border:       #333333;
+      --hover:        #2A2A2A;
+
+      --seq-lit:  #4A8AA8;
+
+      --text:    #E8E8E8;
+      --text-2:  #888888;
+      --text-3:  #555555;
+      --tab-bg:  #2E6B8A;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Inter, sans-serif;
+      width: 1000px;
+      height: 600px;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── TOP BAR ─────────────────────────────────────────── */
+    .top-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plugin-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .reel-name {
+      font-size: 12px;
+      color: var(--text-2);
+      margin-left: 14px;
+    }
+
+    .bpm-control {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 18px;
+      cursor: ns-resize;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .bpm-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .bpm-value {
+      font-size: 13px;
+      color: var(--text);
+      min-width: 32px;
+    }
+    .bpm-control:hover .bpm-value { color: #fff; }
+
+    .page-tabs {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .page-tab {
+      padding: 5px 18px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .page-tab.active {
+      background: var(--tab-bg);
+      color: var(--text);
+    }
+
+    .mode-group {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .mode-btn.active {
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .mode-sep {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+      margin: 0 6px;
+    }
+
+    /* SEQ power toggle */
+    .seq-power {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid var(--text-3);
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 6px;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      flex-shrink: 0;
+    }
+    .seq-power::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+      transition: background 0.15s;
+    }
+    .seq-power.active {
+      border-color: var(--seq-lit);
+      box-shadow: 0 0 6px var(--seq-lit);
+    }
+    .seq-power.active::after {
+      background: var(--seq-lit);
+    }
+
+    /* Arp pattern buttons */
+    .arp-pat-btn {
+      padding: 3px 7px;
+      font-size: 11px;
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-2);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .arp-pat-btn:hover { border-color: var(--border); color: var(--text); }
+    .arp-pat-btn.active { color: var(--text); border-color: #C08030; }
+
+    /* Hold button */
+    .hold-btn {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: border-color 0.1s, color 0.1s, background 0.1s;
+    }
+    .hold-btn.active {
+      color: var(--text);
+      border-color: #C08030;
+      background: rgba(192,128,48,0.12);
+    }
+
+    /* Debug status */
+    #debug-status {
+      font-size: 8px;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      margin-right: 10px;
+    }
+
+    /* ── PAGES ───────────────────────────────────────────── */
+    #arp-bar {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 24px;
+      gap: 5px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #arp-bar > * { visibility: hidden; }
+    #arp-bar.visible > * { visibility: visible; }
+
+    .page { display: none; flex-direction: column; height: calc(600px - 52px - 30px); }
+    .page.active { display: flex; }
+
+    /* ── GRID AREA ───────────────────────────────────────── */
+    .grid-area {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px 28px 12px;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    /* ── SECTION BLOCKS (Loop page) ──────────────────────── */
+    .section-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-block);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 7px 9px 4px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      flex-shrink: 0;
+    }
+
+    .section-cells {
+      display: grid;
+      gap: 3px;
+      padding: 7px;
+      width: 100%;
+      aspect-ratio: 1;
+    }
+
+    .cell {
+      border-radius: 2px;
+      cursor: pointer;
+      transition: opacity 0.06s;
+    }
+    .cell.off { background: var(--bg-cell-off); }
+
+    /* Per-cell colors applied via inline style (randomized on reel load) */
+    .cell.on          { /* background set inline */ }
+    .cell.on.lit      { filter: brightness(1.35); }
+    .cell.off.lit     { background: var(--bg-cell-off) !important; filter: none;
+                        outline: 1.5px solid rgba(255,255,255,0.25); }
+
+    /* ── CONTROLS AREA (Loop page) ───────────────────────── */
+    .controls-area {
+      height: 220px;
+      display: flex;
+      align-items: flex-start;
+      overflow: hidden;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .ctrl-panel {
+      flex: 1;
+      height: 220px;
+      overflow: hidden;
+      padding: 13px 22px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .ctrl-panel:first-child { flex: 0 0 620px; }
+    .ctrl-panel + .ctrl-panel { border-left: 1px solid var(--border); }
+
+    .ctrl-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .ctrl-tab {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 3px 8px;
+      border-radius: 2px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .ctrl-tab.active {
+      color: var(--text);
+      background: var(--hover);
+    }
+    .ctrl-tab-sep {
+      color: var(--text-3);
+      font-size: 9px;
+      padding: 0 2px;
+    }
+
+    .ctrl-body { display: none; }
+    .ctrl-body.active { display: flex; gap: 24px; align-items: flex-start; }
+    #signal-body.active { flex-direction: column; gap: 8px; }
+
+    /* Direction groups */
+    .dir-group { display: flex; flex-direction: column; gap: 5px; }
+    .dir-group-label {
+      font-size: 9px;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .dir-btns { display: flex; gap: 4px; }
+
+    .dir-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--hover);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-3);
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .dir-btn.active {
+      border-color: #555;
+      color: var(--text);
+    }
+
+    /* Grid control */
+    .grid-group { display: flex; flex-direction: column; gap: 5px; }
+    .grid-display {
+      font-size: 26px;
+      font-weight: 300;
+      color: var(--text);
+      cursor: ns-resize;
+    }
+
+    /* Envelope icon controls */
+    .env-controls { display: flex; gap: 26px; align-items: flex-end; }
+    .env-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+
+    .env-icon {
+      display: block;
+      cursor: ns-resize;
+      opacity: 0.6;
+      transition: opacity 0.1s;
+    }
+    .env-icon:hover { opacity: 0.85; }
+    .env-icon.dragging { opacity: 1; }
+
+    .env-line {
+      stroke: var(--text-2);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      fill: none;
+    }
+    .env-icon.dragging .env-line { stroke: var(--text); }
+
+    /* Shape-curve drag handle */
+    .shape-handle {
+      fill: transparent;
+      stroke: var(--text-3);
+      stroke-width: 1.5;
+      cursor: ew-resize;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: all;
+    }
+    .env-icon:hover .shape-handle { opacity: 0.7; }
+    .env-icon.shape-dragging .shape-handle { opacity: 1; stroke: var(--text); }
+
+    .env-label {
+      font-size: 9px;
+      color: var(--text-2);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Right panel: center content + scale env icons up */
+    .ctrl-panel:last-child .ctrl-body.active { justify-content: center; align-items: center; }
+    .ctrl-panel:last-child .env-controls { gap: 32px; }
+    .ctrl-panel:last-child .env-icon { width: 50px !important; height: 83px !important; }
+    .ctrl-panel:last-child .circle-controls { justify-content: center; }
+
+    /* Filter controls */
+    .filter-controls { display: flex; flex-direction: column; gap: 8px; }
+    .filter-row { display: flex; gap: 16px; align-items: center; }
+    .filter-param { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.06em; text-transform: uppercase; }
+    input[type=range].hslider { width: 100px; cursor: pointer; accent-color: var(--text-2); }
+    .filter-type-btns { display: flex; gap: 3px; }
+    .ftype-btn {
+      padding: 3px 8px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: var(--hover);
+      border: 1px solid transparent;
+      border-radius: 2px;
+      color: var(--text-3);
+      cursor: pointer;
+    }
+    .ftype-btn.active { border-color: #555; color: var(--text); }
+
+    /* ── LANE BLOCKS (SEQ page) ──────────────────────────── */
+    .lane-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-block);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .lane-header {
+      padding: 7px 9px 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .lane-name {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .lane-val {
+      font-size: 10px;
+      color: var(--text-2);
+      margin-left: auto;
+    }
+    /* Draggable pattern badge in lane header */
+    .lane-pat-btn {
+      width: 16px; height: 16px; border-radius: 2px;
+      font-size: 7px; font-weight: 800; color: rgba(255,255,255,0.85);
+      display: flex; align-items: center; justify-content: center;
+      cursor: ns-resize; flex-shrink: 0;
+      user-select: none; -webkit-user-select: none;
+    }
+    [data-lane="pos"]   .lane-pat-btn { background: #C05840; }
+    [data-lane="vel"]   .lane-pat-btn { background: #4A8A60; }
+    [data-lane="pitch"] .lane-pat-btn { background: #3A70A0; }
+    [data-lane="dir"]   .lane-pat-btn { background: #A09030; }
+
+    .lane-cells {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 3px;
+      padding: 7px;
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+
+    .lcell {
+      border-radius: 2px;
+      cursor: ns-resize;
+      aspect-ratio: 1;
+    }
+    .lcell.lit      { background: var(--seq-lit); }
+
+    #drag-tooltip {
+      position: fixed; pointer-events: none; display: none;
+      background: rgba(20,20,20,0.92); color: var(--text);
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+      padding: 3px 7px; border-radius: 3px;
+      border: 1px solid var(--border);
+      white-space: nowrap; z-index: 9999;
+      transform: translate(-50%, -140%);
+    }
+    .lcell.inactive { background: var(--bg-cell-off); cursor: default; }
+
+    .step-val, .speed-val { cursor: ns-resize; user-select: none; -webkit-user-select: none; }
+    .step-val:hover, .speed-val:hover { color: var(--text); }
+    #page-seq .grid-area  { align-items: flex-start; }
+    #page-loop .grid-area { align-items: flex-start; }
+
+    .lane-footer {
+      padding: 5px 9px;
+      display: flex;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    /* Inline "On / Gen / Reset" text controls */
+    .lane-footer-links {
+      display: flex; align-items: center;
+      font-size: 9px; color: var(--text-3); letter-spacing: 0.04em;
+    }
+    .lane-footer-link { cursor: pointer; transition: color 0.1s; }
+    .lane-footer-link:hover { color: var(--text-2); }
+    .lane-on-text.active { color: var(--seq-lit); }
+    .lane-footer-sep { margin: 0 3px; opacity: 0.4; }
+    /* Steps / Speed on the right */
+    .lane-footer-meta {
+      margin-left: auto; display: flex; gap: 10px;
+      font-size: 9px; color: var(--text-3);
+    }
+    .step-val, .speed-val {
+      cursor: ns-resize; user-select: none; -webkit-user-select: none;
+    }
+    .step-val:hover, .speed-val:hover { color: var(--text); }
+
+    /* ── SEQ COMPACT CONTROLS STRIP ─────────────────────── */
+    .seq-compact-strip {
+      display: flex; align-items: center; height: 80px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+      padding: 0 22px; overflow: hidden;
+    }
+    .scs-group {
+      display: flex; align-items: center; height: 100%;
+      padding-right: 20px; margin-right: 20px;
+      border-right: 1px solid var(--border);
+    }
+    .scs-group:last-child { border-right: none; }
+    .scs-group-inner { display: flex; gap: 12px; align-items: flex-end; padding: 12px 0 10px; }
+    .scs-label {
+      font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-3); writing-mode: vertical-rl;
+      transform: rotate(180deg); align-self: center; margin-right: 6px;
+    }
+    .scs-group .env-icon { opacity: 0.55; }
+    .scs-group .env-icon:hover { opacity: 0.85; }
+    .scs-knob {
+      display: flex; flex-direction: column; align-items: center;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none; width: 44px; flex-shrink: 0;
+    }
+    .scs-val { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+    .scs-lbl { font-size: 8px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
+    .scs-ftype-btn {
+      padding: 2px 5px; font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; background: var(--hover); border: 1px solid transparent;
+      border-radius: 2px; color: var(--text-3); cursor: pointer;
+    }
+    .scs-ftype-btn.active { border-color: #555; color: var(--text); }
+    .scs-filter-col { display: flex; flex-direction: column; gap: 5px; }
+    .scs-hslider { width: 72px; cursor: pointer; accent-color: var(--text-2); }
+
+    /* ── SEQ GLOBAL BAR ──────────────────────────────────── */
+    .seq-bar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 36px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .seq-item { display: flex; align-items: center; gap: 8px; }
+    .seq-item-label { font-size: 9px; color: var(--text-2); letter-spacing: 0.06em; text-transform: uppercase; }
+    .seq-item-value { font-size: 12px; color: var(--text); }
+
+    .env-val { display: none; }
+
+    /* ── SIGNAL KNOBS ────────────────────────────────────── */
+    .sig-controls { display: flex; gap: 20px; align-items: flex-start; padding: 4px 0; }
+    .sig-knob {
+      display: flex; flex-direction: column; align-items: center;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none; min-width: 44px;
+    }
+    .sig-value {
+      font-size: 17px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.02em; line-height: 1;
+    }
+    .sig-label {
+      font-size: 8px; color: var(--text-2); margin-top: 4px;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+
+    /* ── CIRCLE CONTROLS (percentage / EQ bands) ─────────── */
+    .circle-controls { display: flex; gap: 20px; align-items: flex-start; padding: 4px 0; }
+    .circle-ctrl {
+      display: flex; flex-direction: column; align-items: center;
+      cursor: ns-resize; user-select: none; -webkit-user-select: none;
+    }
+    .circle-well {
+      width: 52px; height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .circle-dot {
+      border-radius: 50%; background: var(--text-2);
+      transition: width 60ms, height 60ms;
+      flex-shrink: 0;
+    }
+    .circle-val  { font-size: 9px; color: var(--text-2); margin-top: 3px; }
+    .circle-label {
+      font-size: 8px; color: var(--text-2); margin-top: 2px;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+
+    .gen-btns { margin-left: auto; display: flex; gap: 4px; }
+    .gen-btn {
+      padding: 4px 10px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: var(--hover);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .gen-btn:hover { color: var(--text); border-color: #555; }
+
+
+  </style>
+</head>
+<body>
+<div id="drag-tooltip"></div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <span class="plugin-title">Splice</span>
+  <span class="reel-name" id="reel-name">no reel loaded</span>
+
+  <div class="bpm-control">
+    <span class="bpm-label">BPM</span>
+    <span class="bpm-value" id="bpm-display">120</span>
+  </div>
+
+  <div class="page-tabs">
+    <button class="page-tab active" id="tab-loop" onclick="switchPage('loop', this)">Loop</button>
+    <button class="page-tab" id="tab-seq" onclick="switchPage('seq', this)">Seq</button>
+    <button class="seq-power" id="seq-power" onclick="toggleSeq()" title="Sequencer on/off"></button>
+  </div>
+
+  <div class="mode-group">
+    <span id="debug-status">INIT</span>
+    <button class="mode-btn active" id="mode-poly"  onclick="setMode(0)">Poly</button>
+    <button class="mode-btn"        id="mode-slice" onclick="setMode(1)">Slice</button>
+    <button class="mode-btn"        id="mode-arp"   onclick="setMode(2)">Arp</button>
+    <div class="mode-sep"></div>
+    <button class="hold-btn" id="hold-btn" onclick="toggleHold()">Hold</button>
+  </div>
+</div>
+
+<!-- ARP BAR — always 30px in flow; buttons hidden until arp mode active -->
+<div id="arp-bar">
+  <span style="font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-right:6px">Pattern</span>
+  <button class="arp-pat-btn active" data-idx="0" onclick="setArpPattern(0)" title="Up">↑</button>
+  <button class="arp-pat-btn"        data-idx="1" onclick="setArpPattern(1)" title="Down">↓</button>
+  <button class="arp-pat-btn"        data-idx="2" onclick="setArpPattern(2)" title="Up-Down">↕</button>
+  <button class="arp-pat-btn"        data-idx="3" onclick="setArpPattern(3)" title="As Played">ord</button>
+  <button class="arp-pat-btn"        data-idx="4" onclick="setArpPattern(4)" title="Random">∿</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- LOOP PAGE                                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="page active" id="page-loop">
+
+  <div class="grid-area">
+
+    <!-- Section I -->
+    <div class="section-block s1">
+      <div class="section-header">I</div>
+      <div class="section-cells" id="cells-s1"></div>
+    </div>
+
+    <!-- Section II -->
+    <div class="section-block s2">
+      <div class="section-header">II</div>
+      <div class="section-cells" id="cells-s2"></div>
+    </div>
+
+    <!-- Section III -->
+    <div class="section-block s3">
+      <div class="section-header">III</div>
+      <div class="section-cells" id="cells-s3"></div>
+    </div>
+
+    <!-- Section IV -->
+    <div class="section-block s4">
+      <div class="section-header">IV</div>
+      <div class="section-cells" id="cells-s4"></div>
+    </div>
+
+  </div><!-- /grid-area -->
+
+  <!-- CONTROLS AREA -->
+  <div class="controls-area">
+
+    <!-- Left panel -->
+    <div class="ctrl-panel">
+      <div class="ctrl-tabs">
+        <button class="ctrl-tab active" onclick="switchCtrl(this,'playhead-body')">Playhead</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'signal-body')">Signal</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'random-body')">Random</button>
+      </div>
+
+      <!-- Playhead body -->
+      <div class="ctrl-body active" id="playhead-body">
+        <div class="dir-group">
+          <div class="dir-group-label">Reel</div>
+          <div class="dir-btns" id="reel-dir-btns">
+            <button class="dir-btn active" onclick="setDir('reel',0)">→</button>
+            <button class="dir-btn" onclick="setDir('reel',1)">←</button>
+            <button class="dir-btn" onclick="setDir('reel',2)">↔</button>
+            <button class="dir-btn" onclick="setDir('reel',3)">∿</button>
+          </div>
+        </div>
+        <div class="dir-group">
+          <div class="dir-group-label">Slice</div>
+          <div class="dir-btns" id="slice-dir-btns">
+            <button class="dir-btn active" onclick="setDir('slice',0)">→</button>
+            <button class="dir-btn" onclick="setDir('slice',1)">←</button>
+            <button class="dir-btn" onclick="setDir('slice',2)">↔</button>
+            <button class="dir-btn" onclick="setDir('slice',3)">∿</button>
+          </div>
+        </div>
+        <div class="grid-group">
+          <div class="dir-group-label">Grid</div>
+          <div class="grid-display" id="grid-display">/4</div>
+        </div>
+      </div>
+
+      <!-- Signal body -->
+      <div class="ctrl-body" id="signal-body">
+        <div class="sig-controls">
+          <div class="sig-knob" id="sig-vol-db">
+            <div class="sig-value">0dB</div>
+            <div class="sig-label">Volume</div>
+          </div>
+          <div class="sig-knob" id="sig-pitch">
+            <div class="sig-value">+0</div>
+            <div class="sig-label">Pitch</div>
+          </div>
+          <div class="sig-knob" id="sig-speed">
+            <div class="sig-value">x1</div>
+            <div class="sig-label">Speed</div>
+          </div>
+          <div class="sig-knob" id="sig-pan">
+            <div class="sig-value">C</div>
+            <div class="sig-label">Pan</div>
+          </div>
+          <div class="sig-knob" id="sig-root-note">
+            <div class="sig-value">C4</div>
+            <div class="sig-label">Root</div>
+          </div>
+        </div>
+        <div style="font-size:8px;color:var(--text-2);letter-spacing:0.07em;text-transform:uppercase">EQ</div>
+        <div class="circle-controls" id="eq-controls">
+          <div class="circle-ctrl" id="eq-low">
+            <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
+            <div class="circle-val">0dB</div>
+            <div class="circle-label">100Hz</div>
+          </div>
+          <div class="circle-ctrl" id="eq-low-mid">
+            <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
+            <div class="circle-val">0dB</div>
+            <div class="circle-label">500Hz</div>
+          </div>
+          <div class="circle-ctrl" id="eq-high-mid">
+            <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
+            <div class="circle-val">0dB</div>
+            <div class="circle-label">2kHz</div>
+          </div>
+          <div class="circle-ctrl" id="eq-high">
+            <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
+            <div class="circle-val">0dB</div>
+            <div class="circle-label">8kHz</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Random body -->
+      <div class="ctrl-body" id="random-body">
+        <div class="circle-controls" id="rand-controls">
+          <div class="circle-ctrl" id="rand-oct-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Oct</div>
+          </div>
+          <div class="circle-ctrl" id="rand-fifth-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">5ths</div>
+          </div>
+          <div class="circle-ctrl" id="rand-cutoff-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Cutoff</div>
+          </div>
+          <div class="circle-ctrl" id="rand-env-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Env</div>
+          </div>
+          <div class="circle-ctrl" id="rand-vol-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0%</div>
+            <div class="circle-label">Vol</div>
+          </div>
+          <div class="circle-ctrl" id="rand-jitter-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">0ms</div>
+            <div class="circle-label">Jitter</div>
+          </div>
+          <div class="circle-ctrl" id="rand-pan-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Pan</div>
+          </div>
+          <div class="circle-ctrl" id="rand-stutter-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Stutter</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="ctrl-panel">
+      <div class="ctrl-tabs">
+        <button class="ctrl-tab active" onclick="switchCtrl(this,'ampenv-body')">Amp Env</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'filter-body')">Filter</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'fenv-body')">Filter Env</button>
+        <span class="ctrl-tab-sep">/</span>
+        <button class="ctrl-tab" onclick="switchCtrl(this,'tape-body')">Tape</button>
+      </div>
+
+      <!-- Amp Env body -->
+      <div class="ctrl-body active" id="ampenv-body">
+        <div class="env-controls">
+          <div class="env-item">
+            <svg class="env-icon" data-type="attack" data-param="amp_attack" data-shape="0" data-value="0" data-default="0" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 54 L 6 6"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
+            </svg>
+            <div class="env-label">Attack</div>
+            <div class="env-val" id="envval-amp_attack" class="env-val envval-amp_attack">1ms</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="decay" data-param="amp_decay" data-shape="0" data-value="0.828" data-default="0.828" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
+            </svg>
+            <div class="env-label">Decay</div>
+            <div class="env-val" id="envval-amp_decay" class="env-val envval-amp_decay">100ms</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1.0" data-default="1.0" viewBox="0 0 36 60" width="41" height="69">
+              <line class="env-line" x1="6" y1="6" x2="30" y2="6"/>
+            </svg>
+            <div class="env-label">Sustain</div>
+            <div class="env-val" id="envval-amp_sustain" class="env-val envval-amp_sustain">100%</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="release" data-param="amp_release" data-shape="0" data-value="0.667" data-default="0.667" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
+            </svg>
+            <div class="env-label">Release</div>
+            <div class="env-val" id="envval-amp_release" class="env-val envval-amp_release">100ms</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter body -->
+      <div class="ctrl-body" id="filter-body">
+        <div class="filter-controls">
+          <div class="circle-controls" style="margin-bottom:10px">
+            <div class="circle-ctrl" id="filter-cutoff-ctrl">
+              <div class="circle-well"><div class="circle-dot" style="width:40px;height:40px"></div></div>
+              <div class="circle-val">18kHz</div>
+              <div class="circle-label">Cutoff</div>
+            </div>
+            <div class="circle-ctrl" id="filter-res-ctrl">
+              <div class="circle-well"><div class="circle-dot" style="width:12px;height:12px"></div></div>
+              <div class="circle-val">0%</div>
+              <div class="circle-label">Res</div>
+            </div>
+          </div>
+          <div class="filter-type-btns" id="filter-type-btns">
+            <button class="ftype-btn active" onclick="setFilterType(0)">LP</button>
+            <button class="ftype-btn" onclick="setFilterType(1)">BP</button>
+            <button class="ftype-btn" onclick="setFilterType(2)">HP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Env body -->
+      <div class="ctrl-body" id="fenv-body">
+        <div class="env-controls">
+          <div class="env-item">
+            <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 36 60" width="41" height="69">
+              <line class="env-line" x1="6" y1="30" x2="30" y2="30"/>
+            </svg>
+            <div class="env-label">Depth</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-shape="0" data-value="0.575" data-default="0.575" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 54 L 6 6"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
+            </svg>
+            <div class="env-label">Attack</div>
+          </div>
+          <div class="env-item">
+            <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-shape="0" data-value="0.767" data-default="0.767" viewBox="0 0 36 60" width="41" height="69">
+              <path class="env-line" d="M 6 6 L 6 54"/>
+              <circle class="shape-handle" cx="18" cy="30" r="5"/>
+            </svg>
+            <div class="env-label">Decay</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tape body -->
+      <div class="ctrl-body" id="tape-body">
+        <div id="tape-controls" style="display:flex;gap:32px;align-items:flex-end;padding:8px 0;"></div>
+      </div>
+
+    </div><!-- /ctrl-panel right -->
+
+  </div><!-- /controls-area -->
+
+</div><!-- /page-loop -->
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SEQ PAGE                                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-seq">
+
+  <div class="grid-area">
+
+    <!-- POS lane -->
+    <div class="lane-block" data-lane="pos">
+      <div class="lane-header">
+        <span class="lane-name">Pos</span>
+        <div class="lane-pat-btn" data-lane="pos">1</div>
+        <span class="lane-val" id="pos-val">–</span>
+      </div>
+      <div class="lane-cells" id="lane-pos"></div>
+      <div class="lane-footer">
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text active" data-lane="pos">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('pos')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('pos')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="pos" data-steps="16">16</span>
+          <span class="speed-val" data-lane="pos" data-speed="2">×1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VEL lane -->
+    <div class="lane-block" data-lane="vel">
+      <div class="lane-header">
+        <span class="lane-name">Vel</span>
+        <div class="lane-pat-btn" data-lane="vel">1</div>
+        <span class="lane-val" id="vel-val">–</span>
+      </div>
+      <div class="lane-cells" id="lane-vel"></div>
+      <div class="lane-footer">
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="vel">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('vel')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('vel')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="vel" data-steps="16">16</span>
+          <span class="speed-val" data-lane="vel" data-speed="2">×1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PITCH lane -->
+    <div class="lane-block" data-lane="pitch">
+      <div class="lane-header">
+        <span class="lane-name">Pitch</span>
+        <div class="lane-pat-btn" data-lane="pitch">1</div>
+        <span class="lane-val" id="pitch-val">–</span>
+      </div>
+      <div class="lane-cells" id="lane-pitch"></div>
+      <div class="lane-footer">
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="pitch">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('pitch')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('pitch')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="pitch" data-steps="16">16</span>
+          <span class="speed-val" data-lane="pitch" data-speed="2">×1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIR lane -->
+    <div class="lane-block" data-lane="dir">
+      <div class="lane-header">
+        <span class="lane-name">Dir</span>
+        <div class="lane-pat-btn" data-lane="dir">1</div>
+        <span class="lane-val" id="dir-val">–</span>
+      </div>
+      <div class="lane-cells" id="lane-dir"></div>
+      <div class="lane-footer">
+        <div class="lane-footer-links">
+          <span class="lane-footer-link lane-on-text" data-lane="dir">On</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="genLane('dir')">Gen</span>
+          <span class="lane-footer-sep">·</span>
+          <span class="lane-footer-link" onclick="resetLane('dir')">Reset</span>
+        </div>
+        <div class="lane-footer-meta">
+          <span class="step-val" data-lane="dir" data-steps="16">16</span>
+          <span class="speed-val" data-lane="dir" data-speed="2">×1</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid-area -->
+
+  <!-- COMPACT CONTROLS STRIP (mirrors page-loop controls) -->
+  <div class="seq-compact-strip">
+
+    <!-- AMP ENV -->
+    <div class="scs-group">
+      <span class="scs-label">Amp</span>
+      <div class="scs-group-inner">
+        <div class="env-item">
+          <svg class="env-icon" data-type="attack" data-param="amp_attack" data-shape="0" data-value="0" data-default="0" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 42 L 4 4"/></svg>
+          <div class="env-val envval-amp_attack">1ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="decay" data-param="amp_decay" data-shape="0" data-value="0.828" data-default="0.828" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
+          <div class="env-val envval-amp_decay">100ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="sustain" data-param="amp_sustain" data-value="1" data-default="1" viewBox="0 0 28 46" width="32" height="53"><line class="env-line" x1="4" y1="4" x2="24" y2="4"/></svg>
+          <div class="env-val envval-amp_sustain">100%</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="release" data-param="amp_release" data-shape="0" data-value="0.001" data-default="0.001" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
+          <div class="env-val envval-amp_release">1ms</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER ENV -->
+    <div class="scs-group">
+      <span class="scs-label">FEnv</span>
+      <div class="scs-group-inner">
+        <div class="env-item">
+          <svg class="env-icon" data-type="depth" data-param="fenv_depth" data-value="0" data-default="0" viewBox="0 0 28 46" width="32" height="53"><line class="env-line" x1="4" y1="23" x2="24" y2="23"/></svg>
+          <div class="env-val envval-fenv_depth">0%</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="attack" data-param="fenv_attack" data-shape="0" data-value="0.575" data-default="0.575" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 42 L 4 4"/></svg>
+          <div class="env-val envval-fenv_attack">50ms</div>
+        </div>
+        <div class="env-item">
+          <svg class="env-icon" data-type="decay" data-param="fenv_decay" data-shape="0" data-value="0.767" data-default="0.767" viewBox="0 0 28 46" width="32" height="53"><path class="env-line" d="M 4 4 L 4 42"/></svg>
+          <div class="env-val envval-fenv_decay">200ms</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="scs-group">
+      <span class="scs-label">Filter</span>
+      <div class="scs-group-inner" style="flex-direction:column;gap:6px;align-items:flex-start;padding:10px 0;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="scs-filter-col">
+            <div class="filter-label">Cut</div>
+            <input type="range" class="hslider scs-hslider" id="scs-cutoff" min="0" max="1" step="0.001" value="1">
+          </div>
+          <div class="scs-filter-col">
+            <div class="filter-label">Res</div>
+            <input type="range" class="hslider scs-hslider" id="scs-res" min="0" max="1" step="0.001" value="0">
+          </div>
+        </div>
+        <div class="filter-type-btns" id="scs-filter-type-btns">
+          <button class="scs-ftype-btn active" onclick="setFilterType(0)">LP</button>
+          <button class="scs-ftype-btn" onclick="setFilterType(1)">BP</button>
+          <button class="scs-ftype-btn" onclick="setFilterType(2)">HP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNAL: Vol, Pitch, Speed, Pan -->
+    <div class="scs-group">
+      <span class="scs-label">Signal</span>
+      <div class="scs-group-inner">
+        <div class="scs-knob" id="scs-vol">
+          <div class="scs-val">75%</div>
+          <div class="scs-lbl">Vol</div>
+        </div>
+        <div class="scs-knob" id="scs-pitch">
+          <div class="scs-val">+0</div>
+          <div class="scs-lbl">Pitch</div>
+        </div>
+        <div class="scs-knob" id="scs-speed">
+          <div class="scs-val">x1</div>
+          <div class="scs-lbl">Speed</div>
+        </div>
+        <div class="scs-knob" id="scs-pan">
+          <div class="scs-val">C</div>
+          <div class="scs-lbl">Pan</div>
+        </div>
+      </div>
+    </div>
+
+
+  </div><!-- /seq-compact-strip -->
+
+</div><!-- /page-seq -->
+
+<!-- ALL JS INLINED — WKWebView resource provider doesn't support ES module imports -->
+<script>
+(function() {
+    'use strict';
+
+    // ================================================================
+    // JUCE BRIDGE (inlined — matches BeadyEye pattern)
+    // ================================================================
+
+    var juceAvailable = typeof window.__JUCE__ !== 'undefined';
+
+    function SliderState(name) {
+        this.name = name;
+        this.identifier = '__juce__slider' + name;
+        this.scaledValue = 0;
+        this.properties = { start: 0, end: 1, skew: 1, name: '', label: '', numSteps: 100, interval: 0, parameterIndex: -1 };
+        this.valueChangedListeners = [];
+        var self = this;
+        if (juceAvailable && window.__JUCE__.backend) {
+            window.__JUCE__.backend.addEventListener(this.identifier, function(e) { self.handleEvent(e); });
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'requestInitialUpdate' });
+        }
+    }
+    SliderState.prototype.setNormalisedValue = function(v) {
+        this.scaledValue = this.snapToLegalValue(this.normalisedToScaledValue(v));
+        if (juceAvailable && window.__JUCE__.backend)
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'valueChanged', value: this.scaledValue });
+    };
+    SliderState.prototype.sliderDragStarted = function() {
+        if (juceAvailable && window.__JUCE__.backend)
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'sliderDragStarted' });
+    };
+    SliderState.prototype.sliderDragEnded = function() {
+        if (juceAvailable && window.__JUCE__.backend)
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'sliderDragEnded' });
+    };
+    SliderState.prototype.handleEvent = function(event) {
+        if (event.eventType === 'valueChanged') {
+            this.scaledValue = event.value;
+            this.valueChangedListeners.forEach(function(fn) { fn(); });
+        }
+        if (event.eventType === 'propertiesChanged') {
+            var props = {};
+            for (var k in event) { if (k !== 'eventType') props[k] = event[k]; }
+            this.properties = props;
+        }
+    };
+    SliderState.prototype.getScaledValue = function() { return this.scaledValue; };
+    SliderState.prototype.getNormalisedValue = function() {
+        return Math.pow(
+            (this.scaledValue - this.properties.start) / (this.properties.end - this.properties.start),
+            this.properties.skew
+        );
+    };
+    SliderState.prototype.normalisedToScaledValue = function(v) {
+        return Math.pow(v, 1 / this.properties.skew) * (this.properties.end - this.properties.start) + this.properties.start;
+    };
+    SliderState.prototype.snapToLegalValue = function(v) {
+        var i = this.properties.interval;
+        if (i === 0) return v;
+        var s = this.properties.start;
+        return Math.max(s, Math.min(this.properties.end, s + i * Math.floor((v - s) / i + 0.5)));
+    };
+    SliderState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
+
+    function ToggleState(name) {
+        this.name = name;
+        this.identifier = '__juce__toggle' + name;
+        this.value = false;
+        this.valueChangedListeners = [];
+        var self = this;
+        if (juceAvailable && window.__JUCE__.backend) {
+            window.__JUCE__.backend.addEventListener(this.identifier, function(e) { self.handleEvent(e); });
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'requestInitialUpdate' });
+        }
+    }
+    ToggleState.prototype.getValue  = function() { return this.value; };
+    ToggleState.prototype.setValue  = function(v) {
+        this.value = !!v;
+        if (juceAvailable && window.__JUCE__.backend)
+            window.__JUCE__.backend.emitEvent(this.identifier, { eventType: 'valueChanged', value: this.value });
+    };
+    ToggleState.prototype.handleEvent = function(event) {
+        if (event.eventType === 'valueChanged') {
+            this.value = !!event.value;
+            this.valueChangedListeners.forEach(function(fn) { fn(); });
+        }
+    };
+    ToggleState.prototype.addValueChangedListener = function(fn) { this.valueChangedListeners.push(fn); };
+
+    var sliderStates = {}, toggleStates = {};
+    window.Juce = window.Juce || {};
+    window.Juce.getSliderState = function(name) {
+        if (!sliderStates[name]) sliderStates[name] = new SliderState(name);
+        return sliderStates[name];
+    };
+    window.Juce.getToggleState = function(name) {
+        if (!toggleStates[name]) toggleStates[name] = new ToggleState(name);
+        return toggleStates[name];
+    };
+
+    // ================================================================
+    // SPLICE — Parameter state
+    // ================================================================
+
+    // Toggle params (bool)
+    var TOGGLE_PARAMS = { arp_hold: true };
+
+    var parameterStates = {
+        amp_attack: null, amp_decay: null, amp_sustain: null, amp_release: null,
+        amp_attack_shape: null, amp_decay_shape: null, amp_release_shape: null,
+        filter_cutoff: null, filter_res: null, filter_type: null,
+        fenv_depth: null, fenv_attack: null, fenv_decay: null,
+        fenv_attack_shape: null, fenv_decay_shape: null,
+        output_vol: null,
+        vol_db: null, pitch: null, speed: null, root_note: null,
+        pan: null, pan_rnd: null,
+        grid: null,
+        playback_mode: null,
+        reel_dir: null, slice_dir: null,
+        arp_hold: null, arp_pattern: null,
+        bpm: null,
+        eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null,
+        rand_oct: null, rand_fifth: null, rand_cutoff: null, rand_env: null, rand_vol: null, rand_jitter: null,
+        rand_stutter: null,
+        tape_age: null, wow_flutter: null
+    };
+
+    var knobUpdaters = {};
+
+    // Called from C++ timer via evaluateJavascript
+    var lastReelName = null;
+    window.updateReelName = function(name) {
+        var el = document.getElementById('reel-name');
+        if (el) el.textContent = name || 'no reel loaded';
+        if (name !== lastReelName) {
+            lastReelName = name;
+            // Palette is deterministic per reel name; color order reshuffled
+            currentPaletteIdx = name ? hashString(name) % PALETTES.length : 0;
+            rebuildSections(STEPS[gridIdx]);
+        }
+    };
+
+    var lastLitSlice = -1;
+    window.updateActiveSlice = function(sliceIdx) {
+        if (sliceIdx === lastLitSlice) return;
+        lastLitSlice = sliceIdx;
+
+        // Clear all lit cells
+        document.querySelectorAll('.cell.lit').forEach(function(c) {
+            c.classList.remove('lit');
+        });
+
+        if (sliceIdx < 0) return;
+
+        // Map flat slice index → section + cell within section
+        var slicesPerSection = STEPS[gridIdx];
+        var sectionIdx = Math.floor(sliceIdx / slicesPerSection);  // 0..3
+        var cellIdx    = sliceIdx % slicesPerSection;               // 0..slicesPerSection-1
+
+        var container  = document.getElementById('cells-' + sectionIds[sectionIdx]);
+        if (!container) return;
+        var cells = container.querySelectorAll('.cell');
+        if (cells[cellIdx]) cells[cellIdx].classList.add('lit');
+    };
+
+    // ================================================================
+    // PAGE SWITCHING
+    // ================================================================
+
+    window.switchPage = function(name, btn) {
+        document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelectorAll('.page-tab').forEach(function(t) { t.classList.remove('active'); });
+        document.getElementById('page-' + name).classList.add('active');
+        btn.classList.add('active');
+    };
+
+    // ================================================================
+    // MODE BUTTONS (playback_mode: 0=poly, 1=slice, 2=arp, 3=seq via SEQ power)
+    // ================================================================
+
+    var modeBtns = [];
+    function showArpPatterns(visible) {
+        document.getElementById('arp-bar').classList.toggle('visible', visible);
+    }
+    window.setMode = function(idx) {
+        modeBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+        showArpPatterns(idx === 2);
+        if (parameterStates.playback_mode)
+            try { parameterStates.playback_mode.sliderDragStarted();
+                  parameterStates.playback_mode.setNormalisedValue(idx / 3);
+                  parameterStates.playback_mode.sliderDragEnded(); } catch(e) {}
+    };
+    knobUpdaters['playback_mode'] = function(norm) {
+        var idx = Math.round(norm * 3);
+        modeBtns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+        showArpPatterns(idx === 2);
+        // keep seqActive in sync so the toggle button always reflects reality
+        seqActive = (idx === 3);
+        var pw = document.getElementById('seq-power');
+        if (pw) pw.classList.toggle('active', seqActive);
+    };
+
+    // Arp pattern buttons
+    window.setArpPattern = function(idx) {
+        document.querySelectorAll('.arp-pat-btn').forEach(function(b) {
+            b.classList.toggle('active', parseInt(b.dataset.idx) === idx);
+        });
+        if (parameterStates.arp_pattern)
+            try { parameterStates.arp_pattern.sliderDragStarted();
+                  parameterStates.arp_pattern.setNormalisedValue(idx / 4);
+                  parameterStates.arp_pattern.sliderDragEnded(); } catch(e) {}
+    };
+    knobUpdaters['arp_pattern'] = function(norm) {
+        var idx = Math.round(norm * 4);
+        document.querySelectorAll('.arp-pat-btn').forEach(function(b) {
+            b.classList.toggle('active', parseInt(b.dataset.idx) === idx);
+        });
+    };
+
+    // ================================================================
+    // SEQ POWER (toggle seq mode on/off)
+    // ================================================================
+
+    var seqActive = false;
+    window.toggleSeq = function() {
+        seqActive = !seqActive;
+        document.getElementById('seq-power').classList.toggle('active', seqActive);
+        // mode 3=seq, 0=poly; must wrap in drag events for JUCE relay to accept
+        if (parameterStates.playback_mode)
+            try {
+                parameterStates.playback_mode.sliderDragStarted();
+                parameterStates.playback_mode.setNormalisedValue(seqActive ? 1.0 : 0.0);
+                parameterStates.playback_mode.sliderDragEnded();
+            } catch(e) {}
+    };
+
+    // ================================================================
+    // HOLD BUTTON (arp_hold)
+    // ================================================================
+
+    var holdActive = false;
+    window.toggleHold = function() {
+        holdActive = !holdActive;
+        document.getElementById('hold-btn').classList.toggle('active', holdActive);
+        if (parameterStates.arp_hold)
+            try { parameterStates.arp_hold.setValue(holdActive); } catch(e) {}
+    };
+    knobUpdaters['arp_hold'] = function(v) {
+        holdActive = v > 0.5;
+        document.getElementById('hold-btn').classList.toggle('active', holdActive);
+    };
+
+    // ================================================================
+    // DIRECTION BUTTONS (reel_dir, slice_dir: 0=fwd,1=rev,2=pingpong,3=random)
+    // ================================================================
+
+    window.setDir = function(group, idx) {
+        var containerId = group === 'reel' ? 'reel-dir-btns' : 'slice-dir-btns';
+        var paramId     = group === 'reel' ? 'reel_dir'      : 'slice_dir';
+        var container   = document.getElementById(containerId);
+        if (!container) return;
+        container.querySelectorAll('.dir-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+        if (parameterStates[paramId])
+            try { parameterStates[paramId].sliderDragStarted();
+                  parameterStates[paramId].setNormalisedValue(idx / 3);
+                  parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+    };
+    knobUpdaters['reel_dir'] = function(norm) {
+        var idx = Math.round(norm * 3);
+        var container = document.getElementById('reel-dir-btns');
+        if (container) container.querySelectorAll('.dir-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+    };
+    knobUpdaters['slice_dir'] = function(norm) {
+        var idx = Math.round(norm * 3);
+        var container = document.getElementById('slice-dir-btns');
+        if (container) container.querySelectorAll('.dir-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+    };
+
+    // ================================================================
+    // FILTER TYPE BUTTONS (filter_type: 0=LP, 1=BP, 2=HP)
+    // ================================================================
+
+    function syncFilterTypeBtns(idx) {
+        document.querySelectorAll('#filter-type-btns .ftype-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+        document.querySelectorAll('#scs-filter-type-btns .scs-ftype-btn').forEach(function(b, i) {
+            b.classList.toggle('active', i === idx);
+        });
+    }
+    window.setFilterType = function(idx) {
+        syncFilterTypeBtns(idx);
+        if (parameterStates.filter_type)
+            try { parameterStates.filter_type.sliderDragStarted();
+                  parameterStates.filter_type.setNormalisedValue(idx / 2);
+                  parameterStates.filter_type.sliderDragEnded(); } catch(e) {}
+    };
+    knobUpdaters['filter_type'] = function(norm) {
+        syncFilterTypeBtns(Math.round(norm * 2));
+    };
+
+    // Env param updaters — sync display + SVG position from JUCE
+    function makeEnvUpdater(paramId) {
+        return function(norm) {
+            // Update ALL env icons with this param (page 1 + compact strip)
+            document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(svg) {
+                // depth icons store raw bipolar value (-1..1) so drag handler math works correctly
+                svg.dataset.value = (svg.dataset.type === 'depth') ? (norm * 2 - 1) : norm;
+                updateEnvVisual(svg);
+            });
+            document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                el.textContent = envNormToDisplay(paramId, norm);
+            });
+        };
+    }
+    ['amp_attack','amp_decay','amp_sustain','amp_release',
+     'fenv_attack','fenv_decay','fenv_depth'].forEach(function(id) {
+        knobUpdaters[id] = makeEnvUpdater(id);
+    });
+
+    // Shape param updaters — sync data-shape + redraw for all icons with the base param
+    function makeShapeUpdater(shapeParamId) {
+        var baseId = shapeParamId.replace('_shape', '');
+        return function(norm) {
+            var shape = norm * 2 - 1;
+            document.querySelectorAll('.env-icon[data-param="' + baseId + '"]').forEach(function(svg) {
+                svg.dataset.shape = shape;
+                updateEnvVisual(svg);
+            });
+        };
+    }
+    ['amp_attack_shape','amp_decay_shape','amp_release_shape',
+     'fenv_attack_shape','fenv_decay_shape'].forEach(function(id) {
+        knobUpdaters[id] = makeShapeUpdater(id);
+    });
+
+    // ================================================================
+    // CONTROL PANEL TAB SWITCHING
+    // ================================================================
+
+    window.switchCtrl = function(tab, bodyId) {
+        var panel = tab.closest('.ctrl-panel');
+        panel.querySelectorAll('.ctrl-tab').forEach(function(t) { t.classList.remove('active'); });
+        panel.querySelectorAll('.ctrl-body').forEach(function(b) { b.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById(bodyId).classList.add('active');
+    };
+
+    // ================================================================
+    // FILTER SLIDERS
+    // ================================================================
+
+    function initSignalControls() {
+        // Generic drag-number control factory
+        // toDisplay(norm) → string shown in .sig-value
+        // sensitivity: norm units per pixel dragged
+        function wireSigKnob(id, paramId, toDisplay, sensitivity, defaultNorm) {
+            var el      = document.getElementById(id);
+            if (!el) return;
+            var display = el.querySelector('.sig-value');
+            var norm    = defaultNorm;
+            var dragging = false, startY = 0, startNorm = 0;
+
+            display.textContent = toDisplay(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * sensitivity));
+                display.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = defaultNorm;
+                display.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+
+            knobUpdaters[paramId] = function(n) {
+                norm = n; display.textContent = toDisplay(n);
+            };
+        }
+
+        // vol_db: param range -24..+24 dB, norm 0..1, centre norm=0.5 → 0dB
+        wireSigKnob('sig-vol-db', 'vol_db', function(n) {
+            var db = Math.round(n * 48 - 24);
+            return (db >= 0 ? '+' : '') + db + 'dB';
+        }, 0.007, 0.5);
+
+        // pitch: param range -24..+24 semitones, norm 0..1, centre=0.5
+        wireSigKnob('sig-pitch', 'pitch', function(n) {
+            var st = Math.round(n * 48 - 24);
+            return (st >= 0 ? '+' : '') + st;
+        }, 1/48, 0.5);
+
+        // speed: AudioParameterChoice, 11 steps (0–10), norm = index/10, default index 2 (x1)
+        (function() {
+            var labels = ['/3', '/2', 'x1', 'x1.5', 'x2', 'x3', 'x4', 'x8', 'x16'];
+            var maxIdx  = labels.length - 1;  // 8
+            var el      = document.getElementById('sig-speed');
+            if (!el) return;
+            var display = el.querySelector('.sig-value');
+            var idx     = 2;  // default x1
+            var dragging = false, startY = 0, startIdx = 0;
+
+            function setIdx(i) {
+                idx = Math.max(0, Math.min(maxIdx, i));
+                display.textContent = labels[idx];
+                var norm = idx / maxIdx;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.setNormalisedValue(norm); } catch(e) {}
+            }
+
+            display.textContent = labels[idx];
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startIdx = idx;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var delta = Math.round((startY - e.clientY) / 20);
+                setIdx(startIdx + delta);
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() { setIdx(2); });  // x1 at index 2
+
+            knobUpdaters['speed'] = function(n) {
+                if (dragging) return;
+                idx = Math.round(n * maxIdx);
+                display.textContent = labels[Math.max(0, Math.min(maxIdx, idx))];
+            };
+        })();
+
+        // pan: param range -1..+1, norm 0..1, centre=0.5 → 'C'
+        wireSigKnob('sig-pan', 'pan', function(n) {
+            var p = Math.round((n * 2 - 1) * 100);
+            if (p === 0) return 'C';
+            return (p < 0 ? 'L' : 'R') + Math.abs(p);
+        }, 0.008, 0.5);
+
+        // root_note: MIDI 0–127, norm 0–1, default C4 = MIDI 60, norm ≈ 0.472
+        (function() {
+            var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+            function midiToName(m) { return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1); }
+            var el      = document.getElementById('sig-root-note');
+            if (!el) return;
+            var display = el.querySelector('.sig-value');
+            var midiVal = 60;  // default C4
+            var dragging = false, startY = 0, startMidi = 0;
+
+            function update(m) {
+                midiVal = Math.max(0, Math.min(127, m));
+                display.textContent = midiToName(midiVal);
+                var norm = midiVal / 127;
+                if (parameterStates.root_note)
+                    try { parameterStates.root_note.setNormalisedValue(norm); } catch(e) {}
+            }
+
+            display.textContent = midiToName(midiVal);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startMidi = midiVal;
+                if (parameterStates.root_note)
+                    try { parameterStates.root_note.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var delta = Math.round((startY - e.clientY) / 4);
+                update(startMidi + delta);
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates.root_note)
+                    try { parameterStates.root_note.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() { update(60); });
+
+            knobUpdaters['root_note'] = function(n) {
+                midiVal = Math.round(n * 127);
+                display.textContent = midiToName(midiVal);
+            };
+        })();
+    }
+
+    function initEqControls() {
+        var bands = [
+            { id: 'eq-low',      paramId: 'eq_low'      },
+            { id: 'eq-low-mid',  paramId: 'eq_low_mid'  },
+            { id: 'eq-high-mid', paramId: 'eq_high_mid' },
+            { id: 'eq-high',     paramId: 'eq_high'     }
+        ];
+
+        bands.forEach(function(band) {
+            var el   = document.getElementById(band.id);
+            if (!el) return;
+            var dot  = el.querySelector('.circle-well .circle-dot');
+            var val  = el.querySelector('.circle-val');
+            var norm = 0.5;  // default 0dB
+            var dragging = false, startY = 0, startNorm = 0;
+
+            function normToDb(n)   { return (n * 24 - 12); }
+            function dbLabel(n)    { var db = Math.round(normToDb(n)); return (db >= 0 ? '+' : '') + db + 'dB'; }
+            function updateDot(n)  {
+                // circle size 12px (−12dB) → 44px (+12dB); brighten when boosting
+                var db = normToDb(n);
+                var sz = Math.round(12 + (n * 32));
+                dot.style.width  = sz + 'px';
+                dot.style.height = sz + 'px';
+                dot.style.background = db > 0.5  ? 'var(--text)'
+                                     : db < -0.5 ? 'var(--text-3, #444)'
+                                     : 'var(--text-2)';
+                val.textContent = dbLabel(n);
+            }
+
+            updateDot(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[band.paramId])
+                    try { parameterStates[band.paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
+                updateDot(norm);
+                if (parameterStates[band.paramId])
+                    try { parameterStates[band.paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[band.paramId])
+                    try { parameterStates[band.paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = 0.5;
+                updateDot(norm);
+                if (parameterStates[band.paramId]) {
+                    try { parameterStates[band.paramId].sliderDragStarted(); } catch(e) {}
+                    try { parameterStates[band.paramId].setNormalisedValue(0.5); } catch(e) {}
+                    try { parameterStates[band.paramId].sliderDragEnded(); } catch(e) {}
+                }
+            });
+
+            knobUpdaters[band.paramId] = function(n) {
+                norm = n; updateDot(n);
+            };
+        });
+    }
+
+    function initRandControls() {
+        function makeRandCircle(id, paramId, labelFn) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            var dot = el.querySelector('.circle-well .circle-dot');
+            var val = el.querySelector('.circle-val');
+            var norm = 0, dragging = false, startY = 0, startNorm = 0;
+
+            function updateDot(n) {
+                var sz = Math.round(6 + n * 38);
+                dot.style.width  = sz + 'px';
+                dot.style.height = sz + 'px';
+                dot.style.background = n > 0.01 ? 'var(--text)' : 'var(--text-2)';
+                val.textContent = labelFn(n);
+            }
+
+            updateDot(0);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
+                updateDot(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = 0; updateDot(0);
+                if (parameterStates[paramId]) {
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                    try { parameterStates[paramId].setNormalisedValue(0); } catch(e) {}
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+                }
+            });
+            knobUpdaters[paramId] = function(n) { norm = n; updateDot(n); };
+        }
+
+        // Oct: discrete label — depth maps to max octave spread
+        makeRandCircle('rand-oct-ctrl', 'rand_oct', function(n) {
+            var oct = Math.ceil(n * 3);
+            return oct === 0 ? 'Off' : '±' + oct + ' oct';
+        });
+        // 5ths: probability label
+        makeRandCircle('rand-fifth-ctrl', 'rand_fifth', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Cutoff: probability/depth label
+        makeRandCircle('rand-cutoff-ctrl', 'rand_cutoff', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Env: depth label
+        makeRandCircle('rand-env-ctrl', 'rand_env', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Vol: depth label
+        makeRandCircle('rand-vol-ctrl', 'rand_vol', function(n) {
+            return Math.round(n * 100) + '%';
+        });
+        // Jitter: max ms label
+        makeRandCircle('rand-jitter-ctrl', 'rand_jitter', function(n) {
+            return n < 0.01 ? '0ms' : Math.round(n * 50) + 'ms';
+        });
+        // Pan: ±range label
+        makeRandCircle('rand-pan-ctrl', 'pan_rnd', function(n) {
+            return n < 0.01 ? 'Off' : '±' + Math.round(n * 100) + '%';
+        });
+        // Stutter: probability label
+        makeRandCircle('rand-stutter-ctrl', 'rand_stutter', function(n) {
+            return n < 0.01 ? 'Off' : Math.round(n * 100) + '%';
+        });
+    }
+
+    function initTapeControls() {
+        var container = document.getElementById('tape-controls');
+        if (!container) return;
+
+        // Build two circle controls matching the rand/filter circle style
+        var defs = [
+            { id: 'tape-age-ctrl',    paramId: 'tape_age',    label: 'Age',
+              labelFn: function(n) { return n < 0.01 ? 'Off' : Math.round(n * 100) + '%'; } },
+            { id: 'tape-wf-ctrl',     paramId: 'wow_flutter', label: 'W&F',
+              labelFn: function(n) { return n < 0.01 ? 'Off' : Math.round(n * 100) + '%'; } }
+        ];
+
+        defs.forEach(function(def) {
+            var wrap = document.createElement('div');
+            wrap.className = 'circle-ctrl';
+            wrap.id = def.id;
+            wrap.innerHTML =
+                '<div class="circle-well"><div class="circle-dot"></div></div>' +
+                '<div class="circle-val"></div>' +
+                '<div class="circle-label">' + def.label + '</div>';
+            container.appendChild(wrap);
+
+            var dot = wrap.querySelector('.circle-dot');
+            var valEl = wrap.querySelector('.circle-val');
+            var norm = 0, dragging = false, startY = 0, startNorm = 0;
+
+            function update(n) {
+                norm = Math.max(0, Math.min(1, n));
+                var sz = Math.round(6 + norm * 38);
+                dot.style.width  = sz + 'px';
+                dot.style.height = sz + 'px';
+                dot.style.background = norm > 0.01 ? 'var(--text)' : 'var(--text-2)';
+                valEl.textContent = def.labelFn(norm);
+            }
+            update(0);
+
+            wrap.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragStarted(); } catch(ex) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var delta = (startY - e.clientY) / 120;
+                var n = Math.max(0, Math.min(1, startNorm + delta));
+                update(n);
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.setNormalisedValue(n); } catch(ex) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragEnded(); } catch(ex) {}
+            });
+            wrap.addEventListener('dblclick', function() {
+                update(0);
+                var ps = parameterStates[def.paramId];
+                if (ps) try { ps.sliderDragStarted(); ps.setNormalisedValue(0); ps.sliderDragEnded(); } catch(ex) {}
+            });
+
+            // Receive updates from JUCE
+            if (window.__JUCE__ && window.__JUCE__.addValueChangedListener) {
+                try {
+                    window.__JUCE__.addValueChangedListener(def.paramId, function(v) { update(v); });
+                } catch(ex) {}
+            }
+        });
+    }
+
+    function initFilterSliders() {
+        // Cutoff circle — log display 20Hz–18kHz (JUCE range: norm=0→20Hz, norm=1→18kHz)
+        (function() {
+            var el = document.getElementById('filter-cutoff-ctrl');
+            if (!el) return;
+            var dot = el.querySelector('.circle-well .circle-dot');
+            var val = el.querySelector('.circle-val');
+            var norm = 0.9, dragging = false, startY = 0, startNorm = 0;
+
+            function hzLabel(n) {
+                var hz = 20 * Math.pow(900, n);  // 20Hz→18kHz log approx
+                return hz >= 1000 ? (hz / 1000).toFixed(1) + 'kHz' : Math.round(hz) + 'Hz';
+            }
+            function update(n) {
+                var sz = Math.round(12 + n * 40);
+                dot.style.width = sz + 'px'; dot.style.height = sz + 'px';
+                dot.style.background = 'var(--text-2)';
+                val.textContent = hzLabel(n);
+            }
+            update(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
+                update(norm);
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return; dragging = false;
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = 0.9; update(norm);
+                if (parameterStates.filter_cutoff) {
+                    try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
+                    try { parameterStates.filter_cutoff.setNormalisedValue(0.9); } catch(e) {}
+                    try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
+                }
+            });
+            knobUpdaters['filter_cutoff'] = function(n) { norm = n; update(n); };
+        })();
+
+        // Resonance circle — 0–100%
+        (function() {
+            var el = document.getElementById('filter-res-ctrl');
+            if (!el) return;
+            var dot = el.querySelector('.circle-well .circle-dot');
+            var val = el.querySelector('.circle-val');
+            var norm = 0, dragging = false, startY = 0, startNorm = 0;
+
+            function update(n) {
+                var sz = Math.round(12 + n * 32);
+                dot.style.width = sz + 'px'; dot.style.height = sz + 'px';
+                dot.style.background = n > 0.7 ? 'var(--text)' : 'var(--text-2)';
+                val.textContent = Math.round(n * 100) + '%';
+            }
+            update(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
+                update(norm);
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return; dragging = false;
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = 0; update(norm);
+                if (parameterStates.filter_res) {
+                    try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
+                    try { parameterStates.filter_res.setNormalisedValue(0); } catch(e) {}
+                    try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
+                }
+            });
+            knobUpdaters['filter_res'] = function(n) { norm = n; update(n); };
+        })();
+    }
+
+    // ================================================================
+    // ENVELOPE ICON DRAG CONTROLS
+    // ================================================================
+
+    // ================================================================
+    // ENV CONVERSION HELPERS (module-level, used by drag + knobUpdaters)
+    // ================================================================
+    function envNormToSec(paramId, norm) {
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            return 0.0005 * Math.pow(600, norm);   // 0.5–300ms
+        if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            return 0.001 * Math.pow(1000, norm);   // 1ms–1s
+        return norm;
+    }
+    function envSecToNorm(paramId, s) {
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            return Math.log(s / 0.0005) / Math.log(600);
+        if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            return Math.log(s / 0.001) / Math.log(1000);
+        return s;
+    }
+    function envNormToDisplay(paramId, norm) {
+        if (paramId === 'amp_sustain' || paramId === 'fenv_depth')
+            return Math.round(norm * 100) + '%';
+        var n = Math.max(0, Math.min(1, norm));
+        var s;
+        if (paramId === 'amp_attack' || paramId === 'amp_decay' || paramId === 'fenv_attack')
+            s = 0.0005 * Math.pow(600, n);
+        else if (paramId === 'amp_release' || paramId === 'fenv_decay')
+            s = 0.001 * Math.pow(1000, n);
+        else return '';
+        var ms = s * 1000;
+        return ms < 999.5 ? Math.round(ms) + 'ms' : s.toFixed(2) + 's';
+    }
+
+    function updateEnvVisual(svg) {
+        var type  = svg.dataset.type;
+        var raw   = parseFloat(svg.dataset.value);
+        var shape = parseFloat(svg.dataset.shape || '0');
+
+        // Geometry derived from viewBox so all icon sizes work correctly
+        var vb  = (svg.getAttribute('viewBox') || '0 0 36 60').trim().split(/\s+/);
+        var vw  = parseFloat(vb[2]) || 36;
+        var vh  = parseFloat(vb[3]) || 60;
+        var cx  = vw / 2;
+        var cy  = vh / 2;
+        var HL  = vh / 4;
+        var bow = HL * 0.8;  // max perpendicular bow displacement
+        var maxA = 50 * Math.PI / 180;
+        var f = function(n) { return +n.toFixed(2); };
+
+        if (type === 'attack' || type === 'decay' || type === 'release') {
+            var v = Math.max(0, Math.min(1, raw));
+            svg.dataset.value = v;
+            var theta = v * maxA;
+            var x1, y1, x2, y2;
+
+            if (type === 'attack') {
+                x1 = f(cx - HL * Math.sin(theta)); y1 = f(cy + HL * Math.cos(theta));
+                x2 = f(cx + HL * Math.sin(theta)); y2 = f(cy - HL * Math.cos(theta));
+            } else {
+                x1 = f(cx - HL * Math.sin(theta)); y1 = f(cy - HL * Math.cos(theta));
+                x2 = f(cx + HL * Math.sin(theta)); y2 = f(cy + HL * Math.cos(theta));
+            }
+
+            // Control point truly perpendicular to line:
+            // attack direction=(sin θ,-cos θ), perp=(cos θ, sin θ)
+            // decay/release direction=(sin θ, cos θ), perp=(cos θ,-sin θ)
+            var cpx = f(cx + shape * bow * Math.cos(theta));
+            var cpy = f(cy + shape * bow * (type === 'attack' ? Math.sin(theta) : -Math.sin(theta)));
+
+            var pathEl = svg.querySelector('.env-line');
+            if (pathEl) {
+                if (Math.abs(shape) < 0.005) {
+                    pathEl.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2);
+                } else {
+                    pathEl.setAttribute('d', 'M ' + x1 + ' ' + y1 + ' Q ' + cpx + ' ' + cpy + ' ' + x2 + ' ' + y2);
+                }
+            }
+
+            // Move shape handle to bezier midpoint t=0.5: (p1 + 2*cp + p2) / 4
+            var handle = svg.querySelector('.shape-handle');
+            if (handle) {
+                handle.setAttribute('cx', f((x1 + 2*cpx + x2) / 4));
+                handle.setAttribute('cy', f((y1 + 2*cpy + y2) / 4));
+            }
+
+        } else if (type === 'sustain') {
+            var v = Math.max(0, Math.min(1, raw));
+            svg.dataset.value = v;
+            var y = f(vh * 0.1 + (1 - v) * vh * 0.8);
+            var lineEl = svg.querySelector('.env-line');
+            if (lineEl) {
+                lineEl.setAttribute('x1', f(cx - HL)); lineEl.setAttribute('y1', y);
+                lineEl.setAttribute('x2', f(cx + HL)); lineEl.setAttribute('y2', y);
+            }
+        } else if (type === 'depth') {
+            var v = Math.max(-1, Math.min(1, raw));
+            svg.dataset.value = v;
+            var y = f(cy - v * vh * 0.4);
+            var lineEl = svg.querySelector('.env-line');
+            if (lineEl) {
+                lineEl.setAttribute('x1', f(cx - HL)); lineEl.setAttribute('y1', y);
+                lineEl.setAttribute('x2', f(cx + HL)); lineEl.setAttribute('y2', y);
+            }
+        }
+    }
+
+    // Map from env param id → its shape param id
+    var ENV_SHAPE_PARAM = {
+        amp_attack: 'amp_attack_shape', amp_decay: 'amp_decay_shape',
+        amp_release: 'amp_release_shape',
+        fenv_attack: 'fenv_attack_shape', fenv_decay: 'fenv_decay_shape'
+    };
+
+    function initEnvIcons() {
+        document.querySelectorAll('.env-icon').forEach(function(svg) {
+            updateEnvVisual(svg);
+        });
+
+        // ── Time drag (vertical, on whole SVG) ──────────────────────────
+        var timeDrag = null, startY = 0, startVal = 0;
+
+        document.querySelectorAll('.env-icon').forEach(function(svg) {
+            svg.addEventListener('mousedown', function(e) {
+                // Skip if the click was on the shape handle
+                if (e.target && e.target.classList.contains('shape-handle')) return;
+                timeDrag = svg;
+                startY = e.clientY;
+                startVal = parseFloat(svg.dataset.value);
+                svg.classList.add('dragging');
+                e.preventDefault();
+                var paramId = svg.dataset.param;
+                if (paramId && parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
+            });
+            svg.addEventListener('dblclick', function(e) {
+                if (e.target && e.target.classList.contains('shape-handle')) return;
+                e.preventDefault();
+                var paramId = svg.dataset.param;
+                var def = parseFloat(svg.dataset.default);
+                if (isNaN(def)) return;
+                svg.dataset.value = def;
+                updateEnvVisual(svg);
+                var isDepth = (svg.dataset.type === 'depth');
+                var norm = isDepth ? (def + 1) / 2 : Math.max(0, Math.min(1, def));
+                document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                    el.textContent = envNormToDisplay(paramId, norm);
+                });
+                if (paramId && parameterStates[paramId]) {
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(err) {}
+                }
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!timeDrag) return;
+            var dy = startY - e.clientY;
+            var paramId = timeDrag.dataset.param;
+            var type = timeDrag.dataset.type;
+            var norm;
+
+            if (type === 'depth') {
+                norm = Math.max(0, Math.min(1, (startVal + dy / 80 + 1) / 2));
+                timeDrag.dataset.value = norm * 2 - 1;
+            } else if (type === 'sustain') {
+                norm = Math.max(0, Math.min(1, startVal + dy / 100));
+                timeDrag.dataset.value = norm;
+            } else {
+                var startDragNorm = Math.sqrt(Math.max(0, startVal));
+                var newDragNorm = Math.max(0, Math.min(1, startDragNorm + dy / 96));
+                norm = newDragNorm * newDragNorm;
+                timeDrag.dataset.value = norm;
+            }
+
+            updateEnvVisual(timeDrag);
+            if (paramId) {
+                document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                    el.textContent = envNormToDisplay(paramId, norm);
+                });
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (timeDrag) {
+                var paramId = timeDrag.dataset.param;
+                if (paramId && parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(err) {}
+                timeDrag.classList.remove('dragging');
+                timeDrag = null;
+            }
+        });
+
+        // ── Shape drag (horizontal, on .shape-handle circles) ────────────
+        var shapeDrag = null, shapeStartX = 0, shapeStartVal = 0;
+
+        document.querySelectorAll('.shape-handle').forEach(function(handle) {
+            handle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();   // prevent time drag from also starting
+                e.preventDefault();
+                var svg = handle.closest('.env-icon');
+                if (!svg) return;
+                shapeDrag = svg;
+                shapeStartX = e.clientX;
+                shapeStartVal = parseFloat(svg.dataset.shape || '0');
+                svg.classList.add('shape-dragging');
+                var shapeParamId = ENV_SHAPE_PARAM[svg.dataset.param];
+                if (shapeParamId && parameterStates[shapeParamId])
+                    try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
+            });
+            handle.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                var svg = handle.closest('.env-icon');
+                if (!svg) return;
+                var paramId = svg.dataset.param;
+                // Reset ALL icons with this param to shape=0
+                document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
+                    s.dataset.shape = 0;
+                    updateEnvVisual(s);
+                });
+                var shapeParamId = ENV_SHAPE_PARAM[paramId];
+                if (shapeParamId && parameterStates[shapeParamId]) {
+                    try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
+                    try { parameterStates[shapeParamId].setNormalisedValue(0.5); } catch(err) {}
+                    try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
+                }
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!shapeDrag) return;
+            var dx = e.clientX - shapeStartX;
+            var newShape = Math.max(-1, Math.min(1, shapeStartVal + dx / 80));
+            shapeDrag.dataset.shape = newShape;
+
+            // Update ALL icons sharing this param (main panel + compact strip)
+            var paramId = shapeDrag.dataset.param;
+            document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
+                s.dataset.shape = newShape;
+                updateEnvVisual(s);
+            });
+
+            var shapeParamId = ENV_SHAPE_PARAM[paramId];
+            if (shapeParamId && parameterStates[shapeParamId])
+                try { parameterStates[shapeParamId].setNormalisedValue((newShape + 1) / 2); } catch(err) {}
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (shapeDrag) {
+                var shapeParamId = ENV_SHAPE_PARAM[shapeDrag.dataset.param];
+                if (shapeParamId && parameterStates[shapeParamId])
+                    try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
+                shapeDrag.classList.remove('shape-dragging');
+                shapeDrag = null;
+            }
+        });
+    }
+
+    // ================================================================
+    // GRID CONTROL DRAG
+    // ================================================================
+
+    // ── Slice color palettes ──────────────────────────────────────────────
+    var PALETTES = [
+        // Cycles — coral / steel blue / navy / blush / warm gray
+        ['#CC5548', '#5B8FA8', '#2D4B6B', '#E8B0B0', '#C8C4C0'],
+        // Forest — sage / moss / soft lime / tan / gray-green
+        ['#6A9A6A', '#4A7A58', '#A8C890', '#C8A878', '#8A9888'],
+        // Ocean — sky / deep blue / seafoam / mist / slate
+        ['#4A8EC0', '#1E5A7A', '#7ABAB0', '#A8C8D0', '#5A7A8A']
+    ];
+    var sliceColors = []; // flat array, one hex per slice
+
+    var currentPaletteIdx = 0;
+
+    function hashString(str) {
+        var h = 0;
+        for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xFFFFFF;
+        return h;
+    }
+
+    function randomizeSliceColors(totalSlices, cols) {
+        var palette = PALETTES[currentPaletteIdx];
+        var val = totalSlices / 4; // slices per section
+        sliceColors = new Array(totalSlices);
+        for (var s = 0; s < 4; s++) {
+            for (var p = 0; p < val; p++) {
+                var flatIdx = s * val + p;
+                var row = cols > 0 ? Math.floor(p / cols) : 0;
+                var col = cols > 0 ? p % cols : 0;
+                // Collect colors of already-assigned left and above neighbors
+                var used = [];
+                if (col > 0) used.push(sliceColors[s * val + p - 1]);
+                if (row > 0) used.push(sliceColors[s * val + p - cols]);
+                var available = palette.filter(function(c) { return used.indexOf(c) < 0; });
+                if (available.length === 0) available = palette;
+                sliceColors[flatIdx] = available[Math.floor(Math.random() * available.length)];
+            }
+        }
+    }
+
+    var gridIdx = 2; // default = /4
+    var STEPS   = [1, 2, 4, 8, 16];
+    var LAYOUT  = {
+        1:  { cols: 1, rows: 1 },
+        2:  { cols: 1, rows: 2 },
+        4:  { cols: 2, rows: 2 },
+        8:  { cols: 2, rows: 4 },
+        16: { cols: 4, rows: 4 }
+    };
+
+    function rebuildSections(val) {
+        var layout = LAYOUT[val];
+        var totalSlices = 4 * val;
+        randomizeSliceColors(totalSlices, layout.cols);
+        ['s1','s2','s3','s4'].forEach(function(id, sIdx) {
+            var container = document.getElementById('cells-' + id);
+            if (!container) return;
+            container.style.gridTemplateColumns = 'repeat(' + layout.cols + ', 1fr)';
+            container.style.gridTemplateRows    = 'repeat(' + layout.rows + ', 1fr)';
+            container.innerHTML = '';
+            for (var i = 0; i < val; i++) {
+                var flatIdx = sIdx * val + i;
+                var cell = document.createElement('div');
+                cell.className = 'cell on';
+                cell.style.background = sliceColors[flatIdx] || '#444';
+                container.appendChild(cell);
+            }
+        });
+    }
+
+    function initGridDrag() {
+        var display = document.getElementById('grid-display');
+        if (!display) return;
+        var drag = false, startY = 0, startIdx = 0;
+
+        display.addEventListener('mousedown', function(e) {
+            drag = true; startY = e.clientY; startIdx = gridIdx;
+            e.preventDefault();
+            if (parameterStates.grid)
+                try { parameterStates.grid.sliderDragStarted(); } catch(err) {}
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!drag) return;
+            var newIdx = Math.max(0, Math.min(4, Math.round(startIdx + (startY - e.clientY) / 20)));
+            if (newIdx !== gridIdx) {
+                gridIdx = newIdx;
+                display.textContent = '/' + STEPS[gridIdx];
+                rebuildSections(STEPS[gridIdx]);
+                if (parameterStates.grid)
+                    try { parameterStates.grid.setNormalisedValue(gridIdx / 4); } catch(err) {}
+            }
+        });
+        document.addEventListener('mouseup', function() {
+            if (drag) {
+                drag = false;
+                if (parameterStates.grid)
+                    try { parameterStates.grid.sliderDragEnded(); } catch(err) {}
+            }
+        });
+
+        knobUpdaters['grid'] = function(norm) {
+            var newIdx = Math.round(norm * 4);
+            if (newIdx !== gridIdx) {
+                gridIdx = newIdx;
+                display.textContent = '/' + STEPS[gridIdx];
+                rebuildSections(STEPS[gridIdx]);
+            }
+        };
+    }
+
+    // ================================================================
+    // BPM DRAG CONTROL
+    // ================================================================
+
+    var bpmValue = 120;
+
+    function initBpmDrag() {
+        var display = document.getElementById('bpm-display');
+        if (!display) return;
+        var drag = false, startY = 0, startBpm = 120;
+
+        display.parentElement.addEventListener('mousedown', function(e) {
+            drag = true; startY = e.clientY; startBpm = bpmValue;
+            e.preventDefault();
+            if (parameterStates.bpm)
+                try { parameterStates.bpm.sliderDragStarted(); } catch(err) {}
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!drag) return;
+            var delta = Math.round((startY - e.clientY) * 0.5);
+            bpmValue = Math.max(60, Math.min(200, startBpm + delta));
+            display.textContent = bpmValue;
+            if (parameterStates.bpm)
+                try { parameterStates.bpm.setNormalisedValue((bpmValue - 60) / 140); } catch(err) {}
+        });
+        document.addEventListener('mouseup', function() {
+            if (drag) {
+                drag = false;
+                if (parameterStates.bpm)
+                    try { parameterStates.bpm.sliderDragEnded(); } catch(err) {}
+            }
+        });
+
+        knobUpdaters['bpm'] = function(norm) {
+            bpmValue = Math.round(60 + norm * 140);
+            display.textContent = bpmValue;
+        };
+    }
+
+    // ================================================================
+    // SLICE CELL TOGGLE
+    // ================================================================
+
+    var sectionIds = ['s1', 's2', 's3', 's4'];
+
+    function cellFlatIndex(sectionId, cell) {
+        var sectionIdx = sectionIds.indexOf(sectionId);
+        var container  = document.getElementById('cells-' + sectionId);
+        if (!container || sectionIdx < 0) return -1;
+        var cells   = Array.from(container.querySelectorAll('.cell'));
+        var cellIdx = cells.indexOf(cell);
+        if (cellIdx < 0) return -1;
+        return sectionIdx * STEPS[gridIdx] + cellIdx;
+    }
+
+    function initSliceCells() {
+        sectionIds.forEach(function(id) {
+            var container = document.getElementById('cells-' + id);
+            if (!container) return;
+            container.addEventListener('click', function(e) {
+                var cell = e.target.closest('.cell');
+                if (!cell) return;
+
+                // Toggle visual
+                var flatIdx = cellFlatIndex(id, cell);
+                if (cell.classList.contains('on')) {
+                    cell.classList.replace('on', 'off');
+                    cell.style.background = '';
+                } else {
+                    cell.classList.replace('off', 'on');
+                    cell.style.background = sliceColors[flatIdx] || '#444';
+                }
+
+                // Notify C++ via resource provider fetch
+                if (flatIdx >= 0 && juceAvailable)
+                    fetch(window.location.origin + '/_/slice/' + flatIdx).catch(function(){});
+            });
+        });
+    }
+
+    // ================================================================
+    // SEQ LANE CELLS
+    // ================================================================
+
+    var LANE_ORDER = ['pos', 'vel', 'pitch', 'dir'];
+
+    var laneData = {
+        vel:   Array(16).fill(1.0),   // neutral = full vel
+        pitch: Array(16).fill(0.5),   // neutral = center (0 st)
+        dir:   Array(16).fill(1.0)    // neutral = fwd
+    };
+    // POS uses grid-position model: posGridValues[gridPos] = pool position (0-1)
+    // The pattern defines which grid position is visited at each step.
+    var posGridValues = Array.from({length:16}, function(_,i){ return i/15; });
+    var litStep = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+
+    function laneValToDisplay(id, v) {
+        if (id === 'vel')   return Math.round(v * 100) + '%';
+        if (id === 'pitch') { var st = Math.round((v - 0.5) * 48); return (st >= 0 ? '+' : '') + st + ' st'; }
+        if (id === 'dir')   return v < 0.5 ? 'Rev' : 'Fwd';
+        return Math.round(v * 100) + '%'; // pos
+    }
+
+    // POS lane: grid-position model — cursor traces pattern path
+    function rebuildPosLane(steps) {
+        var container = document.getElementById('lane-pos');
+        if (!container) return;
+        if (steps === undefined) {
+            var se = document.querySelector('.step-val[data-lane="pos"]');
+            steps = se ? parseInt(se.dataset.steps) : 16;
+        }
+        var pat = POS_PATTERNS[activeLanePattern.pos];
+        var litGridPos = pat[litStep.pos % steps];
+        var activeSet = {};
+        for (var s = 0; s < steps; s++) activeSet[pat[s]] = true;
+        container.innerHTML = '';
+        for (var i = 0; i < 16; i++) {
+            var cell = document.createElement('div');
+            var v = posGridValues[i];
+            cell.dataset.value   = v;
+            cell.dataset.step    = i;   // grid position index
+            cell.dataset.laneIdx = 0;
+            if (i === litGridPos) {
+                cell.className = 'lcell lit';
+            } else if (!activeSet[i]) {
+                cell.className = 'lcell inactive';
+            } else {
+                cell.className = 'lcell';
+                cell.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            }
+            container.appendChild(cell);
+        }
+    }
+
+    function rebuildLane(id, steps) {
+        if (id === 'pos') { rebuildPosLane(steps); return; }
+        var container = document.getElementById('lane-' + id);
+        if (!container) return;
+        var laneIdx = LANE_ORDER.indexOf(id);
+        container.innerHTML = '';
+        var vals = laneData[id];
+        var lit  = litStep[id] % steps;
+        for (var i = 0; i < 16; i++) {
+            var cell = document.createElement('div');
+            var v = vals[i];
+            cell.dataset.value   = v;
+            cell.dataset.step    = i;
+            cell.dataset.laneIdx = laneIdx;
+            if (i >= steps) {
+                cell.className = 'lcell inactive';
+            } else if (i === lit) {
+                cell.className = 'lcell lit';
+            } else {
+                cell.className = 'lcell';
+                cell.style.background = id === 'dir'
+                    ? (v >= 0.5 ? 'rgba(74,138,168,0.55)' : 'rgba(192,88,64,0.55)')
+                    : 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            }
+            container.appendChild(cell);
+        }
+    }
+
+    function initSeqLanes() {
+        document.querySelectorAll('.step-val').forEach(function(el) {
+            rebuildLane(el.dataset.lane, parseInt(el.dataset.steps));
+        });
+
+        // Wire On text links
+        document.querySelectorAll('.lane-on-text').forEach(function(el) {
+            el.addEventListener('click', function() { toggleLane(el.dataset.lane); });
+        });
+    }
+
+    function syncLanesToCpp() {
+        if (!juceAvailable) return;
+        LANE_ORDER.forEach(function(id, laneIdx) {
+            if (id === 'pos') {
+                if (laneActive.pos) syncPosToCpp();
+                else syncLaneNeutral('pos', 0);
+            } else {
+                var vals = laneActive[id] ? laneData[id] : Array(16).fill(LANE_NEUTRAL[id]);
+                vals.forEach(function(v, step) {
+                    fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + step + '/' + Math.round(v * 1000)).catch(function(){});
+                });
+            }
+        });
+        document.querySelectorAll('.step-val').forEach(function(el) {
+            var li = LANE_ORDER.indexOf(el.dataset.lane);
+            if (li >= 0) fetch(window.location.origin + '/_/seq/s/' + li + '/' + el.dataset.steps).catch(function(){});
+        });
+        document.querySelectorAll('.speed-val').forEach(function(el) {
+            var li = LANE_ORDER.indexOf(el.dataset.lane);
+            if (li >= 0) fetch(window.location.origin + '/_/seq/m/' + li + '/' + el.dataset.speed).catch(function(){});
+        });
+    }
+
+    // Neutral (blank) value per lane when OFF or RST
+    var LANE_NEUTRAL = { pos: 0.0, vel: 1.0, pitch: 0.5, dir: 1.0 };
+
+    // Per-lane active state (POS always starts ON, others OFF)
+    var laneActive = { pos: true, vel: false, pitch: false, dir: false };
+
+    // POS: map grid values through pattern to get per-step values for C++
+    function syncPosToCpp() {
+        if (!juceAvailable) return;
+        var pat = POS_PATTERNS[activeLanePattern.pos];
+        var se  = document.querySelector('.step-val[data-lane="pos"]');
+        var cnt = se ? parseInt(se.dataset.steps) : 16;
+        for (var s = 0; s < 16; s++) {
+            var gridPos = pat[s % cnt];
+            var v = posGridValues[gridPos];
+            fetch(window.location.origin + '/_/seq/v/0/' + s + '/' + Math.round(v * 1000)).catch(function(){});
+        }
+    }
+
+    // Send all neutral values for a lane to C++
+    function syncLaneNeutral(id, laneIdx) {
+        if (!juceAvailable) return;
+        var n = LANE_NEUTRAL[id];
+        for (var s = 0; s < 16; s++)
+            fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + s + '/' + Math.round(n * 1000)).catch(function(){});
+    }
+
+    // Send actual laneData for a lane to C++
+    function syncLaneData(id, laneIdx) {
+        if (!juceAvailable) return;
+        if (id === 'pos') { syncPosToCpp(); return; }
+        laneData[id].forEach(function(v, s) {
+            fetch(window.location.origin + '/_/seq/v/' + laneIdx + '/' + s + '/' + Math.round(v * 1000)).catch(function(){});
+        });
+    }
+
+    // Toggle ON/OFF for a single lane
+    window.toggleLane = function(id) {
+        laneActive[id] = !laneActive[id];
+        var txt = document.querySelector('.lane-on-text[data-lane="' + id + '"]');
+        if (txt) txt.classList.toggle('active', laneActive[id]);
+        var li = LANE_ORDER.indexOf(id);
+        if (li >= 0) {
+            if (laneActive[id]) syncLaneData(id, li);
+            else                syncLaneNeutral(id, li);
+        }
+    };
+
+    // Randomize one lane
+    window.genLane = function(id) {
+        if (id === 'pos') {
+            for (var i = 0; i < 16; i++) posGridValues[i] = Math.random();
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+            return;
+        }
+        laneData[id] = Array.from({length: 16}, function() {
+            return id === 'dir' ? (Math.random() < 0.5 ? 0.0 : 1.0) : Math.random();
+        });
+        var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+        var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+        rebuildLane(id, steps);
+        if (laneActive[id]) syncLaneData(id, LANE_ORDER.indexOf(id));
+    };
+
+    // Reset one lane to neutral/blank
+    window.resetLane = function(id) {
+        if (id === 'pos') {
+            for (var i = 0; i < 16; i++) posGridValues[i] = i / 15;  // reset to pattern-1 defaults
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+            else syncLaneNeutral('pos', 0);
+            return;
+        }
+        var n = LANE_NEUTRAL[id];
+        laneData[id] = Array.from({length: 16}, function() { return n; });
+        var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+        var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+        rebuildLane(id, steps);
+        var li = LANE_ORDER.indexOf(id);
+        if (li >= 0) syncLaneNeutral(id, li);
+    };
+
+    // ── updateSeqSteps: called by C++ timer to highlight current step per lane ──
+    window.updateSeqSteps = function(s0, s1, s2, s3) {
+        var steps = [s0, s1, s2, s3];
+        LANE_ORDER.forEach(function(id, li) {
+            var newStep = steps[li];
+            if (litStep[id] === newStep) return;
+            litStep[id] = newStep;
+            var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+            var count  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+
+            if (id === 'pos') {
+                // Cursor traces the pattern path: light up the grid position visited at this step
+                var pat = POS_PATTERNS[activeLanePattern.pos];
+                var litGridPos = pat[newStep % count];
+                var activeSet = {};
+                for (var s = 0; s < count; s++) activeSet[pat[s]] = true;
+                var cells = document.querySelectorAll('#lane-pos .lcell');
+                cells.forEach(function(c, idx) {
+                    var v = posGridValues[idx];
+                    if (idx === litGridPos) {
+                        c.className = 'lcell lit'; c.style.background = '';
+                    } else if (!activeSet[idx]) {
+                        c.className = 'lcell inactive'; c.style.background = '';
+                    } else {
+                        c.className = 'lcell';
+                        c.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+                    }
+                });
+                var valEl = document.getElementById('pos-val');
+                if (valEl) valEl.textContent = laneValToDisplay('pos', posGridValues[litGridPos]);
+                return;
+            }
+
+            var cells  = document.querySelectorAll('#lane-' + id + ' .lcell');
+            cells.forEach(function(c, idx) {
+                if (idx >= count) return;
+                var v = parseFloat(c.dataset.value || 0.5);
+                if (idx === newStep % count) {
+                    c.className = 'lcell lit';
+                    c.style.background = '';
+                } else {
+                    c.className = 'lcell';
+                    c.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+                }
+            });
+            var val = laneData[id][newStep % count];
+            var valEl = document.getElementById(id + '-val');
+            if (valEl) valEl.textContent = laneValToDisplay(id, val);
+        });
+    };
+
+    // SEQ cell + steps + speed + pattern-badge drag
+    (function() {
+        var cellDrag = null, stepDrag = null, speedDrag = null, patDrag = null;
+        var startY = 0, startVal = 0, patDragId = '';
+        var tooltip = document.getElementById('drag-tooltip');
+
+        function showTooltip(x, y, text) {
+            tooltip.textContent = text;
+            tooltip.style.left = x + 'px';
+            tooltip.style.top  = y + 'px';
+            tooltip.style.display = 'block';
+        }
+        function hideTooltip() { tooltip.style.display = 'none'; }
+
+        document.addEventListener('mousedown', function(e) {
+            var pb = e.target.closest('.lane-pat-btn');
+            if (pb) {
+                patDragId = pb.closest('[data-lane]').dataset.lane;
+                patDrag = pb;
+                startY   = e.clientY;
+                startVal = activeLanePattern[patDragId];
+                e.preventDefault(); return;
+            }
+            var sv = e.target.closest('.step-val');
+            if (sv) { stepDrag = sv; startY = e.clientY; startVal = parseInt(sv.dataset.steps); e.preventDefault(); return; }
+            var spv = e.target.closest('.speed-val');
+            if (spv) { speedDrag = spv; startY = e.clientY; startVal = parseInt(spv.dataset.speed); e.preventDefault(); return; }
+            var cell = e.target.closest('.lcell:not(.inactive)');
+            if (!cell || cell.classList.contains('lit')) return;
+            cellDrag = cell; startY = e.clientY;
+            startVal = parseFloat(cell.dataset.value || '0.5');
+            e.preventDefault();
+        });
+
+        var SPEED_LABELS = ['/3','/2','×1','×1.5','×2','×3','×4','×8','×16'];
+
+        document.addEventListener('mousemove', function(e) {
+            if (patDrag) {
+                var maxPat = LANE_PATTERNS[patDragId].length - 1;
+                var n = Math.max(0, Math.min(maxPat, Math.round(startVal + (startY - e.clientY) / 20)));
+                if (n !== activeLanePattern[patDragId]) applyLanePattern(patDragId, n);
+                return;
+            }
+            if (stepDrag) {
+                var n = Math.max(1, Math.min(16, Math.round(startVal + (startY - e.clientY) / 8)));
+                if (n !== parseInt(stepDrag.dataset.steps)) {
+                    stepDrag.dataset.steps = n;
+                    stepDrag.textContent = n;
+                    rebuildLane(stepDrag.dataset.lane, n);
+                }
+                return;
+            }
+            if (speedDrag) {
+                var n = Math.max(0, Math.min(8, Math.round(startVal + (startY - e.clientY) / 20)));
+                if (n !== parseInt(speedDrag.dataset.speed)) {
+                    speedDrag.dataset.speed = n;
+                    speedDrag.textContent = SPEED_LABELS[n];
+                }
+                return;
+            }
+            if (!cellDrag) return;
+            var li = parseInt(cellDrag.dataset.laneIdx);
+            var st = parseInt(cellDrag.dataset.step);
+            var v;
+            if (li === 3) {
+                // DIR: binary snap — drag up = Fwd, drag down = Rev
+                v = (e.clientY < startY) ? 1.0 : 0.0;
+                cellDrag.style.background = v >= 0.5 ? 'rgba(74,138,168,0.55)' : 'rgba(192,88,64,0.55)';
+            } else {
+                v = Math.max(0, Math.min(1, startVal + (startY - e.clientY) / 100));
+                cellDrag.style.background = 'hsl(0,0%,' + Math.round(14 + v * 66) + '%)';
+            }
+            cellDrag.dataset.value = v;
+            if (li === 0) posGridValues[st] = v;
+            else if (li >= 1 && li < 4) laneData[LANE_ORDER[li]][st] = v;
+            showTooltip(e.clientX, e.clientY, laneValToDisplay(LANE_ORDER[li], v));
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (cellDrag && juceAvailable) {
+                var li  = parseInt(cellDrag.dataset.laneIdx);
+                var st  = parseInt(cellDrag.dataset.step);
+                var val = parseFloat(cellDrag.dataset.value);
+                var id  = LANE_ORDER[li];
+                if (li === 0 && laneActive.pos) {
+                    posGridValues[st] = val;
+                    syncPosToCpp();  // resync entire step mapping after grid edit
+                } else if (li >= 1 && li < 4 && laneActive[id]) {
+                    fetch(window.location.origin + '/_/seq/v/' + li + '/' + st + '/' + Math.round(val * 1000)).catch(function(){});
+                }
+            }
+            if (stepDrag && juceAvailable) {
+                var li = LANE_ORDER.indexOf(stepDrag.dataset.lane);
+                if (li >= 0)
+                    fetch(window.location.origin + '/_/seq/s/' + li + '/' + stepDrag.dataset.steps).catch(function(){});
+            }
+            if (speedDrag && juceAvailable) {
+                var li = LANE_ORDER.indexOf(speedDrag.dataset.lane);
+                if (li >= 0)
+                    fetch(window.location.origin + '/_/seq/m/' + li + '/' + speedDrag.dataset.speed).catch(function(){});
+            }
+            cellDrag = null; stepDrag = null; speedDrag = null; patDrag = null;
+            hideTooltip();
+        });
+    })();
+
+    // ================================================================
+    // LANE PATTERNS
+    // ================================================================
+
+    // POS — René-style 4×4 traversal sequences (16 patterns × 16 steps)
+    // Each entry is the flat grid index (0-15) visited at that step.
+    var POS_PATTERNS = [
+        [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15],            // 1: rows →
+        [0,1,2,3, 7,6,5,4, 8,9,10,11, 15,14,13,12],            // 2: snake
+        [0,4,8,12, 1,5,9,13, 2,6,10,14, 3,7,11,15],            // 3: cols ↓
+        [0,4,8,12, 13,9,5,1, 2,6,10,14, 15,11,7,3],            // 4: cols snake
+        [0,1,2,3, 7,11,15, 14,13,12, 8,4, 5,6,10,9],           // 5: CW spiral
+        [0,4,8,12, 13,14,15, 11,7,3, 2,1, 5,9,10,6],           // 6: CCW spiral
+        [0, 1,4, 2,5,8, 3,6,9,12, 7,10,13, 11,14, 15],         // 7: diag ↘
+        [12, 13,8, 14,9,4, 15,10,5,0, 11,6,1, 7,2, 3],         // 8: diag ↗
+        [12,0,1,15, 14,2,3,13, 11,4,5,9, 8,6,7,10],            // 9
+        [12,11,6,2, 8,13,4,7, 0,9,14,5, 3,1,10,15],            // 10
+        [12,13,4,5, 10,11,2,3, 8,9,0,1, 14,15,6,7],            // 11
+        [12,4,13,5, 10,2,11,3, 8,0,9,1, 14,6,15,7],            // 12
+        [12,13,14,15, 8,9,10,11, 0,1,2,3, 4,5,6,7],            // 13
+        [12,15,7,6, 14,9,1,0, 8,11,3,2, 10,13,5,4],            // 14
+        [3,6,14,15, 7,4,12,13, 5,8,9,10, 11,0,1,2],            // 15
+        [3,14,10,13, 9,6,2,5, 1,12,8,15, 11,4,0,7]             // 16
+    ];
+
+    // VEL — 8 velocity shapes (0-1)
+    var VEL_PATTERNS = [
+        Array(16).fill(1.0),                                               // 1: flat full
+        Array.from({length:16}, function(_,i){ return i/15; }),            // 2: ascending
+        Array.from({length:16}, function(_,i){ return 1-i/15; }),          // 3: descending
+        Array.from({length:16}, function(_,i){ return i<8 ? i/7 : (15-i)/7; }), // 4: triangle
+        Array.from({length:16}, function(_,i){ return i%4===0 ? 1.0 : 0.5; }),  // 5: accent 1st
+        Array.from({length:16}, function(_,i){ return i%2===0 ? 0.9 : 0.45; }), // 6: alt strong/weak
+        Array.from({length:16}, function(_,i){ return (Math.floor(i/4)+1)/4; }), // 7: stairs up
+        Array.from({length:16}, function(_,i){ return Math.max(0.1, 1.0-i*0.065); }) // 8: decay
+    ];
+
+    // PITCH — 8 scale patterns (0.5 = root, ±24 st → ±0.5)
+    // Each value = 0.5 + semitones/48
+    var PITCH_PATTERNS = (function() {
+        function st(n) { return 0.5 + n/48; }
+        return [
+            Array(16).fill(st(0)),                              // 1: flat (root)
+            [0,2,4,5,7,9,11,12,14,16,17,19,21,23,24,12].map(st),  // 2: major scale ↑
+            [0,2,3,5,7,8,10,12,14,15,17,19,20,22,24,12].map(st),  // 3: natural minor ↑
+            [0,3,5,7,10,12,15,17,19,22,10,7,5,3,0,5].map(st),     // 4: penta minor
+            [0,2,4,7,9,12,14,16,19,21,9,7,4,2,0,7].map(st),       // 5: penta major
+            [0,2,3,5,7,9,10,12,10,9,7,5,3,2,0,3].map(st),         // 6: dorian
+            [0,2,3,6,7,9,10,12,9,7,6,3,2,0,3,7].map(st),          // 7: lydian flat7 / octatonic
+            Array.from({length:16}, function(_,i){ return st(i-8); }) // 8: chromatic glide
+        ];
+    })();
+
+    // DIR — 8 binary patterns (0.0=Rev, 1.0=Fwd)
+    var DIR_PATTERNS = [
+        Array(16).fill(1.0),                                                              // 1: all fwd
+        Array(16).fill(0.0),                                                              // 2: all rev
+        Array.from({length:16}, function(_,i){ return i%2===0 ? 1.0 : 0.0; }),           // 3: alt fwd/rev
+        Array.from({length:16}, function(_,i){ return Math.floor(i/4)%2===0 ? 1.0 : 0.0; }), // 4: 4+4
+        Array.from({length:16}, function(_,i){ return i<8 ? 1.0 : 0.0; }),               // 5: fwd then rev
+        Array.from({length:16}, function(_,i){ return i<8 ? 0.0 : 1.0; }),               // 6: rev then fwd
+        Array.from({length:16}, function(_,i){ return i%4!==3 ? 1.0 : 0.0; }),           // 7: fwd×3 rev×1
+        Array.from({length:16}, function(_,i){ return i%4===0 ? 1.0 : 0.0; })            // 8: fwd×1 rev×3
+    ];
+
+    var LANE_PATTERNS = { pos: POS_PATTERNS, vel: VEL_PATTERNS, pitch: PITCH_PATTERNS, dir: DIR_PATTERNS };
+    var activeLanePattern = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+
+    // Apply a named pattern to any lane and update UI/C++
+    function applyLanePattern(id, patIdx) {
+        var patterns = LANE_PATTERNS[id];
+        patIdx = Math.max(0, Math.min(patterns.length - 1, patIdx));
+        activeLanePattern[id] = patIdx;
+        if (id === 'pos') {
+            // POS: pattern changes cursor path only — grid values are preserved
+            rebuildPosLane();
+            if (laneActive.pos) syncPosToCpp();
+        } else {
+            var pat = patterns[patIdx];
+            for (var s = 0; s < 16; s++) laneData[id][s] = pat[s];
+            var stepEl = document.querySelector('.step-val[data-lane="' + id + '"]');
+            var steps  = stepEl ? parseInt(stepEl.dataset.steps) : 16;
+            rebuildLane(id, steps);
+            if (laneActive[id]) syncLaneData(id, LANE_ORDER.indexOf(id));
+        }
+        var badge = document.querySelector('[data-lane="' + id + '"] .lane-pat-btn');
+        if (badge) badge.textContent = patIdx + 1;
+    }
+
+    function initLanePatterns() {
+        activeLanePattern = { pos: 0, vel: 0, pitch: 0, dir: 0 };
+        rebuildPosLane();
+        if (laneActive.pos) syncPosToCpp();
+        ['vel', 'pitch', 'dir'].forEach(function(id) { applyLanePattern(id, 0); });
+    }
+
+    // ================================================================
+    // COMPACT STRIP WIRING
+    // ================================================================
+
+    function initCompactStrip() {
+        // ── Filter sliders ──────────────────────────────────────────
+        var scsCut = document.getElementById('scs-cutoff');
+        var scsRes = document.getElementById('scs-res');
+
+        if (scsCut) {
+            scsCut.addEventListener('mousedown', function() {
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
+            });
+            scsCut.addEventListener('input', function() {
+                var n = parseFloat(scsCut.value);
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.setNormalisedValue(n); } catch(e) {}
+            });
+            scsCut.addEventListener('mouseup', function() {
+                if (parameterStates.filter_cutoff)
+                    try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
+            });
+        }
+        if (scsRes) {
+            scsRes.addEventListener('mousedown', function() {
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
+            });
+            scsRes.addEventListener('input', function() {
+                var n = parseFloat(scsRes.value);
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.setNormalisedValue(n); } catch(e) {}
+            });
+            scsRes.addEventListener('mouseup', function() {
+                if (parameterStates.filter_res)
+                    try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
+            });
+        }
+
+        // Extend knobUpdaters to also update SCS sliders
+        var origCut = knobUpdaters['filter_cutoff'];
+        knobUpdaters['filter_cutoff'] = function(n) {
+            if (origCut) origCut(n);
+            if (scsCut) scsCut.value = n;
+        };
+        var origRes = knobUpdaters['filter_res'];
+        knobUpdaters['filter_res'] = function(n) {
+            if (origRes) origRes(n);
+            if (scsRes) scsRes.value = n;
+        };
+
+        // ── Signal knobs ────────────────────────────────────────────
+        // Factory: wire a scs-knob and chain it onto existing knobUpdater
+        function wireScsKnob(elId, paramId, toDisplay, sensitivity, defaultNorm) {
+            var el = document.getElementById(elId);
+            if (!el) return;
+            var valEl = el.querySelector('.scs-val');
+            var norm = defaultNorm;
+            var dragging = false, startY = 0, startNorm = 0;
+
+            if (valEl) valEl.textContent = toDisplay(norm);
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startNorm = norm;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * sensitivity));
+                if (valEl) valEl.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() {
+                norm = defaultNorm;
+                if (valEl) valEl.textContent = toDisplay(norm);
+                if (parameterStates[paramId])
+                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
+            });
+
+            // Chain onto existing knobUpdater (set by page-1 initSignalControls)
+            var orig = knobUpdaters[paramId];
+            knobUpdaters[paramId] = function(n) {
+                norm = n;
+                if (valEl) valEl.textContent = toDisplay(n);
+                if (orig) orig(n);
+            };
+        }
+
+        // output_vol: 0-1 → "75%"
+        wireScsKnob('scs-vol', 'output_vol', function(n) {
+            return Math.round(n * 100) + '%';
+        }, 0.007, 0.75);
+
+        // pitch: norm 0-1 → "±N st" (same range as sig-pitch)
+        wireScsKnob('scs-pitch', 'pitch', function(n) {
+            var st = Math.round(n * 48 - 24);
+            return (st >= 0 ? '+' : '') + st;
+        }, 1/48, 0.5);
+
+        // pan: norm 0-1 → "L/C/R"
+        wireScsKnob('scs-pan', 'pan', function(n) {
+            var p = Math.round((n * 2 - 1) * 100);
+            if (p === 0) return 'C';
+            return (p < 0 ? 'L' : 'R') + Math.abs(p);
+        }, 0.008, 0.5);
+
+        // speed: index-based (same labels as sig-speed)
+        (function() {
+            var labels  = ['/3', '/2', 'x1', 'x1.5', 'x2', 'x3', 'x4', 'x8', 'x16'];
+            var maxIdx  = labels.length - 1;
+            var el      = document.getElementById('scs-speed');
+            if (!el) return;
+            var valEl   = el.querySelector('.scs-val');
+            var idx     = 2;
+            var dragging = false, startY = 0, startIdx = 0;
+
+            function setIdx(i) {
+                idx = Math.max(0, Math.min(maxIdx, i));
+                if (valEl) valEl.textContent = labels[idx];
+                if (parameterStates.speed)
+                    try { parameterStates.speed.setNormalisedValue(idx / maxIdx); } catch(e) {}
+            }
+            if (valEl) valEl.textContent = labels[idx];
+
+            el.addEventListener('mousedown', function(e) {
+                dragging = true; startY = e.clientY; startIdx = idx;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragStarted(); } catch(e) {}
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                setIdx(startIdx + Math.round((startY - e.clientY) / 20));
+            });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (parameterStates.speed)
+                    try { parameterStates.speed.sliderDragEnded(); } catch(e) {}
+            });
+            el.addEventListener('dblclick', function() { setIdx(2); });
+
+            // Chain onto existing speed knobUpdater
+            var orig = knobUpdaters['speed'];
+            knobUpdaters['speed'] = function(n) {
+                if (!dragging) {
+                    idx = Math.round(n * maxIdx);
+                    if (valEl) valEl.textContent = labels[Math.max(0, Math.min(maxIdx, idx))];
+                }
+                if (orig) orig(n);
+            };
+        })();
+    }
+
+    // ================================================================
+    // PARAMETER STATE INITIALIZATION (connects UI to JUCE)
+    // ================================================================
+
+    function initializeParameterStates() {
+        for (var paramName in parameterStates) {
+            try {
+                parameterStates[paramName] = TOGGLE_PARAMS[paramName]
+                    ? window.Juce.getToggleState(paramName)
+                    : window.Juce.getSliderState(paramName);
+
+                if (knobUpdaters[paramName] && parameterStates[paramName]) {
+                    (function(pName) {
+                        var state   = parameterStates[pName];
+                        var updater = knobUpdaters[pName];
+                        var isToggle = !!TOGGLE_PARAMS[pName];
+                        state.addValueChangedListener(function() {
+                            updater(isToggle ? (state.getValue() ? 1 : 0) : state.getNormalisedValue(), true);
+                        });
+                    })(paramName);
+                }
+            } catch(error) {
+                // Param not available in context — ok in preview mode
+            }
+        }
+    }
+
+    // ================================================================
+    // DOMContentLoaded — wire everything up
+    // ================================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Collect mode buttons
+        modeBtns = [
+            document.getElementById('mode-poly'),
+            document.getElementById('mode-slice'),
+            document.getElementById('mode-arp')
+        ].filter(Boolean);
+
+        // Initialize UI controls
+        initSignalControls();
+        initEqControls();
+        initRandControls();
+        initTapeControls();
+        initFilterSliders();
+        initEnvIcons();
+        initGridDrag();
+        initBpmDrag();
+        initSliceCells();
+        initSeqLanes();
+        initLanePatterns();
+        initCompactStrip();   // must be after initSignalControls + initFilterSliders
+
+        // Initial grid build
+        rebuildSections(STEPS[gridIdx]);
+
+        // Connect JUCE parameter states
+        if (juceAvailable) {
+            initializeParameterStates();
+            syncLanesToCpp();
+        }
+
+        // Debug indicator
+        var dbg = document.getElementById('debug-status');
+        if (dbg) {
+            dbg.style.color = juceAvailable ? '#444' : 'var(--text-3)';
+            dbg.textContent  = juceAvailable ? 'JUCE' : 'PRV';
+        }
+    });
+
+})();
+</script>
+</body>
+</html>
