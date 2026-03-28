@@ -165,29 +165,35 @@ void SpliceAudioProcessorEditor::launchFileChooser()
 //==============================================================================
 void SpliceAudioProcessorEditor::timerCallback()
 {
-    // One-shot startup: offer to re-open the last loaded reel
+    // One-shot startup: offer to restore last session (state + reel)
     if (! startupDialogShown)
     {
         startupDialogShown = true;
+        const bool hasState = audioProcessor.hasSavedState();
         auto lastFile = audioProcessor.getLastReelFile();
-        if (lastFile.existsAsFile())
+        const bool hasReel  = lastFile.existsAsFile();
+
+        if (hasState || hasReel)
         {
             juce::Component::SafePointer<SpliceAudioProcessorEditor> safeThis (this);
-            juce::MessageManager::callAsync ([safeThis, lastFile]
+            juce::MessageManager::callAsync ([safeThis, lastFile, hasState, hasReel]
             {
                 if (safeThis == nullptr) return;
                 juce::AlertWindow::showAsync (
                     juce::MessageBoxOptions()
                         .withIconType (juce::MessageBoxIconType::QuestionIcon)
-                        .withTitle ("Load last reel?")
-                        .withMessage (lastFile.getFileName())
-                        .withButton ("Load")
+                        .withTitle ("Restore last session?")
+                        .withMessage (hasReel ? lastFile.getFileName() : "Restore saved settings?")
+                        .withButton ("Restore")
                         .withButton ("Skip"),
-                    [safeThis, lastFile] (int result)
+                    [safeThis, lastFile, hasState, hasReel] (int result)
                     {
                         if (safeThis == nullptr) return;
                         if (result == 1)
-                            safeThis->audioProcessor.loadReelFile (lastFile);
+                        {
+                            if (hasState) safeThis->audioProcessor.restoreLastState();
+                            if (hasReel)  safeThis->audioProcessor.loadReelFile (lastFile);
+                        }
                     });
             });
         }

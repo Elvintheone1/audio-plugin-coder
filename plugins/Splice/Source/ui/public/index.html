@@ -299,6 +299,7 @@
       flex-direction: column;
       gap: 9px;
     }
+    .ctrl-panel:first-child { flex: 0 0 620px; }
     .ctrl-panel + .ctrl-panel { border-left: 1px solid var(--border); }
 
     .ctrl-tabs {
@@ -412,6 +413,12 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
+
+    /* Right panel: center content + scale env icons up */
+    .ctrl-panel:last-child .ctrl-body.active { justify-content: center; align-items: center; }
+    .ctrl-panel:last-child .env-controls { gap: 32px; }
+    .ctrl-panel:last-child .env-icon { width: 50px !important; height: 83px !important; }
+    .ctrl-panel:last-child .circle-controls { justify-content: center; }
 
     /* Filter controls */
     .filter-controls { display: flex; flex-direction: column; gap: 8px; }

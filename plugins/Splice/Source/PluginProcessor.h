@@ -63,6 +63,8 @@ public:
     juce::String getReelName() const { return reelName; }
     bool isReelLoaded() const { return reelBuffer.getNumSamples() > 0; }
     juce::File getLastReelFile() const;
+    bool hasSavedState() const;
+    void restoreLastState();
 
     // Persistent settings (last loaded file, etc.)
     juce::ApplicationProperties appProperties;
@@ -228,6 +230,7 @@ private:
         float  filterCutoff   = 18000.0f; // Hz, set at spawn (randomizable)
         float  filterRes      = 0.0f;     // 0..1
         float  volRandMult    = 1.0f;     // per-voice volume randomization multiplier
+        bool   stuttered      = false;    // true = mute this slice, BPM clock still runs
         juce::dsp::LadderFilter<float> ladderL, ladderR; // per-voice Moog ladder filter
         AmpEnvelope fenvEnv;              // filter envelope (sustain=0 → AD shape)
         int    age             = 0;
@@ -245,7 +248,7 @@ private:
             filterCutoff = src.filterCutoff;  filterRes = src.filterRes;
             volRandMult = src.volRandMult;
             fenvEnv = src.fenvEnv;  ampEnv = src.ampEnv;
-            age = src.age;  slicePhase = src.slicePhase;
+            age = src.age;  slicePhase = src.slicePhase;  stuttered = src.stuttered;
             ladderL.reset();  ladderR.reset();
         }
     };

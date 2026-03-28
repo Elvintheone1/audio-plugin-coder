@@ -380,10 +380,9 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.fenvEnv.attackShape = apvts.getRawParameterValue ("fenv_attack_shape")->load();
     v.fenvEnv.decayShape  = apvts.getRawParameterValue ("fenv_decay_shape") ->load();
 
-    // Stutter: silence this slice with probability = rand_stutter
+    // Stutter: mute this slice (flag suppresses output; envelope + BPM clock keep running)
     const float stutterProb = apvts.getRawParameterValue ("rand_stutter")->load();
-    if (stutterProb > 0.0f && juce::Random::getSystemRandom().nextFloat() < stutterProb)
-        v.ampEnv.noteOff (0.001f, currentSampleRate);  // 1ms release → effectively silent
+    v.stuttered = (stutterProb > 0.0f && juce::Random::getSystemRandom().nextFloat() < stutterProb);
 }
 
 void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
@@ -907,10 +906,9 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                     panCenter + rndF() * rndPanDepth);
                             }
 
-                            // Stutter: silence this slice
-                            if (rndStutterProb > 0.0f &&
-                                juce::Random::getSystemRandom().nextFloat() < rndStutterProb)
-                                v.ampEnv.noteOff (0.001f, currentSampleRate);
+                            // Stutter: mute this slice (envelope + BPM clock keep running)
+                            v.stuttered = (rndStutterProb > 0.0f &&
+                                juce::Random::getSystemRandom().nextFloat() < rndStutterProb);
                         }
                         v.ladderL.reset();
                         v.ladderR.reset();
@@ -969,10 +967,11 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
                 else { rawR = rawL; }
 
-                // Equal-power pan + envelope + velocity
+                // Equal-power pan + envelope + velocity (stuttered slices output silence)
                 const float angle = (v.pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
-                const float gainL = envGain * v.velocity * v.volRandMult * std::cos (angle);
-                const float gainR = envGain * v.velocity * v.volRandMult * std::sin (angle);
+                const float stutterMute = v.stuttered ? 0.0f : 1.0f;
+                const float gainL = envGain * v.velocity * v.volRandMult * stutterMute * std::cos (angle);
+                const float gainR = envGain * v.velocity * v.volRandMult * stutterMute * std::sin (angle);
 
                 outL[s] += rawL * gainL;
                 if (outR != outL) outR[s] += rawR * gainR;
@@ -1171,12 +1170,65 @@ void SpliceAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
+
+    // Persist to appProperties so we can offer restore on next startup
+    if (auto* settings = appProperties.getUserSettings())
+        settings->setValue ("lastFullState", xml->toString());
 }
 
-void SpliceAudioProcessor::setStateInformation (const void* /*data*/, int /*sizeInBytes*/)
+void SpliceAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // Intentionally empty — always start with default parameter values.
-    // Re-enable state restore here when preset saving is needed.
+    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    if (xml == nullptr) return;
+
+    auto state = juce::ValueTree::fromXml (*xml);
+    if (! state.isValid()) return;
+
+    apvts.replaceState (state);
+
+    // Restore grid
+    if (state.hasProperty ("sliceActive"))
+    {
+        auto gridStr = state["sliceActive"].toString();
+        for (size_t i = 0; i < 64 && i < (size_t) gridStr.length(); ++i)
+            sliceActive[i] = (gridStr[(int) i] == '1');
+    }
+
+    // Restore SEQ lanes
+    for (size_t lane = 0; lane < 4; ++lane)
+    {
+        auto key = "lane" + juce::String ((int) lane);
+        if (state.hasProperty (key))
+        {
+            juce::StringArray tokens;
+            tokens.addTokens (state[key].toString(), ",", "");
+            for (size_t step = 0; step < 16 && step < (size_t) tokens.size(); ++step)
+                laneValues[lane][step] = tokens[(int) step].getFloatValue();
+        }
+    }
+}
+
+bool SpliceAudioProcessor::hasSavedState() const
+{
+    if (auto* settings = const_cast<juce::ApplicationProperties&> (appProperties).getUserSettings())
+        return settings->containsKey ("lastFullState");
+    return false;
+}
+
+void SpliceAudioProcessor::restoreLastState()
+{
+    auto* settings = appProperties.getUserSettings();
+    if (settings == nullptr) return;
+
+    auto xmlStr = settings->getValue ("lastFullState");
+    if (xmlStr.isEmpty()) return;
+
+    auto xml = juce::XmlDocument::parse (xmlStr);
+    if (xml == nullptr) return;
+
+    juce::MemoryBlock data;
+    copyXmlToBinary (*xml, data);
+    setStateInformation (data.getData(), (int) data.getSize());
 }
 
 //==============================================================================
