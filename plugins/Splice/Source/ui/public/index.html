@@ -30,6 +30,7 @@
       height: 600px;
       overflow: hidden;
       user-select: none;
+      touch-action: none;
       -webkit-user-select: none;
     }
 
@@ -1532,20 +1533,20 @@
 
             display.textContent = toDisplay(norm);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * sensitivity));
                 display.textContent = toDisplay(norm);
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates[paramId])
@@ -1595,18 +1596,18 @@
 
             display.textContent = labels[idx];
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startIdx = idx;
                 if (parameterStates.speed)
                     try { parameterStates.speed.sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 var delta = Math.round((startY - e.clientY) / 20);
                 setIdx(startIdx + delta);
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates.speed)
@@ -1648,18 +1649,18 @@
 
             display.textContent = midiToName(midiVal);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startMidi = midiVal;
                 if (parameterStates.root_note)
                     try { parameterStates.root_note.sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 var delta = Math.round((startY - e.clientY) / 4);
                 update(startMidi + delta);
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates.root_note)
@@ -1706,20 +1707,20 @@
 
             updateDot(norm);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[band.paramId])
                     try { parameterStates[band.paramId].sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
                 updateDot(norm);
                 if (parameterStates[band.paramId])
                     try { parameterStates[band.paramId].setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates[band.paramId])
@@ -1759,20 +1760,20 @@
 
             updateDot(0);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
                 updateDot(norm);
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates[paramId])
@@ -1860,13 +1861,13 @@
             }
             update(0);
 
-            wrap.addEventListener('mousedown', function(e) {
+            wrap.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 var ps = parameterStates[def.paramId];
                 if (ps) try { ps.sliderDragStarted(); } catch(ex) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 var delta = (startY - e.clientY) / 120;
                 var n = Math.max(0, Math.min(1, startNorm + delta));
@@ -1874,7 +1875,7 @@
                 var ps = parameterStates[def.paramId];
                 if (ps) try { ps.setNormalisedValue(n); } catch(ex) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 var ps = parameterStates[def.paramId];
@@ -1916,20 +1917,20 @@
             }
             update(norm);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
                 update(norm);
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return; dragging = false;
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
@@ -1961,20 +1962,20 @@
             }
             update(norm);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * 0.008));
                 update(norm);
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return; dragging = false;
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
@@ -2115,7 +2116,7 @@
         var timeDrag = null, startY = 0, startVal = 0;
 
         document.querySelectorAll('.env-icon').forEach(function(svg) {
-            svg.addEventListener('mousedown', function(e) {
+            svg.addEventListener('pointerdown', function(e) {
                 // Skip if the click was on the shape handle
                 if (e.target && e.target.classList.contains('shape-handle')) return;
                 timeDrag = svg;
@@ -2148,7 +2149,7 @@
             });
         });
 
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('pointermove', function(e) {
             if (!timeDrag) return;
             var dy = startY - e.clientY;
             var paramId = timeDrag.dataset.param;
@@ -2178,7 +2179,7 @@
             }
         });
 
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('pointerup', function() {
             if (timeDrag) {
                 var paramId = timeDrag.dataset.param;
                 if (paramId && parameterStates[paramId])
@@ -2192,7 +2193,7 @@
         var shapeDrag = null, shapeStartX = 0, shapeStartVal = 0;
 
         document.querySelectorAll('.shape-handle').forEach(function(handle) {
-            handle.addEventListener('mousedown', function(e) {
+            handle.addEventListener('pointerdown', function(e) {
                 e.stopPropagation();   // prevent time drag from also starting
                 e.preventDefault();
                 var svg = handle.closest('.env-icon');
@@ -2225,7 +2226,7 @@
             });
         });
 
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('pointermove', function(e) {
             if (!shapeDrag) return;
             var dx = e.clientX - shapeStartX;
             var newShape = Math.max(-1, Math.min(1, shapeStartVal + dx / 80));
@@ -2243,7 +2244,7 @@
                 try { parameterStates[shapeParamId].setNormalisedValue((newShape + 1) / 2); } catch(err) {}
         });
 
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('pointerup', function() {
             if (shapeDrag) {
                 var shapeParamId = ENV_SHAPE_PARAM[shapeDrag.dataset.param];
                 if (shapeParamId && parameterStates[shapeParamId])
@@ -2332,13 +2333,13 @@
         if (!display) return;
         var drag = false, startY = 0, startIdx = 0;
 
-        display.addEventListener('mousedown', function(e) {
+        display.addEventListener('pointerdown', function(e) {
             drag = true; startY = e.clientY; startIdx = gridIdx;
             e.preventDefault();
             if (parameterStates.grid)
                 try { parameterStates.grid.sliderDragStarted(); } catch(err) {}
         });
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('pointermove', function(e) {
             if (!drag) return;
             var newIdx = Math.max(0, Math.min(4, Math.round(startIdx + (startY - e.clientY) / 20)));
             if (newIdx !== gridIdx) {
@@ -2349,7 +2350,7 @@
                     try { parameterStates.grid.setNormalisedValue(gridIdx / 4); } catch(err) {}
             }
         });
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('pointerup', function() {
             if (drag) {
                 drag = false;
                 if (parameterStates.grid)
@@ -2378,13 +2379,13 @@
         if (!display) return;
         var drag = false, startY = 0, startBpm = 120;
 
-        display.parentElement.addEventListener('mousedown', function(e) {
+        display.parentElement.addEventListener('pointerdown', function(e) {
             drag = true; startY = e.clientY; startBpm = bpmValue;
             e.preventDefault();
             if (parameterStates.bpm)
                 try { parameterStates.bpm.sliderDragStarted(); } catch(err) {}
         });
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('pointermove', function(e) {
             if (!drag) return;
             var delta = Math.round((startY - e.clientY) * 0.5);
             bpmValue = Math.max(60, Math.min(200, startBpm + delta));
@@ -2392,7 +2393,7 @@
             if (parameterStates.bpm)
                 try { parameterStates.bpm.setNormalisedValue((bpmValue - 60) / 140); } catch(err) {}
         });
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('pointerup', function() {
             if (drag) {
                 drag = false;
                 if (parameterStates.bpm)
@@ -2711,7 +2712,7 @@
         }
         function hideTooltip() { tooltip.style.display = 'none'; }
 
-        document.addEventListener('mousedown', function(e) {
+        document.addEventListener('pointerdown', function(e) {
             var pb = e.target.closest('.lane-pat-btn');
             if (pb) {
                 patDragId = pb.closest('[data-lane]').dataset.lane;
@@ -2733,7 +2734,7 @@
 
         var SPEED_LABELS = ['/3','/2','×1','×1.5','×2','×3','×4','×8','×16'];
 
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('pointermove', function(e) {
             if (patDrag) {
                 var maxPat = LANE_PATTERNS[patDragId].length - 1;
                 var n = Math.max(0, Math.min(maxPat, Math.round(startVal + (startY - e.clientY) / 20)));
@@ -2775,7 +2776,7 @@
             showTooltip(e.clientX, e.clientY, laneValToDisplay(LANE_ORDER[li], v));
         });
 
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('pointerup', function() {
             if (cellDrag && juceAvailable) {
                 var li  = parseInt(cellDrag.dataset.laneIdx);
                 var st  = parseInt(cellDrag.dataset.step);
@@ -2909,7 +2910,7 @@
         var scsRes = document.getElementById('scs-res');
 
         if (scsCut) {
-            scsCut.addEventListener('mousedown', function() {
+            scsCut.addEventListener('pointerdown', function() {
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.sliderDragStarted(); } catch(e) {}
             });
@@ -2918,13 +2919,13 @@
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.setNormalisedValue(n); } catch(e) {}
             });
-            scsCut.addEventListener('mouseup', function() {
+            scsCut.addEventListener('pointerup', function() {
                 if (parameterStates.filter_cutoff)
                     try { parameterStates.filter_cutoff.sliderDragEnded(); } catch(e) {}
             });
         }
         if (scsRes) {
-            scsRes.addEventListener('mousedown', function() {
+            scsRes.addEventListener('pointerdown', function() {
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.sliderDragStarted(); } catch(e) {}
             });
@@ -2933,7 +2934,7 @@
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.setNormalisedValue(n); } catch(e) {}
             });
-            scsRes.addEventListener('mouseup', function() {
+            scsRes.addEventListener('pointerup', function() {
                 if (parameterStates.filter_res)
                     try { parameterStates.filter_res.sliderDragEnded(); } catch(e) {}
             });
@@ -2962,20 +2963,20 @@
 
             if (valEl) valEl.textContent = toDisplay(norm);
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 norm = Math.max(0, Math.min(1, startNorm + (startY - e.clientY) * sensitivity));
                 if (valEl) valEl.textContent = toDisplay(norm);
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].setNormalisedValue(norm); } catch(e) {}
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates[paramId])
@@ -3033,17 +3034,17 @@
             }
             if (valEl) valEl.textContent = labels[idx];
 
-            el.addEventListener('mousedown', function(e) {
+            el.addEventListener('pointerdown', function(e) {
                 dragging = true; startY = e.clientY; startIdx = idx;
                 if (parameterStates.speed)
                     try { parameterStates.speed.sliderDragStarted(); } catch(e) {}
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('pointermove', function(e) {
                 if (!dragging) return;
                 setIdx(startIdx + Math.round((startY - e.clientY) / 20));
             });
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('pointerup', function() {
                 if (!dragging) return;
                 dragging = false;
                 if (parameterStates.speed)
