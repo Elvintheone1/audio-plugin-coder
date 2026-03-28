@@ -19,7 +19,7 @@ elseif(APPLE)
     set(AU_MAIN_TYPE kAudioUnitType_Effect)
 elseif(UNIX)
     set(PLUGIN_FORMATS VST3 LV2 Standalone)
-    set(LV2_URI "https://github.com/noizefield/audio-plugin-coder/gnarly3")
+    set(LV2_URI "https://github.com/ajstudios/audio-plugin-coder/gnarly3")
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
@@ -30,7 +30,7 @@ message(STATUS "Gnarly3: Building for ${PLUGIN_FORMATS}")
 # PLUGIN DEFINITION
 # ============================================
 juce_add_plugin(gnarly3
-    COMPANY_NAME "Noizefield"
+    COMPANY_NAME "AJ"
     PLUGIN_MANUFACTURER_CODE NPS0
     PLUGIN_CODE Gnr3
     FORMATS ${PLUGIN_FORMATS}

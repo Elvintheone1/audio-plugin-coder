@@ -19,7 +19,7 @@ elseif(UNIX)
     set(NEEDS_WEBVIEW2 FALSE)
     set(NEEDS_WEB_BROWSER TRUE)
     set(WEBVIEW_BACKEND "WebKitGTK")
-    set(LV2_URI "https://github.com/noizefield/audio-plugin-coder/CloudWash")
+    set(LV2_URI "https://github.com/ajstudios/audio-plugin-coder/CloudWash")
 else()
     message(FATAL_ERROR "Unsupported platform")
 endif()
@@ -42,7 +42,7 @@ juce_add_binary_data(CloudWash_WebUI
 # PLUGIN DEFINITION
 # ============================================
 juce_add_plugin(CloudWash
-    COMPANY_NAME "Noizefield"
+    COMPANY_NAME "AJ"
     PLUGIN_MANUFACTURER_CODE AJzz
     PLUGIN_CODE CldW
     FORMATS ${PLUGIN_FORMATS}
