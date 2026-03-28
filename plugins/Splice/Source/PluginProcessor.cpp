@@ -1011,28 +1011,30 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float wfDepth  = apvts.getRawParameterValue ("wow_flutter")->load();
         const float ageDepth = apvts.getRawParameterValue ("tape_age")   ->load();
 
-        // Wow & Flutter: modulated stereo delay line
-        // wow: 0.8 Hz, up to ±12ms depth; flutter: 8.0 Hz, up to ±1.5ms depth
+        // Wow & Flutter: max depth scaled to 60% of previous values
+        // wow: 0.8 Hz, up to ±7.2ms; flutter: 8.0 Hz, up to ±0.9ms
         const double wfWowInc     = juce::MathConstants<double>::twoPi * 0.8  / currentSampleRate;
         const double wfFlutterInc = juce::MathConstants<double>::twoPi * 8.0  / currentSampleRate;
-        const float  wowMaxSamp   = static_cast<float> (0.012 * currentSampleRate);   // 12ms
-        const float  fltMaxSamp   = static_cast<float> (0.0015 * currentSampleRate);  // 1.5ms
-        const float  wfCenter     = wowMaxSamp + fltMaxSamp + 2.0f;                   // min delay to stay positive
+        const float  wowMaxSamp   = static_cast<float> (0.0072 * currentSampleRate);  // 7.2ms (was 12ms)
+        const float  fltMaxSamp   = static_cast<float> (0.0009 * currentSampleRate);  // 0.9ms (was 1.5ms)
+        const float  wfCenter     = wowMaxSamp + fltMaxSamp + 2.0f;
 
         // Tape Age coefficients
-        // Saturation: tanh(x*d)/d — small-signal unity gain, natural peak compression
-        const float ageDrive = 1.0f + ageDepth * 6.0f;  // drive 1→7
+        // Saturation: prominent harmonic distortion with partial makeup gain
+        // drive 1→15; sqrt(drive) partial makeup keeps harmonics audible without clipping
+        const float ageDrive      = 1.0f + ageDepth * 14.0f;  // drive 1→15
+        const float ageMakeup     = std::sqrt (ageDrive) / ageDrive;  // partial level recovery
 
-        // HF rolloff: gentle, 20kHz → ~12kHz at age=1 (slight dullness, not a brick wall)
+        // HF rolloff: gentle, 20kHz → ~12kHz at age=1
         const float ageCutoff = 20000.0f * std::pow (0.60f, ageDepth);
         const float ageAlpha  = std::exp (-juce::MathConstants<float>::twoPi
                                           * ageCutoff / (float) currentSampleRate);
 
-        // Hiss: tape oxide noise floor, quadratic scaling (~−46 dBFS peak at age=1)
-        const float hissAmp = ageDepth * ageDepth * 0.005f;
+        // Hiss: scaled to 40% of previous max (~−60 dBFS peak at age=1)
+        const float hissAmp = ageDepth * ageDepth * 0.002f;
 
-        // Crackle: Poisson trigger probability per sample
-        const float crackleProbPerSamp = ageDepth * ageDepth * 0.00008f;
+        // Crackle: 40% of previous rate and amplitude
+        const float crackleProbPerSamp = ageDepth * ageDepth * 0.000032f;
 
         float* chanL = buffer.getWritePointer (0);
         float* chanR = numChannels > 1 ? buffer.getWritePointer (1) : chanL;
@@ -1070,9 +1072,9 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 auto& rng = juce::Random::getSystemRandom();
 
-                // 1. Saturation — small-signal unity, natural peak compression
-                chanL[s] = std::tanh (chanL[s] * ageDrive) / ageDrive;
-                chanR[s] = std::tanh (chanR[s] * ageDrive) / ageDrive;
+                // 1. Saturation — prominent harmonic distortion, partial makeup gain
+                chanL[s] = std::tanh (chanL[s] * ageDrive) * ageMakeup;
+                chanR[s] = std::tanh (chanR[s] * ageDrive) * ageMakeup;
 
                 // 2. Gentle HF rolloff (tape head gap + oxide)
                 tapeLP_L = ageAlpha * tapeLP_L + (1.0f - ageAlpha) * chanL[s];
@@ -1087,7 +1089,7 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // 4. Crackle — physical tape defects (Poisson burst)
                 if (crackleEnv < 0.01f && rng.nextFloat() < crackleProbPerSamp)
                 {
-                    crackleAmp   = (0.3f + rng.nextFloat() * 0.7f) * ageDepth * 0.10f;
+                    crackleAmp   = (0.3f + rng.nextFloat() * 0.7f) * ageDepth * 0.04f;
                     crackleEnv   = 1.0f;
                     const float durSec = 0.001f + rng.nextFloat() * 0.003f; // 1–4 ms burst
                     crackleDecay = std::pow (0.001f, 1.0f / (durSec * (float) currentSampleRate));
