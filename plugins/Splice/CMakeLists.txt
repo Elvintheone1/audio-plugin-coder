@@ -61,6 +61,7 @@ juce_add_plugin(Splice
     VST3_CATEGORIES           "Instrument" "Sampler"
     AU_MAIN_TYPE              ${AU_MAIN_TYPE}
     LV2URI                    ${LV2_URI}
+    PLIST_TO_MERGE            "<plist><dict><key>UIFileSharingEnabled</key><true/><key>LSSupportsOpeningDocumentsInPlace</key><true/></dict></plist>"
 )
 
 # ============================================
