@@ -9,6 +9,12 @@ if(WIN32)
     set(NEEDS_WEBVIEW2 TRUE)
     set(NEEDS_WEB_BROWSER FALSE)
     set(WEBVIEW_BACKEND "WebView2")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(PLUGIN_FORMATS AUv3 Standalone)
+    set(NEEDS_WEBVIEW2 FALSE)
+    set(NEEDS_WEB_BROWSER FALSE)
+    set(WEBVIEW_BACKEND "WKWebView")
+    set(AU_MAIN_TYPE kAudioUnitType_MusicDevice)
 elseif(APPLE)
     set(PLUGIN_FORMATS VST3 AU Standalone)
     set(NEEDS_WEBVIEW2 FALSE)
@@ -45,6 +51,7 @@ juce_add_plugin(Splice
     PLUGIN_CODE               Splc
     FORMATS                   ${PLUGIN_FORMATS}
     PRODUCT_NAME              "Splice"
+    BUNDLE_ID                 "com.noizefield.splice"
     IS_SYNTH                  TRUE
     NEEDS_MIDI_INPUT          TRUE
     NEEDS_MIDI_OUTPUT         FALSE
@@ -104,10 +111,31 @@ if(WIN32)
     target_compile_definitions(Splice PUBLIC JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 endif()
 
-if(APPLE)
+if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_compile_definitions(Splice PUBLIC JUCE_USE_CURL=0)
 endif()
 
 if(UNIX AND NOT APPLE)
     target_compile_definitions(Splice PUBLIC JUCE_USE_CURL=0 JUCE_JACK=1)
+endif()
+
+# ============================================
+# iOS: Code signing + team ID
+# ============================================
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    if(DEFINED APC_IOS_TEAM_ID)
+        set(_ios_sign_id "Apple Development")
+        if(DEFINED APC_IOS_CODE_SIGN_IDENTITY)
+            set(_ios_sign_id "${APC_IOS_CODE_SIGN_IDENTITY}")
+        endif()
+        foreach(_ios_tgt Splice_AUv3 Splice_Standalone Splice)
+            if(TARGET ${_ios_tgt})
+                set_target_properties(${_ios_tgt} PROPERTIES
+                    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM     "${APC_IOS_TEAM_ID}"
+                    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY   "${_ios_sign_id}"
+                    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+                )
+            endif()
+        endforeach()
+    endif()
 endif()

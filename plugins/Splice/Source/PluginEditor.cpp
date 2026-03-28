@@ -63,11 +63,13 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     // Create WebView
     webView = std::make_unique<juce::WebBrowserComponent> (
         juce::WebBrowserComponent::Options{}
+#if JUCE_WINDOWS
             .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
             .withWinWebView2Options (
                 juce::WebBrowserComponent::Options::WinWebView2{}
                     .withUserDataFolder (juce::File::getSpecialLocation (
                         juce::File::SpecialLocationType::tempDirectory)))
+#endif
             .withNativeIntegrationEnabled()
             .withResourceProvider ([this] (const auto& url) { return getResource (url); })
             .withOptionsFrom (ampAttackRelay)
