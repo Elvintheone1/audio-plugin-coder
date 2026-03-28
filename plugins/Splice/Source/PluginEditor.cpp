@@ -57,7 +57,8 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     randCutoffAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_cutoff"), randCutoffRelay);
     randEnvAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_env"),    randEnvRelay);
     randVolAttachment    = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_vol"),    randVolRelay);
-    randJitterAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_jitter"), randJitterRelay);
+    randJitterAttachment  = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_jitter"),  randJitterRelay);
+    randStutterAttachment = std::make_unique<juce::WebSliderParameterAttachment> (*audioProcessor.apvts.getParameter ("rand_stutter"), randStutterRelay);
 
     // Create WebView
     webView = std::make_unique<juce::WebBrowserComponent> (
@@ -110,6 +111,7 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
             .withOptionsFrom (randEnvRelay)
             .withOptionsFrom (randVolRelay)
             .withOptionsFrom (randJitterRelay)
+            .withOptionsFrom (randStutterRelay)
     );
 
     addAndMakeVisible (*webView);

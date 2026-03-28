@@ -147,8 +147,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpliceAudioProcessor::create
     layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_fifth",  "Rand Fifth",  linRange, 0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_cutoff", "Rand Cutoff", linRange, 0.0f));
     layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_env",    "Rand Env",    linRange, 0.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_vol",    "Rand Vol",    linRange, 0.0f));
-    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_jitter", "Rand Jitter", linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_vol",     "Rand Vol",     linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_jitter",  "Rand Jitter",  linRange, 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> ("rand_stutter", "Rand Stutter", linRange, 0.0f));
 
     // ── Group 12: Tape ────────────────────────────────────
     layout.add (std::make_unique<juce::AudioParameterFloat> ("tape_age",    "Tape Age",    linRange, 0.0f));
@@ -379,6 +380,10 @@ void SpliceAudioProcessor::allocateVoice (int midiNote, float velocity, int slic
     v.fenvEnv.attackShape = apvts.getRawParameterValue ("fenv_attack_shape")->load();
     v.fenvEnv.decayShape  = apvts.getRawParameterValue ("fenv_decay_shape") ->load();
 
+    // Stutter: silence this slice with probability = rand_stutter
+    const float stutterProb = apvts.getRawParameterValue ("rand_stutter")->load();
+    if (stutterProb > 0.0f && juce::Random::getSystemRandom().nextFloat() < stutterProb)
+        v.ampEnv.noteOff (0.001f, currentSampleRate);  // 1ms release → effectively silent
 }
 
 void SpliceAudioProcessor::releaseVoice (int midiNote, float rel)
@@ -701,8 +706,10 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float rndFifthDepth  = apvts.getRawParameterValue ("rand_fifth") ->load();
         const float rndCutoffDepth = apvts.getRawParameterValue ("rand_cutoff")->load();
         const float rndEnvDepth    = apvts.getRawParameterValue ("rand_env")   ->load();
-        const float rndVolDepth    = apvts.getRawParameterValue ("rand_vol")   ->load();
-        const float rndJitterDepth = apvts.getRawParameterValue ("rand_jitter")->load();
+        const float rndVolDepth     = apvts.getRawParameterValue ("rand_vol")    ->load();
+        const float rndJitterDepth  = apvts.getRawParameterValue ("rand_jitter") ->load();
+        const float rndPanDepth     = apvts.getRawParameterValue ("pan_rnd")     ->load();
+        const float rndStutterProb  = apvts.getRawParameterValue ("rand_stutter")->load();
 
         // Arp pattern: build sorted note order once per block (≤32 elements)
         const int arpPatternIdx = static_cast<int> (apvts.getRawParameterValue ("arp_pattern")->load());
@@ -891,6 +898,19 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                             const float dR  = juce::jlimit (0.0f, 1.0f, decS + rndF() * rndEnvDepth * 0.4f);
                             v.ampEnv.noteOn  (normToEnvTime (aR, rsd), normToEnvTime (dR, rsd), sus, currentSampleRate);
                             v.fenvEnv.noteOn (normToEnvTime (fenvAtkBlock, rsd), normToEnvTime (fenvDecBlock, rsd), 0.0f, currentSampleRate);
+
+                            // Pan re-randomization
+                            if (rndPanDepth > 0.0f)
+                            {
+                                const float panCenter = apvts.getRawParameterValue ("pan")->load();
+                                v.pan = juce::jlimit (-1.0f, 1.0f,
+                                    panCenter + rndF() * rndPanDepth);
+                            }
+
+                            // Stutter: silence this slice
+                            if (rndStutterProb > 0.0f &&
+                                juce::Random::getSystemRandom().nextFloat() < rndStutterProb)
+                                v.ampEnv.noteOff (0.001f, currentSampleRate);
                         }
                         v.ladderL.reset();
                         v.ladderR.reset();

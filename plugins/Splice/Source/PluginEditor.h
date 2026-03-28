@@ -127,7 +127,8 @@ private:
     juce::WebSliderRelay randCutoffRelay { "rand_cutoff" };
     juce::WebSliderRelay randEnvRelay    { "rand_env"    };
     juce::WebSliderRelay randVolRelay    { "rand_vol"    };
-    juce::WebSliderRelay randJitterRelay { "rand_jitter" };
+    juce::WebSliderRelay randJitterRelay   { "rand_jitter"  };
+    juce::WebSliderRelay randStutterRelay  { "rand_stutter" };
 
     juce::WebSliderRelay outputVolRelay { "output_vol" };
     juce::WebSliderRelay volDbRelay     { "vol_db"     };
@@ -205,6 +206,7 @@ private:
     std::unique_ptr<juce::WebSliderParameterAttachment> randEnvAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> randVolAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> randJitterAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> randStutterAttachment;
 
     //==========================================================================
     std::optional<juce::WebBrowserComponent::Resource> getResource (const juce::String& url);

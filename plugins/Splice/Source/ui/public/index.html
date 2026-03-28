@@ -834,6 +834,16 @@
             <div class="circle-val">0ms</div>
             <div class="circle-label">Jitter</div>
           </div>
+          <div class="circle-ctrl" id="rand-pan-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Pan</div>
+          </div>
+          <div class="circle-ctrl" id="rand-stutter-ctrl">
+            <div class="circle-well"><div class="circle-dot" style="width:6px;height:6px"></div></div>
+            <div class="circle-val">Off</div>
+            <div class="circle-label">Stutter</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1267,6 +1277,7 @@
         bpm: null,
         eq_low: null, eq_low_mid: null, eq_high_mid: null, eq_high: null,
         rand_oct: null, rand_fifth: null, rand_cutoff: null, rand_env: null, rand_vol: null, rand_jitter: null,
+        rand_stutter: null,
         tape_age: null, wow_flutter: null
     };
 
@@ -1795,6 +1806,14 @@
         // Jitter: max ms label
         makeRandCircle('rand-jitter-ctrl', 'rand_jitter', function(n) {
             return n < 0.01 ? '0ms' : Math.round(n * 50) + 'ms';
+        });
+        // Pan: ±range label
+        makeRandCircle('rand-pan-ctrl', 'pan_rnd', function(n) {
+            return n < 0.01 ? 'Off' : '±' + Math.round(n * 100) + '%';
+        });
+        // Stutter: probability label
+        makeRandCircle('rand-stutter-ctrl', 'rand_stutter', function(n) {
+            return n < 0.01 ? 'Off' : Math.round(n * 100) + '%';
         });
     }
 
