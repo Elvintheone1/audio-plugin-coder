@@ -205,7 +205,7 @@ void SpliceAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
     }
 
     // Tape / Wow&Flutter reset
-    tapeLP_L = tapeLP_R = 0.0f;
+    tapeLP_L = tapeLP_R = crackleEnv = crackleDecay = crackleAmp = 0.0f;
     wfBufL.fill (0.0f);
     wfBufR.fill (0.0f);
     wfWritePos = 0;
@@ -1000,14 +1000,20 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float  fltMaxSamp   = static_cast<float> (0.0015 * currentSampleRate);  // 1.5ms
         const float  wfCenter     = wowMaxSamp + fltMaxSamp + 2.0f;                   // min delay to stay positive
 
-        // Tape Age: one-pole HF rolloff
-        // alpha: age=0 → ~20kHz (alpha≈0), age=1 → ~2kHz
-        const float ageCutoff = 20000.0f * std::pow (0.10f, ageDepth);  // 20k→2k log
+        // Tape Age coefficients
+        // Saturation: tanh(x*d)/d — small-signal unity gain, natural peak compression
+        const float ageDrive = 1.0f + ageDepth * 6.0f;  // drive 1→7
+
+        // HF rolloff: gentle, 20kHz → ~12kHz at age=1 (slight dullness, not a brick wall)
+        const float ageCutoff = 20000.0f * std::pow (0.60f, ageDepth);
         const float ageAlpha  = std::exp (-juce::MathConstants<float>::twoPi
                                           * ageCutoff / (float) currentSampleRate);
-        // Saturation drive: 0 (bypass) → ~4x at age=1
-        const float ageDrive  = 1.0f + ageDepth * 4.0f;
-        const float ageDriveInv = 1.0f / std::tanh (ageDrive);
+
+        // Hiss: tape oxide noise floor, quadratic scaling (~−46 dBFS peak at age=1)
+        const float hissAmp = ageDepth * ageDepth * 0.005f;
+
+        // Crackle: Poisson trigger probability per sample
+        const float crackleProbPerSamp = ageDepth * ageDepth * 0.00008f;
 
         float* chanL = buffer.getWritePointer (0);
         float* chanR = numChannels > 1 ? buffer.getWritePointer (1) : chanL;
@@ -1040,18 +1046,40 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 if (wfPhaseFlutter > juce::MathConstants<double>::twoPi) wfPhaseFlutter -= juce::MathConstants<double>::twoPi;
             }
 
-            // --- Tape Age: HF rolloff + saturation ---
+            // --- Tape Age ---
             if (ageDepth > 0.0f)
             {
-                // One-pole lowpass (one-pole per channel, separate state)
+                auto& rng = juce::Random::getSystemRandom();
+
+                // 1. Saturation — small-signal unity, natural peak compression
+                chanL[s] = std::tanh (chanL[s] * ageDrive) / ageDrive;
+                chanR[s] = std::tanh (chanR[s] * ageDrive) / ageDrive;
+
+                // 2. Gentle HF rolloff (tape head gap + oxide)
                 tapeLP_L = ageAlpha * tapeLP_L + (1.0f - ageAlpha) * chanL[s];
                 tapeLP_R = ageAlpha * tapeLP_R + (1.0f - ageAlpha) * chanR[s];
                 chanL[s] = tapeLP_L;
                 chanR[s] = tapeLP_R;
 
-                // Soft saturation
-                chanL[s] = std::tanh (chanL[s] * ageDrive) * ageDriveInv;
-                chanR[s] = std::tanh (chanR[s] * ageDrive) * ageDriveInv;
+                // 3. Hiss — tape oxide noise floor
+                chanL[s] += (rng.nextFloat() * 2.0f - 1.0f) * hissAmp;
+                chanR[s] += (rng.nextFloat() * 2.0f - 1.0f) * hissAmp;
+
+                // 4. Crackle — physical tape defects (Poisson burst)
+                if (crackleEnv < 0.01f && rng.nextFloat() < crackleProbPerSamp)
+                {
+                    crackleAmp   = (0.3f + rng.nextFloat() * 0.7f) * ageDepth * 0.10f;
+                    crackleEnv   = 1.0f;
+                    const float durSec = 0.001f + rng.nextFloat() * 0.003f; // 1–4 ms burst
+                    crackleDecay = std::pow (0.001f, 1.0f / (durSec * (float) currentSampleRate));
+                }
+                if (crackleEnv > 0.001f)
+                {
+                    const float c = (rng.nextFloat() * 2.0f - 1.0f) * crackleEnv * crackleAmp;
+                    chanL[s] += c;
+                    chanR[s] += c * (0.85f + rng.nextFloat() * 0.3f); // slight stereo spread
+                    crackleEnv *= crackleDecay;
+                }
             }
         }
     }

@@ -107,8 +107,11 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighMidSmooth;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighSmooth;
 
-    // Tape Age — one-pole HF rolloff state (L/R)
-    float tapeLP_L = 0.0f, tapeLP_R = 0.0f;
+    // Tape Age — one-pole HF rolloff state (L/R) + crackle burst state
+    float tapeLP_L     = 0.0f, tapeLP_R = 0.0f;
+    float crackleEnv   = 0.0f;   // current burst envelope (0 = silent)
+    float crackleDecay = 0.0f;   // per-sample decay multiplier
+    float crackleAmp   = 0.0f;   // burst amplitude
 
     // Wow & Flutter — stereo modulated delay line
     static constexpr int kWFBufSize = 4096;   // ~85ms @ 48kHz
