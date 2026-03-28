@@ -647,6 +647,37 @@
     .gen-btn:hover { color: var(--text); border-color: #555; }
 
 
+    /* ── On-screen piano ─────────────────────────────────────────────── */
+    #piano-toggle {
+        position: fixed; bottom: 8px; left: 8px; z-index: 200;
+        background: #1c1c1c; border: 1px solid #383838; border-radius: 5px;
+        padding: 5px 8px; cursor: pointer; line-height: 1;
+        transition: bottom 0.18s ease;
+    }
+    #piano-toggle svg { display: block; }
+    #piano-strip {
+        position: fixed; bottom: 0; left: 0; width: 1000px; height: 90px;
+        background: #111; border-top: 2px solid #333;
+        transform: translateY(100%); transition: transform 0.18s ease;
+        z-index: 150; overflow: hidden;
+    }
+    #piano-strip.visible { transform: translateY(0); }
+    .pkey {
+        position: absolute; top: 0; cursor: pointer;
+        border-radius: 0 0 3px 3px; touch-action: none; user-select: none;
+    }
+    .pkey.white {
+        height: 86px; background: #ddd; border: 1px solid #555;
+        border-top: none; z-index: 1;
+    }
+    .pkey.black {
+        height: 54px; background: #1a1a1a; border: 1px solid #555;
+        border-top: none; z-index: 2;
+    }
+    .pkey.white.pressed, .pkey.white.root.pressed { background: #4A8AA8; }
+    .pkey.black.pressed, .pkey.black.root.pressed { background: #2d5f78; }
+    .pkey.white.root    { background: rgba(74,138,168,0.35); }
+    .pkey.black.root    { background: #2a5060; }
   </style>
 </head>
 <body>
@@ -3092,6 +3123,98 @@
     }
 
     // ================================================================
+    // ================================================================
+    // On-screen piano keyboard
+    // ================================================================
+    function initPiano() {
+        var strip  = document.getElementById('piano-strip');
+        var toggle = document.getElementById('piano-toggle');
+        if (!strip || !toggle) return;
+
+        var START = 36, END = 83; // C2–B5
+        var IS_BLACK = [false,true,false,true,false,false,true,false,true,false,true,false];
+
+        // Count white keys to compute key width
+        var whiteCount = 0;
+        for (var n = START; n <= END; n++) if (!IS_BLACK[n % 12]) whiteCount++;
+        var wW = Math.floor(1000 / whiteCount);
+        var bW = Math.round(wW * 0.6);
+
+        var keys = []; // {note, el}
+        var whiteIdx = 0;
+
+        for (var n = START; n <= END; n++) {
+            var isBlack = IS_BLACK[n % 12];
+            var k = document.createElement('div');
+            k.className = isBlack ? 'pkey black' : 'pkey white';
+            k.dataset.note = n;
+            if (isBlack) {
+                k.style.left  = (whiteIdx * wW - Math.round(bW / 2)) + 'px';
+                k.style.width = bW + 'px';
+            } else {
+                k.style.left  = (whiteIdx * wW) + 'px';
+                k.style.width = wW + 'px';
+                whiteIdx++;
+            }
+            strip.appendChild(k);
+            keys.push({ note: n, el: k });
+        }
+
+        // Root note highlight
+        function applyRoot(normVal) {
+            var pc = Math.round(normVal * 11);
+            keys.forEach(function(k) { k.el.classList.toggle('root', k.note % 12 === pc); });
+        }
+        var origRoot = knobUpdaters['root_note'];
+        knobUpdaters['root_note'] = function(n) { if (origRoot) origRoot(n); applyRoot(n); };
+
+        // MIDI via fetch
+        var active = {};
+        function noteOn(note) {
+            if (active[note]) return;
+            active[note] = true;
+            fetch(window.location.origin + '/_/note/on/' + note + '/100').catch(function(){});
+            keys.forEach(function(k) { if (k.note === note) k.el.classList.add('pressed'); });
+        }
+        function noteOff(note) {
+            if (!active[note]) return;
+            delete active[note];
+            fetch(window.location.origin + '/_/note/off/' + note).catch(function(){});
+            keys.forEach(function(k) { if (k.note === note) k.el.classList.remove('pressed'); });
+        }
+        function allNotesOff() {
+            Object.keys(active).forEach(function(n) { noteOff(parseInt(n)); });
+        }
+
+        // Pointer interaction (supports slide across keys)
+        strip.addEventListener('pointerdown', function(e) {
+            var k = e.target.closest('.pkey');
+            if (!k) return;
+            e.preventDefault();
+            strip.setPointerCapture(e.pointerId);
+            noteOn(parseInt(k.dataset.note));
+        });
+        strip.addEventListener('pointermove', function(e) {
+            if (!Object.keys(active).length) return;
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var k  = el ? el.closest('.pkey') : null;
+            if (!k) return;
+            var note = parseInt(k.dataset.note);
+            Object.keys(active).forEach(function(n) { if (parseInt(n) !== note) noteOff(parseInt(n)); });
+            noteOn(note);
+        });
+        strip.addEventListener('pointerup',     allNotesOff);
+        strip.addEventListener('pointercancel', allNotesOff);
+
+        // Toggle
+        var visible = false;
+        toggle.addEventListener('click', function() {
+            visible = !visible;
+            strip.classList.toggle('visible', visible);
+            toggle.style.bottom = visible ? '98px' : '8px';
+        });
+    }
+
     // DOMContentLoaded — wire everything up
     // ================================================================
 
@@ -3116,6 +3239,7 @@
         initSeqLanes();
         initLanePatterns();
         initCompactStrip();   // must be after initSignalControls + initFilterSliders
+        initPiano();
 
         // Initial grid build
         rebuildSections(STEPS[gridIdx]);
@@ -3136,5 +3260,20 @@
 
 })();
 </script>
+
+<!-- On-screen piano keyboard -->
+<button id="piano-toggle" title="Toggle keyboard">
+  <svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
+    <rect x="4.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
+    <rect x="8.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
+    <rect x="12.5" y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
+    <rect x="16.5" y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
+    <rect x="3"    y="0.5" width="3" height="8"  rx="1" fill="#1a1a1a" stroke="#555"/>
+    <rect x="10"   y="0.5" width="3" height="8"  rx="1" fill="#1a1a1a" stroke="#555"/>
+    <rect x="14"   y="0.5" width="3" height="8"  rx="1" fill="#1a1a1a" stroke="#555"/>
+  </svg>
+</button>
+<div id="piano-strip"></div>
 </body>
 </html>

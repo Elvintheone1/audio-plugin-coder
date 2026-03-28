@@ -294,6 +294,33 @@ SpliceAudioProcessorEditor::getResource (const juce::String& url)
         return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
     }
 
+    // ── On-screen keyboard MIDI API ──────────────────────────────────────────
+    // JS calls: fetch('/_/note/on/NOTE/VEL') / fetch('/_/note/off/NOTE')
+    if (url.contains ("/_/note/"))
+    {
+        auto parts = juce::StringArray::fromTokens (
+            url.fromFirstOccurrenceOf ("/_/note/", false, false), "/", "");
+        if (parts.size() >= 2)
+        {
+            const auto type = parts[0];
+            const int  note = juce::jlimit (0, 127, parts[1].getIntValue());
+            juce::SpinLock::ScopedLockType sl (audioProcessor.pendingMidiLock);
+            if (type == "on")
+            {
+                const int vel = parts.size() >= 3
+                                    ? juce::jlimit (1, 127, parts[2].getIntValue()) : 100;
+                audioProcessor.pendingMidiFromUI.addEvent (
+                    juce::MidiMessage::noteOn (1, note, (juce::uint8) vel), 0);
+            }
+            else if (type == "off")
+            {
+                audioProcessor.pendingMidiFromUI.addEvent (
+                    juce::MidiMessage::noteOff (1, note), 0);
+            }
+        }
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
+    }
+
     if (url.contains ("/_/slice/") || resourcePath.startsWith ("_/slice/"))
     {
         const int idx = url.fromLastOccurrenceOf ("/", false, false).getIntValue();

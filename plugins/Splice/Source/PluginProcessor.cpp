@@ -471,6 +471,16 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     if (numSamples == 0) return;
 
+    // Inject MIDI from on-screen keyboard (non-blocking — SpinLock tryEnter)
+    {
+        juce::SpinLock::ScopedTryLockType sl (pendingMidiLock);
+        if (sl.isLocked())
+        {
+            midiMessages.addEvents (pendingMidiFromUI, 0, -1, 0);
+            pendingMidiFromUI.clear();
+        }
+    }
+
     // Reset slice selections when grid changes
     {
         const int currentGridVal = getGridValue();

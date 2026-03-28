@@ -69,6 +69,10 @@ public:
     // Persistent settings (last loaded file, etc.)
     juce::ApplicationProperties appProperties;
 
+    // On-screen keyboard MIDI injection (message thread → audio thread)
+    juce::MidiBuffer pendingMidiFromUI;
+    juce::SpinLock   pendingMidiLock;
+
     // Metering (written audio thread → read by UI timer)
     std::atomic<float> outputPeakLevel  { 0.0f };
     std::atomic<int>   activeSliceIdx   { -1   };  // -1 = no voice playing
