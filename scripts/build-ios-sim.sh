@@ -30,17 +30,18 @@ cmake -G Xcode \
     -DAPC_ENABLE_VISAGE=OFF
 
 echo ""
-echo "=== Building AUv3 (simulator) ==="
+echo "=== Building AUv3 + Standalone (simulator) ==="
 cmake --build "${BUILD_DIR}" \
-    --target "${PLUGIN_NAME}_AUv3" \
+    --target "${PLUGIN_NAME}_AUv3" "${PLUGIN_NAME}_Standalone" \
     --config Debug \
     -- -sdk iphonesimulator -quiet
 
-ARTEFACTS="${BUILD_DIR}/plugins/${PLUGIN_NAME}/${PLUGIN_NAME}_artefacts/Debug/AUv3"
+ARTEFACTS="${BUILD_DIR}/plugins/${PLUGIN_NAME}/${PLUGIN_NAME}_artefacts/Debug"
 echo ""
 echo "=== Done ==="
-echo "AUv3 appex: ${ARTEFACTS}/${PLUGIN_NAME}.appex"
+echo "AUv3 appex : ${ARTEFACTS}/AUv3/${PLUGIN_NAME}.appex"
+echo "Standalone : ${ARTEFACTS}/Standalone/${PLUGIN_NAME}.app"
 echo ""
-echo "To test in Simulator:"
-echo "  1. Open Xcode, run the '${PLUGIN_NAME}_Standalone' scheme on a simulator"
-echo "  2. Or: open AUM / host app in Simulator and load the AUv3"
+echo "To install and run:"
+echo "  xcrun simctl install booted \"${ARTEFACTS}/Standalone/${PLUGIN_NAME}.app\""
+echo "  xcrun simctl launch booted \$(defaults read \"${ARTEFACTS}/Standalone/${PLUGIN_NAME}.app/Info\" CFBundleIdentifier 2>/dev/null || echo com.aj.splice)"
