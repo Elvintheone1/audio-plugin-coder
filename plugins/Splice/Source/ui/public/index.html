@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Splice</title>
   <style>
     :root {
@@ -22,16 +23,20 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { width: 100%; height: 100%; }
+
     body {
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Inter, sans-serif;
-      width: 1000px;
-      height: 600px;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       user-select: none;
       touch-action: none;
       -webkit-user-select: none;
+      display: flex;
+      flex-direction: column;
     }
 
     /* ── TOP BAR ─────────────────────────────────────────── */
@@ -113,6 +118,21 @@
       align-items: center;
       gap: 2px;
     }
+
+    .load-btn {
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      background: var(--tab-bg);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+    .load-btn:hover { opacity: 0.85; }
 
     .mode-btn {
       padding: 4px 10px;
@@ -214,30 +234,35 @@
 
     /* ── PAGES ───────────────────────────────────────────── */
     #arp-bar {
-      height: 30px;
+      height: 0;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: flex-end;
       padding: 0 24px;
       gap: 5px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: none;
       flex-shrink: 0;
+      transition: height 0.1s;
+    }
+    #arp-bar.visible {
+      height: 30px;
+      border-bottom: 1px solid var(--border);
     }
     #arp-bar > * { visibility: hidden; }
     #arp-bar.visible > * { visibility: visible; }
 
-    .page { display: none; flex-direction: column; height: calc(600px - 52px - 30px); }
+    .page { display: none; flex-direction: column; flex: 1; min-height: 0; }
     .page.active { display: flex; }
 
     /* ── GRID AREA ───────────────────────────────────────── */
     .grid-area {
-      flex: 1;
+      flex: 0 0 auto;
       display: flex;
       align-items: flex-start;
-      justify-content: center;
-      padding: 20px 28px 12px;
-      gap: 14px;
-      min-height: 0;
+      justify-content: flex-start;
+      padding: 10px 12px 6px;
+      gap: 10px;
     }
 
     /* ── SECTION BLOCKS (Loop page) ──────────────────────── */
@@ -283,24 +308,24 @@
 
     /* ── CONTROLS AREA (Loop page) ───────────────────────── */
     .controls-area {
-      height: 220px;
+      flex: 1;
+      min-height: 180px;
       display: flex;
       align-items: flex-start;
       overflow: hidden;
       border-top: 1px solid var(--border);
-      flex-shrink: 0;
     }
 
     .ctrl-panel {
       flex: 1;
-      height: 220px;
+      height: 100%;
       overflow: hidden;
       padding: 13px 22px 10px;
       display: flex;
       flex-direction: column;
       gap: 9px;
     }
-    .ctrl-panel:first-child { flex: 0 0 620px; }
+    .ctrl-panel:first-child { flex: 2; }
     .ctrl-panel + .ctrl-panel { border-left: 1px solid var(--border); }
 
     .ctrl-tabs {
@@ -656,7 +681,7 @@
     }
     #piano-toggle svg { display: block; }
     #piano-strip {
-        position: fixed; bottom: 0; left: 0; width: 1000px; height: 90px;
+        position: fixed; bottom: 0; left: 0; width: 100%; height: 90px;
         background: #111; border-top: 2px solid #333;
         transform: translateY(100%); transition: transform 0.18s ease;
         z-index: 150; overflow: hidden;
@@ -678,6 +703,51 @@
     .pkey.black.pressed, .pkey.black.root.pressed { background: #2d5f78; }
     .pkey.white.root    { background: rgba(74,138,168,0.35); }
     .pkey.black.root    { background: #2a5060; }
+
+    /* ── FLUID SCALING: wide/tall screens (iPad etc.) ──────── */
+    @media (min-width: 900px) and (min-height: 700px) {
+      .top-bar        { height: 68px; padding: 0 32px; }
+      .plugin-title   { font-size: 20px; }
+      .reel-name      { font-size: 15px; }
+      .bpm-value      { font-size: 18px; }
+      .bpm-label      { font-size: 12px; }
+      .page-tab       { font-size: 15px; padding: 7px 26px; }
+      .load-btn           { font-size: 13px; padding: 7px 18px; }
+      .mode-btn, .hold-btn { font-size: 13px; padding: 6px 14px; }
+      #arp-bar.visible { height: 42px; }
+      .section-header { font-size: 14px; padding: 10px 12px 6px; }
+      .section-cells  { gap: 5px; padding: 10px; }
+      .cell           { border-radius: 3px; }
+      .ctrl-tab       { font-size: 13px; padding: 5px 12px; }
+      .ctrl-tab-sep   { font-size: 13px; }
+      .dir-group-label { font-size: 13px; }
+      .dir-btn        { width: 44px; height: 44px; font-size: 20px; }
+      .grid-display   { font-size: 38px; }
+      .sig-value      { font-size: 26px; }
+      .sig-label      { font-size: 11px; }
+      .sig-knob       { min-width: 56px; }
+      .circle-well    { width: 68px; height: 68px; }
+      .circle-dot     { width: 34px !important; height: 34px !important; }
+      .circle-val     { font-size: 11px; }
+      .circle-label   { font-size: 10px; }
+      .env-controls   { gap: 36px; }
+      .env-label      { font-size: 11px; }
+      .scs-val        { font-size: 18px; }
+      .scs-lbl        { font-size: 10px; }
+      .scs-knob       { width: 54px; }
+      .lane-name      { font-size: 14px; }
+      .lane-val       { font-size: 13px; }
+      .lane-header    { padding: 9px 11px 5px; }
+      .lane-footer    { padding: 7px 11px; }
+      .lane-footer-links { font-size: 11px; }
+      .lane-footer-meta  { font-size: 11px; }
+      .seq-compact-strip { height: 110px; }
+      #piano-strip    { height: 120px; }
+      .pkey.white     { height: 116px; }
+      .pkey.black     { height: 72px; }
+      .ctrl-panel:last-child .env-icon { width: 64px !important; height: 106px !important; }
+      .ctrl-panel:last-child .env-controls { gap: 40px; }
+    }
   </style>
 </head>
 <body>
@@ -700,6 +770,8 @@
   </div>
 
   <div class="mode-group">
+    <button class="load-btn" onclick="launchLoad()" title="Load audio file">Load</button>
+    <div class="mode-sep"></div>
     <span id="debug-status">INIT</span>
     <button class="mode-btn active" id="mode-poly"  onclick="setMode(0)">Poly</button>
     <button class="mode-btn"        id="mode-slice" onclick="setMode(1)">Slice</button>
@@ -1321,6 +1393,11 @@
     };
 
     var knobUpdaters = {};
+
+    // Load File — triggers native file chooser via C++ resource provider
+    window.launchLoad = function() {
+        fetch(window.location.origin + '/_/load').catch(function(){});
+    };
 
     // Called from C++ timer via evaluateJavascript
     var lastReelName = null;
@@ -3137,31 +3214,42 @@
         // Count white keys to compute key width
         var whiteCount = 0;
         for (var n = START; n <= END; n++) if (!IS_BLACK[n % 12]) whiteCount++;
-        var wW = Math.floor(1000 / whiteCount);
-        var bW = Math.round(wW * 0.6);
 
-        var keys = []; // {note, el}
-        var whiteIdx = 0;
-
-        for (var n = START; n <= END; n++) {
-            var isBlack = IS_BLACK[n % 12];
-            var k = document.createElement('div');
-            k.className = isBlack ? 'pkey black' : 'pkey white';
-            k.dataset.note = n;
-            if (isBlack) {
-                k.style.left  = (whiteIdx * wW - Math.round(bW / 2)) + 'px';
-                k.style.width = bW + 'px';
-            } else {
-                k.style.left  = (whiteIdx * wW) + 'px';
-                k.style.width = wW + 'px';
-                whiteIdx++;
+        function buildKeys() {
+            strip.innerHTML = '';
+            keys = [];
+            var totalW = strip.offsetWidth || window.innerWidth;
+            var wW = Math.floor(totalW / whiteCount);
+            var bW = Math.round(wW * 0.6);
+            var whiteIdx = 0;
+            for (var n = START; n <= END; n++) {
+                var isBlack = IS_BLACK[n % 12];
+                var k = document.createElement('div');
+                k.className = isBlack ? 'pkey black' : 'pkey white';
+                k.dataset.note = n;
+                if (isBlack) {
+                    k.style.left  = (whiteIdx * wW - Math.round(bW / 2)) + 'px';
+                    k.style.width = bW + 'px';
+                } else {
+                    k.style.left  = (whiteIdx * wW) + 'px';
+                    k.style.width = wW + 'px';
+                    whiteIdx++;
+                }
+                strip.appendChild(k);
+                keys.push({ note: n, el: k });
             }
-            strip.appendChild(k);
-            keys.push({ note: n, el: k });
+            // Reapply root highlight after rebuild
+            if (typeof currentRootNorm !== 'undefined') applyRoot(currentRootNorm);
         }
 
+        var keys = [];
+        buildKeys();
+        window.addEventListener('resize', buildKeys);
+
         // Root note highlight
+        var currentRootNorm = 0;
         function applyRoot(normVal) {
+            currentRootNorm = normVal;
             var pc = Math.round(normVal * 11);
             keys.forEach(function(k) { k.el.classList.toggle('root', k.note % 12 === pc); });
         }
@@ -3211,7 +3299,9 @@
         toggle.addEventListener('click', function() {
             visible = !visible;
             strip.classList.toggle('visible', visible);
-            toggle.style.bottom = visible ? '98px' : '8px';
+            if (visible) buildKeys(); // recompute key widths at actual rendered width
+            var stripH = strip.offsetHeight || 90;
+            toggle.style.bottom = visible ? (stripH + 8) + 'px' : '8px';
         });
     }
 

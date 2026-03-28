@@ -60,6 +60,7 @@ public:
 
     // Reel (loaded audio)
     void loadReelFile (const juce::File& file);
+    void loadReelURL  (const juce::URL&  url);   // iOS security-scoped resource path
     juce::String getReelName() const { return reelName; }
     bool isReelLoaded() const { return reelBuffer.getNumSamples() > 0; }
     juce::File getLastReelFile() const;

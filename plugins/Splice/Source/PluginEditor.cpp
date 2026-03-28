@@ -119,10 +119,12 @@ SpliceAudioProcessorEditor::SpliceAudioProcessorEditor (SpliceAudioProcessor& p)
     addAndMakeVisible (*webView);
     webView->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
 
-    // Header bar: Load button + bonus drag-and-drop
+   #if !JUCE_IOS
+    // Header bar: Load button + drag-and-drop (desktop only — iOS uses in-WebView Load button)
     header.onFileDrop  = [this] (const juce::File& f) { audioProcessor.loadReelFile (f); };
     header.onLoadClick = [this] { launchFileChooser(); };
     addAndMakeVisible (header);
+   #endif
 
     setSize (1000, 630);   // 30px header + 600px WebView
     startTimerHz (15);
@@ -141,9 +143,13 @@ void SpliceAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SpliceAudioProcessorEditor::resized()
 {
+   #if JUCE_IOS
+    if (webView) webView->setBounds (0, 0, getWidth(), getHeight());
+   #else
     const int headerH = 30;
     header.setBounds (0, 0, getWidth(), headerH);
     if (webView) webView->setBounds (0, headerH, getWidth(), getHeight() - headerH);
+   #endif
 }
 
 //==============================================================================
@@ -158,9 +164,16 @@ void SpliceAudioProcessorEditor::launchFileChooser()
                             | juce::FileBrowserComponent::canSelectFiles,
         [this] (const juce::FileChooser& fc)
         {
+           #if JUCE_IOS
+            // iOS: use URL results to preserve security-scoped iCloud/Files access
+            auto urlResults = fc.getURLResults();
+            if (!urlResults.isEmpty())
+                audioProcessor.loadReelURL (urlResults[0]);
+           #else
             auto result = fc.getResult();
-            if (result.existsAsFile())
+            if (result != juce::File{})
                 audioProcessor.loadReelFile (result);
+           #endif
         });
 }
 
@@ -201,17 +214,21 @@ void SpliceAudioProcessorEditor::timerCallback()
         }
     }
 
-    // Update header bar label
     auto name = audioProcessor.getReelName();
-    auto newLabel = name.isEmpty()
-        ? juce::String ("no reel loaded")
-        : ("\xe2\x97\x89 " + name);  // ◉ filename
 
-    if (header.labelText != newLabel)
+   #if !JUCE_IOS
+    // Update header bar label (desktop only)
     {
-        header.labelText = newLabel;
-        header.repaint();
+        auto newLabel = name.isEmpty()
+            ? juce::String ("no reel loaded")
+            : ("\xe2\x97\x89 " + name);  // ◉ filename
+        if (header.labelText != newLabel)
+        {
+            header.labelText = newLabel;
+            header.repaint();
+        }
     }
+   #endif
 
     // Push reel name to WebView JS
     if (!webView || !webView->isVisible()) return;
@@ -266,6 +283,14 @@ SpliceAudioProcessorEditor::getResource (const juce::String& url)
     // JS calls: fetch('/_/seq/v/LANE/STEP/VALUE1000')
     // JS calls: fetch('/_/seq/s/LANE/COUNT')
     // JS calls: fetch('/_/seq/m/LANE/MULT')
+    // ── Load file API ─────────────────────────────────────────────────────────
+    // JS calls: fetch('/_/load') to open native file chooser
+    if (url.contains ("/_/load"))
+    {
+        launchFileChooser();
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
+    }
+
     if (url.contains ("/_/seq/"))
     {
         auto parts = juce::StringArray::fromTokens (

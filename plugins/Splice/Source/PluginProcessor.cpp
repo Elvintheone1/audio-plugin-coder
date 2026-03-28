@@ -1250,7 +1250,11 @@ void SpliceAudioProcessor::loadReelFile (const juce::File& file)
     formatManager.registerBasicFormats();
 
     std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
-    if (!reader) return;
+    if (!reader)
+    {
+        DBG ("loadReelFile: no reader for: " + file.getFullPathName());
+        return;
+    }
 
     juce::AudioBuffer<float> newBuffer (static_cast<int> (reader->numChannels),
                                         static_cast<int> (reader->lengthInSamples));
@@ -1281,6 +1285,60 @@ void SpliceAudioProcessor::loadReelFile (const juce::File& file)
     if (auto* settings = appProperties.getUserSettings())
     {
         settings->setValue ("lastReelPath", file.getFullPathName());
+        settings->saveIfNeeded();
+    }
+}
+
+void SpliceAudioProcessor::loadReelURL (const juce::URL& url)
+{
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+
+    // Use URL input stream — handles iOS security-scoped iCloud / Files app URLs
+    auto stream = url.createInputStream (juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+                                             .withConnectionTimeoutMs (5000));
+    if (!stream)
+    {
+        DBG ("loadReelURL: no stream for: " + url.toString (false));
+        // Fallback: try direct file path
+        loadReelFile (url.getLocalFile());
+        return;
+    }
+
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (std::move (stream)));
+    if (!reader)
+    {
+        DBG ("loadReelURL: no reader from stream, trying file path");
+        loadReelFile (url.getLocalFile());
+        return;
+    }
+
+    juce::AudioBuffer<float> newBuffer (static_cast<int> (reader->numChannels),
+                                        static_cast<int> (reader->lengthInSamples));
+    reader->read (&newBuffer, 0, static_cast<int> (reader->lengthInSamples), 0, true, true);
+
+    if (newBuffer.getNumChannels() == 1)
+    {
+        juce::AudioBuffer<float> stereo (2, newBuffer.getNumSamples());
+        stereo.copyFrom (0, 0, newBuffer, 0, 0, newBuffer.getNumSamples());
+        stereo.copyFrom (1, 0, newBuffer, 0, 0, newBuffer.getNumSamples());
+        reelBuffer = std::move (stereo);
+    }
+    else
+    {
+        reelBuffer = std::move (newBuffer);
+    }
+
+    reelSampleRate = reader->sampleRate;
+    reelName = url.getFileName().upToLastOccurrenceOf (".", false, false);
+
+    for (auto& v : voices) v.active = false;
+    arpPhase = 0.0; polySlicePhase = 0.0;
+    seqPhase.fill (0.0); seqStep.fill (0);
+
+    if (auto* settings = appProperties.getUserSettings())
+    {
+        settings->setValue ("lastReelPath", url.getLocalFile().getFullPathName());
         settings->saveIfNeeded();
     }
 }

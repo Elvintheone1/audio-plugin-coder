@@ -121,22 +121,17 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # ============================================
-# iOS: Code signing + team ID
+# iOS: Automatic signing (Xcode manages profiles)
 # ============================================
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    if(DEFINED APC_IOS_TEAM_ID)
-        set(_ios_sign_id "Apple Development")
-        if(DEFINED APC_IOS_CODE_SIGN_IDENTITY)
-            set(_ios_sign_id "${APC_IOS_CODE_SIGN_IDENTITY}")
+    foreach(_ios_tgt Splice_AUv3 Splice_Standalone Splice)
+        if(TARGET ${_ios_tgt})
+            set_target_properties(${_ios_tgt} PROPERTIES
+                XCODE_ATTRIBUTE_CODE_SIGN_STYLE          "Automatic"
+                XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY       "Apple Development"
+                XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED    "YES"
+                XCODE_ATTRIBUTE_DEVELOPMENT_TEAM         "${APC_IOS_TEAM_ID}"
+            )
         endif()
-        foreach(_ios_tgt Splice_AUv3 Splice_Standalone Splice)
-            if(TARGET ${_ios_tgt})
-                set_target_properties(${_ios_tgt} PROPERTIES
-                    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM     "${APC_IOS_TEAM_ID}"
-                    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY   "${_ios_sign_id}"
-                    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
-                )
-            endif()
-        endforeach()
-    endif()
+    endforeach()
 endif()
