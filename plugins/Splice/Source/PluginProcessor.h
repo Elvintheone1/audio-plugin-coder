@@ -61,6 +61,9 @@ public:
     // Reel (loaded audio)
     void loadReelFile (const juce::File& file);
     void loadReelURL  (const juce::URL&  url);   // iOS security-scoped resource path
+    void savePreset   (const juce::File& file);
+    void loadPreset   (const juce::File& file);
+    void loadPresetURL(const juce::URL&  url);
     juce::String getReelName() const { return reelName; }
     bool isReelLoaded() const { return reelBuffer.getNumSamples() > 0; }
     juce::File getLastReelFile() const;
@@ -73,6 +76,9 @@ public:
     // On-screen keyboard MIDI injection (message thread → audio thread)
     juce::MidiBuffer pendingMidiFromUI;
     juce::SpinLock   pendingMidiLock;
+
+    // Set to true by setStateInformation so the editor's timer can push slice state to JS
+    std::atomic<bool>  sliceStateDirty  { true  };
 
     // Metering (written audio thread → read by UI timer)
     std::atomic<float> outputPeakLevel  { 0.0f };
@@ -94,6 +100,7 @@ private:
 
     double currentSampleRate = 44100.0;
     int    lastGridVal       = 1;   // track grid changes to reset slice selections
+    int    prevModeIdx       = -1;  // detect SEQ→non-SEQ transition to force-release voices
 
     // Loaded audio data
     juce::AudioBuffer<float> reelBuffer;
@@ -108,7 +115,7 @@ private:
                                                    juce::dsp::IIR::Coefficients<float>>;
     juce::dsp::ProcessorChain<EqBand, EqBand, EqBand, EqBand> eqChain;
 
-    // Smoothed dB values for EQ — prevents coefficient-change crackling
+    // Smoothed dB values for EQ — block-rate anti-zipper (skip numSamples per block)
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqLowSmooth;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqLowMidSmooth;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> eqHighMidSmooth;

@@ -158,14 +158,14 @@ void SpliceAudioProcessorEditor::launchFileChooser()
     fileChooser = std::make_unique<juce::FileChooser> (
         "Load audio reel",
         juce::File::getSpecialLocation (juce::File::userMusicDirectory),
-        "*.wav;*.aif;*.aiff;*.mp3;*.ogg;*.flac;*.caf;*.m4a");
+        "*.wav;*.aif;*.aiff;*.mp3;*.ogg;*.flac;*.caf;*.m4a",
+        true, false, this);
 
     fileChooser->launchAsync (juce::FileBrowserComponent::openMode
                             | juce::FileBrowserComponent::canSelectFiles,
         [this] (const juce::FileChooser& fc)
         {
            #if JUCE_IOS
-            // iOS: use URL results to preserve security-scoped iCloud/Files access
             auto urlResults = fc.getURLResults();
             if (!urlResults.isEmpty())
                 audioProcessor.loadReelURL (urlResults[0]);
@@ -207,7 +207,12 @@ void SpliceAudioProcessorEditor::timerCallback()
                         if (result == 1)
                         {
                             if (hasState) safeThis->audioProcessor.restoreLastState();
+                           #if JUCE_IOS
+                            // iOS: iCloud paths require URL-based loading (security-scoped)
+                            if (hasReel)  safeThis->audioProcessor.loadReelURL (juce::URL (lastFile));
+                           #else
                             if (hasReel)  safeThis->audioProcessor.loadReelFile (lastFile);
+                           #endif
                         }
                     });
             });
@@ -236,6 +241,17 @@ void SpliceAudioProcessorEditor::timerCallback()
 
     try
     {
+        // Push slice state to JS whenever C++ state was loaded (startup / preset restore)
+        if (sliceSyncPending || audioProcessor.sliceStateDirty.exchange (false))
+        {
+            sliceSyncPending = false;
+            juce::String sliceStr;
+            for (int i = 0; i < 64; ++i)
+                sliceStr += audioProcessor.sliceActive[i] ? "1" : "0";
+            webView->evaluateJavascript (
+                "if (window.restoreSliceState) window.restoreSliceState('" + sliceStr + "');");
+        }
+
         webView->evaluateJavascript (
             "if (window.updateReelName) window.updateReelName('" +
             display.replace ("'", "\\'") + "');");
@@ -253,6 +269,80 @@ void SpliceAudioProcessorEditor::timerCallback()
             juce::String (audioProcessor.seqLitStep3.load()) + ");");
     }
     catch (...) {}
+}
+
+//==============================================================================
+void SpliceAudioProcessorEditor::launchSavePreset()
+{
+   #if JUCE_IOS
+    // iOS: FileChooser save mode has no filename input — ask for name via alert.
+    // deleteWhenDismissed = true (last param of enterModalState) means JUCE owns box;
+    // do NOT call delete box in the callback.
+    auto* box = new juce::AlertWindow ("Save Preset", "Enter preset name:", juce::MessageBoxIconType::NoIcon);
+    box->addTextEditor ("name", "My Preset", "");
+    box->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
+    box->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    box->enterModalState (true, juce::ModalCallbackFunction::create (
+        [this, box] (int result)
+        {
+            if (result == 1)
+            {
+                // Read name while box is still alive (deleteWhenDismissed fires AFTER callback)
+                auto name = box->getTextEditorContents ("name").trim();
+                if (name.isEmpty()) name = "Preset";
+                auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                               .getChildFile ("Splice Presets");
+                if (! dir.isDirectory())
+                {
+                    dir.deleteFile();       // remove stale 0-byte file if present
+                    dir.createDirectory();
+                }
+                audioProcessor.savePreset (dir.getChildFile (name + ".splice"));
+            }
+            // box is deleted by JUCE (deleteWhenDismissed = true) — do NOT delete here
+        }), true);
+   #else
+    presetChooser = std::make_unique<juce::FileChooser> (
+        "Save preset",
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("Splice Presets"),
+        "*.splice",
+        true, false, this);
+
+    presetChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                              | juce::FileBrowserComponent::canSelectFiles
+                              | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this] (const juce::FileChooser& fc)
+        {
+            auto result = fc.getResult();
+            if (result == juce::File{}) return;
+            audioProcessor.savePreset (result.withFileExtension (".splice"));
+        });
+   #endif
+}
+
+void SpliceAudioProcessorEditor::launchLoadPreset()
+{
+    presetChooser = std::make_unique<juce::FileChooser> (
+        "Load preset",
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("Splice Presets"),
+        "*.splice",
+        true, false, this);
+
+    presetChooser->launchAsync (juce::FileBrowserComponent::openMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+           #if JUCE_IOS
+            auto urlResults = fc.getURLResults();
+            if (!urlResults.isEmpty())
+                audioProcessor.loadPresetURL (urlResults[0]);
+           #else
+            auto result = fc.getResult();
+            if (result != juce::File{})
+                audioProcessor.loadPreset (result);
+           #endif
+        });
 }
 
 //==============================================================================
@@ -285,9 +375,28 @@ SpliceAudioProcessorEditor::getResource (const juce::String& url)
     // JS calls: fetch('/_/seq/m/LANE/MULT')
     // ── Load file API ─────────────────────────────────────────────────────────
     // JS calls: fetch('/_/load') to open native file chooser
+    // NOTE: check load-preset BEFORE load — "/_/load" is a substring of "/_/load-preset"
+    // callAsync: defer UI presentation until the resource-provider callback returns.
+    // On iOS/AUM the WKURLSchemeHandler fires on the main thread; presenting a
+    // UIDocumentPickerViewController while still inside that callback silently fails.
+    if (url.contains ("/_/load-preset"))
+    {
+        juce::Component::SafePointer<SpliceAudioProcessorEditor> safeThis (this);
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis) safeThis->launchLoadPreset(); });
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
+    }
+
     if (url.contains ("/_/load"))
     {
-        launchFileChooser();
+        juce::Component::SafePointer<SpliceAudioProcessorEditor> safeThis (this);
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis) safeThis->launchFileChooser(); });
+        return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
+    }
+
+    if (url.contains ("/_/save"))
+    {
+        juce::Component::SafePointer<SpliceAudioProcessorEditor> safeThis (this);
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis) safeThis->launchSavePreset(); });
         return juce::WebBrowserComponent::Resource ({ std::vector<std::byte>{}, "text/plain" });
     }
 

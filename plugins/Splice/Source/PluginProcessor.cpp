@@ -542,6 +542,20 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         seqStep.fill  (0);
     }
 
+    // On SEQ → non-SEQ transition: force-release all active voices so audio stops immediately.
+    if (prevModeIdx == 3 && modeIdx != 3)
+    {
+        for (auto& v : voices)
+        {
+            if (v.active)
+            {
+                v.gateOpen = false;
+                v.ampEnv.noteOff (relS, currentSampleRate);
+            }
+        }
+    }
+    prevModeIdx = modeIdx;
+
     const float volDbFactor = std::pow (10.0f, apvts.getRawParameterValue ("vol_db")->load() / 20.0f);
     smoothedOutputVol.setTargetValue (apvts.getRawParameterValue ("output_vol")->load() * volDbFactor);
 
@@ -1122,11 +1136,17 @@ void SpliceAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         eqHighMidSmooth.setTargetValue (apvts.getRawParameterValue ("eq_high_mid")->load());
         eqHighSmooth   .setTargetValue (apvts.getRawParameterValue ("eq_high")    ->load());
 
+        // Advance smoothers by the full block so the 50ms ramp completes in real time
+        eqLowSmooth    .skip (numSamples);
+        eqLowMidSmooth .skip (numSamples);
+        eqHighMidSmooth.skip (numSamples);
+        eqHighSmooth   .skip (numSamples);
+
         auto toLinear = [] (float db) { return std::pow (10.0f, db / 20.0f); };
-        *eqChain.get<0>().state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf   (currentSampleRate,  100.0, 0.707, toLinear (eqLowSmooth    .getNextValue()));
-        *eqChain.get<1>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate,  500.0, 0.707, toLinear (eqLowMidSmooth .getNextValue()));
-        *eqChain.get<2>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, 2000.0, 0.707, toLinear (eqHighMidSmooth.getNextValue()));
-        *eqChain.get<3>().state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf  (currentSampleRate, 8000.0, 0.707, toLinear (eqHighSmooth   .getNextValue()));
+        *eqChain.get<0>().state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf   (currentSampleRate,  100.0, 0.707, toLinear (eqLowSmooth    .getCurrentValue()));
+        *eqChain.get<1>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate,  500.0, 0.707, toLinear (eqLowMidSmooth .getCurrentValue()));
+        *eqChain.get<2>().state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter (currentSampleRate, 2000.0, 0.707, toLinear (eqHighMidSmooth.getCurrentValue()));
+        *eqChain.get<3>().state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf  (currentSampleRate, 8000.0, 0.707, toLinear (eqHighSmooth   .getCurrentValue()));
 
         juce::dsp::AudioBlock<float>              eqBlock (buffer);
         juce::dsp::ProcessContextReplacing<float> eqCtx (eqBlock);
@@ -1185,7 +1205,10 @@ void SpliceAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     // Persist to appProperties so we can offer restore on next startup
     if (auto* settings = appProperties.getUserSettings())
+    {
         settings->setValue ("lastFullState", xml->toString());
+        settings->saveIfNeeded();   // flush to disk — without this, data is lost on termination
+    }
 }
 
 void SpliceAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -1205,6 +1228,13 @@ void SpliceAudioProcessor::setStateInformation (const void* data, int sizeInByte
         for (size_t i = 0; i < 64 && i < (size_t) gridStr.length(); ++i)
             sliceActive[i] = (gridStr[(int) i] == '1');
     }
+
+    // Sync lastGridVal so the first processBlock doesn't see a spurious grid
+    // "change" and wipe the restored sliceActive state with fill(true).
+    lastGridVal = getGridValue();
+
+    // Signal editor timer to push the restored slice state to JS
+    sliceStateDirty.store (true);
 
     // Restore SEQ lanes
     for (size_t lane = 0; lane < 4; ++lane)
@@ -1341,6 +1371,37 @@ void SpliceAudioProcessor::loadReelURL (const juce::URL& url)
         settings->setValue ("lastReelPath", url.getLocalFile().getFullPathName());
         settings->saveIfNeeded();
     }
+}
+
+void SpliceAudioProcessor::savePreset (const juce::File& file)
+{
+    juce::MemoryBlock data;
+    getStateInformation (data);
+    auto xml = getXmlFromBinary (data.getData(), (int) data.getSize());
+    if (xml == nullptr) return;
+    file.replaceWithText (xml->toString());
+}
+
+void SpliceAudioProcessor::loadPreset (const juce::File& file)
+{
+    auto xml = juce::XmlDocument::parse (file);
+    if (xml == nullptr) return;
+    juce::MemoryBlock data;
+    copyXmlToBinary (*xml, data);
+    setStateInformation (data.getData(), (int) data.getSize());
+}
+
+void SpliceAudioProcessor::loadPresetURL (const juce::URL& url)
+{
+    auto stream = url.createInputStream (juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+                                             .withConnectionTimeoutMs (5000));
+    if (!stream) return;
+    auto text = stream->readEntireStreamAsString();
+    auto xml  = juce::XmlDocument::parse (text);
+    if (xml == nullptr) return;
+    juce::MemoryBlock data;
+    copyXmlToBinary (*xml, data);
+    setStateInformation (data.getData(), (int) data.getSize());
 }
 
 juce::File SpliceAudioProcessor::getLastReelFile() const

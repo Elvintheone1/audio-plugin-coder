@@ -119,7 +119,10 @@
       gap: 2px;
     }
 
-    .load-btn {
+    .file-btn-wrap {
+      position: relative;
+    }
+    .file-btn {
       padding: 5px 14px;
       font-size: 11px;
       font-weight: 600;
@@ -132,7 +135,29 @@
       cursor: pointer;
       transition: opacity 0.1s;
     }
-    .load-btn:hover { opacity: 0.85; }
+    .file-btn:hover { opacity: 0.85; }
+    .file-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #2A2A2A;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      min-width: 130px;
+      z-index: 500;
+      overflow: hidden;
+    }
+    .file-menu.open { display: block; }
+    .file-menu-item {
+      display: block; width: 100%; text-align: left;
+      padding: 8px 14px;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-2);
+      background: none; border: none; cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .file-menu-item:hover { background: var(--hover); color: var(--text); }
 
     .mode-btn {
       padding: 4px 10px;
@@ -270,7 +295,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: var(--bg-block);
+      background: transparent;
       border-radius: 4px;
       overflow: hidden;
     }
@@ -358,8 +383,8 @@
     }
 
     .ctrl-body { display: none; }
-    .ctrl-body.active { display: flex; gap: 24px; align-items: flex-start; }
-    #signal-body.active { flex-direction: column; gap: 8px; }
+    .ctrl-body.active { display: flex; gap: 16px; align-items: flex-start; }
+    #signal-body.active { flex-direction: row; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 
     /* Direction groups */
     .dir-group { display: flex; flex-direction: column; gap: 5px; }
@@ -372,12 +397,12 @@
     .dir-btns { display: flex; gap: 4px; }
 
     .dir-btn {
-      width: 30px;
-      height: 30px;
+      width: 33px;
+      height: 33px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 15px;
       background: var(--hover);
       border: 1px solid transparent;
       border-radius: 3px;
@@ -393,7 +418,7 @@
     /* Grid control */
     .grid-group { display: flex; flex-direction: column; gap: 5px; }
     .grid-display {
-      font-size: 26px;
+      font-size: 29px;
       font-weight: 300;
       color: var(--text);
       cursor: ns-resize;
@@ -441,9 +466,9 @@
     }
 
     /* Right panel: center content + scale env icons up */
-    .ctrl-panel:last-child .ctrl-body.active { justify-content: center; align-items: center; }
-    .ctrl-panel:last-child .env-controls { gap: 32px; }
-    .ctrl-panel:last-child .env-icon { width: 50px !important; height: 83px !important; }
+    .ctrl-panel:last-child .ctrl-body.active { justify-content: center; align-items: flex-start; }
+    .ctrl-panel:last-child .env-controls { gap: 20px; }
+    .ctrl-panel:last-child .env-icon { width: 52px !important; height: 86px !important; }
     .ctrl-panel:last-child .circle-controls { justify-content: center; }
 
     /* Filter controls */
@@ -620,7 +645,7 @@
     .env-val { display: none; }
 
     /* ── SIGNAL KNOBS ────────────────────────────────────── */
-    .sig-controls { display: flex; gap: 20px; align-items: flex-start; padding: 4px 0; }
+    .sig-controls { display: flex; gap: 12px; align-items: flex-start; padding: 4px 0; }
     .sig-knob {
       display: flex; flex-direction: column; align-items: center;
       cursor: ns-resize; user-select: none; -webkit-user-select: none; min-width: 44px;
@@ -675,13 +700,27 @@
     /* ── On-screen piano ─────────────────────────────────────────────── */
     #piano-toggle {
         position: fixed; bottom: 8px; left: 8px; z-index: 200;
-        background: #1c1c1c; border: 1px solid #383838; border-radius: 5px;
-        padding: 5px 8px; cursor: pointer; line-height: 1;
+        background: #1c1c1c; border: 1px solid #383838; border-radius: 9px;
+        padding: 14px 18px; cursor: pointer; line-height: 1;
         transition: bottom 0.18s ease;
     }
-    #piano-toggle svg { display: block; }
+    #piano-toggle svg { display: block; width: 42px; height: 26px; }
+    #oct-btns {
+        position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+        display: flex; flex-direction: column; gap: 16px; z-index: 10;
+    }
+    #oct-btns button {
+        background: #222; border: 1px solid #444; border-radius: 6px;
+        color: #ccc; font-size: 20px; line-height: 1; padding: 8px 14px;
+        cursor: pointer; touch-action: manipulation;
+    }
+    #oct-btns button:active { background: #3a3a3a; }
+    #oct-label {
+        position: absolute; left: 6px; bottom: 6px; z-index: 10;
+        color: #555; font-size: 10px; font-family: monospace; pointer-events: none;
+    }
     #piano-strip {
-        position: fixed; bottom: 0; left: 0; width: 100%; height: 90px;
+        position: fixed; bottom: 0; left: 0; width: 100%; height: 200px;
         background: #111; border-top: 2px solid #333;
         transform: translateY(100%); transition: transform 0.18s ease;
         z-index: 150; overflow: hidden;
@@ -692,11 +731,11 @@
         border-radius: 0 0 3px 3px; touch-action: none; user-select: none;
     }
     .pkey.white {
-        height: 86px; background: #ddd; border: 1px solid #555;
+        height: 194px; background: #ddd; border: 1px solid #555;
         border-top: none; z-index: 1;
     }
     .pkey.black {
-        height: 54px; background: #1a1a1a; border: 1px solid #555;
+        height: 108px; background: #1a1a1a; border: 1px solid #555;
         border-top: none; z-index: 2;
     }
     .pkey.white.pressed, .pkey.white.root.pressed { background: #4A8AA8; }
@@ -712,7 +751,8 @@
       .bpm-value      { font-size: 18px; }
       .bpm-label      { font-size: 12px; }
       .page-tab       { font-size: 15px; padding: 7px 26px; }
-      .load-btn           { font-size: 13px; padding: 7px 18px; }
+      .file-btn           { font-size: 13px; padding: 7px 18px; }
+      .file-menu-item     { font-size: 13px; padding: 10px 16px; }
       .mode-btn, .hold-btn { font-size: 13px; padding: 6px 14px; }
       #arp-bar.visible { height: 42px; }
       .section-header { font-size: 14px; padding: 10px 12px 6px; }
@@ -721,13 +761,13 @@
       .ctrl-tab       { font-size: 13px; padding: 5px 12px; }
       .ctrl-tab-sep   { font-size: 13px; }
       .dir-group-label { font-size: 13px; }
-      .dir-btn        { width: 44px; height: 44px; font-size: 20px; }
-      .grid-display   { font-size: 38px; }
+      .dir-btn        { width: 48px; height: 48px; font-size: 22px; }
+      .grid-display   { font-size: 42px; }
       .sig-value      { font-size: 26px; }
       .sig-label      { font-size: 11px; }
       .sig-knob       { min-width: 56px; }
       .circle-well    { width: 68px; height: 68px; }
-      .circle-dot     { width: 34px !important; height: 34px !important; }
+      .circle-dot     { width: 34px; height: 34px; }
       .circle-val     { font-size: 11px; }
       .circle-label   { font-size: 10px; }
       .env-controls   { gap: 36px; }
@@ -735,18 +775,27 @@
       .scs-val        { font-size: 18px; }
       .scs-lbl        { font-size: 10px; }
       .scs-knob       { width: 54px; }
-      .lane-name      { font-size: 14px; }
-      .lane-val       { font-size: 13px; }
-      .lane-header    { padding: 9px 11px 5px; }
-      .lane-footer    { padding: 7px 11px; }
-      .lane-footer-links { font-size: 11px; }
-      .lane-footer-meta  { font-size: 11px; }
-      .seq-compact-strip { height: 110px; }
-      #piano-strip    { height: 120px; }
-      .pkey.white     { height: 116px; }
-      .pkey.black     { height: 72px; }
+      .lane-name      { font-size: 16px; }
+      .lane-val       { font-size: 15px; }
+      .lane-header    { padding: 11px 13px 6px; }
+      .lane-footer    { padding: 9px 13px; }
+      .lane-footer-links { font-size: 13px; }
+      .lane-footer-meta  { font-size: 13px; }
+      .lane-pat-btn   { width: 22px; height: 22px; font-size: 10px; }
+      .seq-bar        { height: 60px; gap: 44px; }
+      .seq-item-label { font-size: 12px; }
+      .seq-item-value { font-size: 16px; }
+      .scs-label      { font-size: 10px; }
+      .scs-val        { font-size: 22px; }
+      .scs-lbl        { font-size: 12px; }
+      .scs-knob       { width: 64px; }
+      .step-val, .speed-val { font-size: 14px; }
+      .seq-compact-strip { height: 130px; }
+      #piano-strip    { height: 200px; }
+      .pkey.white     { height: 194px; }
+      .pkey.black     { height: 108px; }
       .ctrl-panel:last-child .env-icon { width: 64px !important; height: 106px !important; }
-      .ctrl-panel:last-child .env-controls { gap: 40px; }
+      .ctrl-panel:last-child .env-controls { gap: 16px; }
     }
   </style>
 </head>
@@ -770,7 +819,14 @@
   </div>
 
   <div class="mode-group">
-    <button class="load-btn" onclick="launchLoad()" title="Load audio file">Load</button>
+    <div class="file-btn-wrap" id="file-btn-wrap">
+      <button class="file-btn" onclick="toggleFileMenu()">File ▾</button>
+      <div class="file-menu" id="file-menu">
+        <button class="file-menu-item" onclick="launchLoad(); closeFileMenu()">Load Reel</button>
+        <button class="file-menu-item" onclick="launchLoadPreset(); closeFileMenu()">Load Preset</button>
+        <button class="file-menu-item" onclick="launchSave(); closeFileMenu()">Save Preset</button>
+      </div>
+    </div>
     <div class="mode-sep"></div>
     <span id="debug-status">INIT</span>
     <button class="mode-btn active" id="mode-poly"  onclick="setMode(0)">Poly</button>
@@ -798,29 +854,10 @@
 
   <div class="grid-area">
 
-    <!-- Section I -->
-    <div class="section-block s1">
-      <div class="section-header">I</div>
-      <div class="section-cells" id="cells-s1"></div>
-    </div>
-
-    <!-- Section II -->
-    <div class="section-block s2">
-      <div class="section-header">II</div>
-      <div class="section-cells" id="cells-s2"></div>
-    </div>
-
-    <!-- Section III -->
-    <div class="section-block s3">
-      <div class="section-header">III</div>
-      <div class="section-cells" id="cells-s3"></div>
-    </div>
-
-    <!-- Section IV -->
-    <div class="section-block s4">
-      <div class="section-header">IV</div>
-      <div class="section-cells" id="cells-s4"></div>
-    </div>
+    <div class="section-block s1"><div class="section-cells" id="cells-s1"></div></div>
+    <div class="section-block s2"><div class="section-cells" id="cells-s2"></div></div>
+    <div class="section-block s3"><div class="section-cells" id="cells-s3"></div></div>
+    <div class="section-block s4"><div class="section-cells" id="cells-s4"></div></div>
 
   </div><!-- /grid-area -->
 
@@ -887,7 +924,6 @@
             <div class="sig-label">Root</div>
           </div>
         </div>
-        <div style="font-size:8px;color:var(--text-2);letter-spacing:0.07em;text-transform:uppercase">EQ</div>
         <div class="circle-controls" id="eq-controls">
           <div class="circle-ctrl" id="eq-low">
             <div class="circle-well"><div class="circle-dot" style="width:28px;height:28px"></div></div>
@@ -1394,9 +1430,33 @@
 
     var knobUpdaters = {};
 
-    // Load File — triggers native file chooser via C++ resource provider
+    // File menu
+    window.toggleFileMenu = function() {
+        var menu = document.getElementById('file-menu');
+        if (menu) menu.classList.toggle('open');
+    };
+    window.closeFileMenu = function() {
+        var menu = document.getElementById('file-menu');
+        if (menu) menu.classList.remove('open');
+    };
+    document.addEventListener('pointerdown', function(e) {
+        var wrap = document.getElementById('file-btn-wrap');
+        if (wrap && !wrap.contains(e.target)) closeFileMenu();
+    });
+
+    // Load Reel — triggers native file chooser via C++ resource provider
     window.launchLoad = function() {
         fetch(window.location.origin + '/_/load').catch(function(){});
+    };
+
+    // Load Preset
+    window.launchLoadPreset = function() {
+        fetch(window.location.origin + '/_/load-preset').catch(function(){});
+    };
+
+    // Save Preset
+    window.launchSave = function() {
+        fetch(window.location.origin + '/_/save').catch(function(){});
     };
 
     // Called from C++ timer via evaluateJavascript
@@ -1410,6 +1470,24 @@
             currentPaletteIdx = name ? hashString(name) % PALETTES.length : 0;
             rebuildSections(STEPS[gridIdx]);
         }
+    };
+
+    // Called by C++ timer after setStateInformation to sync cell visuals with saved sliceActive
+    window.restoreSliceState = function(str) {
+        var stepsPerSection = STEPS[gridIdx];
+        ['s1','s2','s3','s4'].forEach(function(id, sIdx) {
+            var container = document.getElementById('cells-' + id);
+            if (!container) return;
+            var cells = container.querySelectorAll('.cell');
+            cells.forEach(function(cell, i) {
+                var flatIdx = sIdx * stepsPerSection + i;
+                if (flatIdx < str.length) {
+                    var active = str[flatIdx] === '1';
+                    cell.classList.toggle('on',  active);
+                    cell.classList.toggle('off', !active);
+                }
+            });
+        });
     };
 
     var lastLitSlice = -1;
@@ -1444,6 +1522,15 @@
         document.querySelectorAll('.page-tab').forEach(function(t) { t.classList.remove('active'); });
         document.getElementById('page-' + name).classList.add('active');
         btn.classList.add('active');
+        // Hide piano on SEQ page (seq is driven by the sequencer, not MIDI keys)
+        var pianoToggle = document.getElementById('piano-toggle');
+        var pianoStrip  = document.getElementById('piano-strip');
+        if (name === 'seq') {
+            if (pianoToggle) pianoToggle.style.display = 'none';
+            if (pianoStrip)  { pianoStrip.classList.remove('visible'); pianoToggle && (pianoToggle.style.bottom = '8px'); }
+        } else {
+            if (pianoToggle) pianoToggle.style.display = '';
+        }
     };
 
     // ================================================================
@@ -1638,10 +1725,23 @@
             var display = el.querySelector('.sig-value');
             var norm    = defaultNorm;
             var dragging = false, startY = 0, startNorm = 0;
+            var lastTapMs = 0;
 
             display.textContent = toDisplay(norm);
 
             el.addEventListener('pointerdown', function(e) {
+                var now = Date.now();
+                if (now - lastTapMs < 300) {
+                    lastTapMs = 0;
+                    norm = defaultNorm;
+                    display.textContent = toDisplay(norm);
+                    if (parameterStates[paramId])
+                        try { parameterStates[paramId].sliderDragStarted();
+                              parameterStates[paramId].setNormalisedValue(norm);
+                              parameterStates[paramId].sliderDragEnded(); } catch(ex) {}
+                    e.preventDefault(); return;
+                }
+                lastTapMs = now;
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
@@ -1798,6 +1898,7 @@
             var val  = el.querySelector('.circle-val');
             var norm = 0.5;  // default 0dB
             var dragging = false, startY = 0, startNorm = 0;
+            var lastTapMs = 0;
 
             function normToDb(n)   { return (n * 24 - 12); }
             function dbLabel(n)    { var db = Math.round(normToDb(n)); return (db >= 0 ? '+' : '') + db + 'dB'; }
@@ -1816,6 +1917,17 @@
             updateDot(norm);
 
             el.addEventListener('pointerdown', function(e) {
+                var now = Date.now();
+                if (now - lastTapMs < 300) {
+                    lastTapMs = 0;
+                    norm = 0.5; updateDot(0.5);
+                    if (parameterStates[band.paramId])
+                        try { parameterStates[band.paramId].sliderDragStarted();
+                              parameterStates[band.paramId].setNormalisedValue(0.5);
+                              parameterStates[band.paramId].sliderDragEnded(); } catch(ex) {}
+                    e.preventDefault(); return;
+                }
+                lastTapMs = now;
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[band.paramId])
                     try { parameterStates[band.paramId].sliderDragStarted(); } catch(e) {}
@@ -1834,15 +1946,6 @@
                 if (parameterStates[band.paramId])
                     try { parameterStates[band.paramId].sliderDragEnded(); } catch(e) {}
             });
-            el.addEventListener('dblclick', function() {
-                norm = 0.5;
-                updateDot(norm);
-                if (parameterStates[band.paramId]) {
-                    try { parameterStates[band.paramId].sliderDragStarted(); } catch(e) {}
-                    try { parameterStates[band.paramId].setNormalisedValue(0.5); } catch(e) {}
-                    try { parameterStates[band.paramId].sliderDragEnded(); } catch(e) {}
-                }
-            });
 
             knobUpdaters[band.paramId] = function(n) {
                 norm = n; updateDot(n);
@@ -1857,6 +1960,7 @@
             var dot = el.querySelector('.circle-well .circle-dot');
             var val = el.querySelector('.circle-val');
             var norm = 0, dragging = false, startY = 0, startNorm = 0;
+            var lastTapMs = 0;
 
             function updateDot(n) {
                 var sz = Math.round(6 + n * 38);
@@ -1869,6 +1973,17 @@
             updateDot(0);
 
             el.addEventListener('pointerdown', function(e) {
+                var now = Date.now();
+                if (now - lastTapMs < 300) {
+                    lastTapMs = 0;
+                    norm = 0; updateDot(0);
+                    if (parameterStates[paramId])
+                        try { parameterStates[paramId].sliderDragStarted();
+                              parameterStates[paramId].setNormalisedValue(0);
+                              parameterStates[paramId].sliderDragEnded(); } catch(ex) {}
+                    e.preventDefault(); return;
+                }
+                lastTapMs = now;
                 dragging = true; startY = e.clientY; startNorm = norm;
                 if (parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(e) {}
@@ -2224,9 +2339,32 @@
         var timeDrag = null, startY = 0, startVal = 0;
 
         document.querySelectorAll('.env-icon').forEach(function(svg) {
+            var lastTimeTapMs = 0;
             svg.addEventListener('pointerdown', function(e) {
                 // Skip if the click was on the shape handle
                 if (e.target && e.target.classList.contains('shape-handle')) return;
+                var now = Date.now();
+                if (now - lastTimeTapMs < 300) {
+                    lastTimeTapMs = 0;
+                    e.preventDefault();
+                    var paramId = svg.dataset.param;
+                    var def = parseFloat(svg.dataset.default);
+                    if (isNaN(def)) return;
+                    svg.dataset.value = def;
+                    updateEnvVisual(svg);
+                    var isDepth = (svg.dataset.type === 'depth');
+                    var norm = isDepth ? (def + 1) / 2 : Math.max(0, Math.min(1, def));
+                    document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
+                        el.textContent = envNormToDisplay(paramId, norm);
+                    });
+                    if (paramId && parameterStates[paramId]) {
+                        try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
+                        try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
+                        try { parameterStates[paramId].sliderDragEnded(); } catch(err) {}
+                    }
+                    return;
+                }
+                lastTimeTapMs = now;
                 timeDrag = svg;
                 startY = e.clientY;
                 startVal = parseFloat(svg.dataset.value);
@@ -2235,25 +2373,6 @@
                 var paramId = svg.dataset.param;
                 if (paramId && parameterStates[paramId])
                     try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
-            });
-            svg.addEventListener('dblclick', function(e) {
-                if (e.target && e.target.classList.contains('shape-handle')) return;
-                e.preventDefault();
-                var paramId = svg.dataset.param;
-                var def = parseFloat(svg.dataset.default);
-                if (isNaN(def)) return;
-                svg.dataset.value = def;
-                updateEnvVisual(svg);
-                var isDepth = (svg.dataset.type === 'depth');
-                var norm = isDepth ? (def + 1) / 2 : Math.max(0, Math.min(1, def));
-                document.querySelectorAll('.envval-' + paramId).forEach(function(el) {
-                    el.textContent = envNormToDisplay(paramId, norm);
-                });
-                if (paramId && parameterStates[paramId]) {
-                    try { parameterStates[paramId].sliderDragStarted(); } catch(err) {}
-                    try { parameterStates[paramId].setNormalisedValue(norm); } catch(err) {}
-                    try { parameterStates[paramId].sliderDragEnded(); } catch(err) {}
-                }
             });
         });
 
@@ -2301,11 +2420,29 @@
         var shapeDrag = null, shapeStartX = 0, shapeStartVal = 0;
 
         document.querySelectorAll('.shape-handle').forEach(function(handle) {
+            var lastShapeTapMs = 0;
             handle.addEventListener('pointerdown', function(e) {
                 e.stopPropagation();   // prevent time drag from also starting
                 e.preventDefault();
                 var svg = handle.closest('.env-icon');
                 if (!svg) return;
+                var now = Date.now();
+                if (now - lastShapeTapMs < 300) {
+                    lastShapeTapMs = 0;
+                    var paramId = svg.dataset.param;
+                    document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
+                        s.dataset.shape = 0;
+                        updateEnvVisual(s);
+                    });
+                    var shapeParamId = ENV_SHAPE_PARAM[paramId];
+                    if (shapeParamId && parameterStates[shapeParamId]) {
+                        try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
+                        try { parameterStates[shapeParamId].setNormalisedValue(0.5); } catch(err) {}
+                        try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
+                    }
+                    return;
+                }
+                lastShapeTapMs = now;
                 shapeDrag = svg;
                 shapeStartX = e.clientX;
                 shapeStartVal = parseFloat(svg.dataset.shape || '0');
@@ -2313,24 +2450,6 @@
                 var shapeParamId = ENV_SHAPE_PARAM[svg.dataset.param];
                 if (shapeParamId && parameterStates[shapeParamId])
                     try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
-            });
-            handle.addEventListener('dblclick', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                var svg = handle.closest('.env-icon');
-                if (!svg) return;
-                var paramId = svg.dataset.param;
-                // Reset ALL icons with this param to shape=0
-                document.querySelectorAll('.env-icon[data-param="' + paramId + '"]').forEach(function(s) {
-                    s.dataset.shape = 0;
-                    updateEnvVisual(s);
-                });
-                var shapeParamId = ENV_SHAPE_PARAM[paramId];
-                if (shapeParamId && parameterStates[shapeParamId]) {
-                    try { parameterStates[shapeParamId].sliderDragStarted(); } catch(err) {}
-                    try { parameterStates[shapeParamId].setNormalisedValue(0.5); } catch(err) {}
-                    try { parameterStates[shapeParamId].sliderDragEnded(); } catch(err) {}
-                }
             });
         });
 
@@ -3208,36 +3327,58 @@
         var toggle = document.getElementById('piano-toggle');
         if (!strip || !toggle) return;
 
-        var START = 36, END = 83; // C2–B5
         var IS_BLACK = [false,true,false,true,false,false,true,false,true,false,true,false];
+        var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
-        // Count white keys to compute key width
-        var whiteCount = 0;
-        for (var n = START; n <= END; n++) if (!IS_BLACK[n % 12]) whiteCount++;
+        // 2-octave window; octaveOffset shifts by 12 semitones each step
+        // Base = C3 (MIDI 48); range covers MIDI 0–108 (C-1 to C8)
+        var BASE_OCT = 3;   // default start octave
+        var octaveOffset = 0;   // in octave steps; clamped so range stays in [0,127]
+        var OCT_SPAN = 2;       // number of octaves to display
+
+        function octStart() { return (BASE_OCT + octaveOffset) * 12; }
+        function octEnd()   { return octStart() + OCT_SPAN * 12 - 1; }
+
+        // White keys per 2-octave span: C D E F G A B C D E F G A B = 14
+        var WHITE_PER_SPAN = 0;
+        for (var p = 0; p < OCT_SPAN * 12; p++) if (!IS_BLACK[p % 12]) WHITE_PER_SPAN++;
+
+        // Left offset reserved for octave buttons
+        var OCT_BTN_W = 66; // px
 
         function buildKeys() {
-            strip.innerHTML = '';
+            // Remove existing key elements (leave oct-btns and oct-label)
+            var existing = strip.querySelectorAll('.pkey');
+            existing.forEach(function(el) { el.remove(); });
             keys = [];
-            var totalW = strip.offsetWidth || window.innerWidth;
-            var wW = Math.floor(totalW / whiteCount);
+
+            var start = octStart(), end = octEnd();
+            var availW = (strip.offsetWidth || window.innerWidth) - OCT_BTN_W;
+            var wW = Math.floor(availW / WHITE_PER_SPAN);
             var bW = Math.round(wW * 0.6);
             var whiteIdx = 0;
-            for (var n = START; n <= END; n++) {
+
+            for (var n = start; n <= end; n++) {
                 var isBlack = IS_BLACK[n % 12];
                 var k = document.createElement('div');
                 k.className = isBlack ? 'pkey black' : 'pkey white';
                 k.dataset.note = n;
                 if (isBlack) {
-                    k.style.left  = (whiteIdx * wW - Math.round(bW / 2)) + 'px';
+                    k.style.left  = (OCT_BTN_W + whiteIdx * wW - Math.round(bW / 2)) + 'px';
                     k.style.width = bW + 'px';
                 } else {
-                    k.style.left  = (whiteIdx * wW) + 'px';
+                    k.style.left  = (OCT_BTN_W + whiteIdx * wW) + 'px';
                     k.style.width = wW + 'px';
                     whiteIdx++;
                 }
                 strip.appendChild(k);
                 keys.push({ note: n, el: k });
             }
+
+            // Update octave label
+            var lbl = document.getElementById('oct-label');
+            if (lbl) lbl.textContent = 'C' + (BASE_OCT + octaveOffset);
+
             // Reapply root highlight after rebuild
             if (typeof currentRootNorm !== 'undefined') applyRoot(currentRootNorm);
         }
@@ -3246,12 +3387,34 @@
         buildKeys();
         window.addEventListener('resize', buildKeys);
 
+        // Octave shift buttons
+        var octUp = document.getElementById('oct-up');
+        var octDn = document.getElementById('oct-dn');
+        if (octUp) octUp.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (octEnd() + 12 <= 127) { octaveOffset++; buildKeys(); }
+        });
+        if (octDn) octDn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (octStart() - 12 >= 0) { octaveOffset--; buildKeys(); }
+        });
+
         // Root note highlight
         var currentRootNorm = 0;
+        var hasRoot = false;
+        function snapOctaveToRoot() {
+            if (!hasRoot) return;
+            var midiNote = Math.round(currentRootNorm * 127);
+            var noteOct  = Math.floor(midiNote / 12);
+            var minOff   = -BASE_OCT;
+            var maxOff   = Math.floor(127 / 12) - BASE_OCT - OCT_SPAN + 1;
+            octaveOffset = Math.max(minOff, Math.min(maxOff, noteOct - BASE_OCT));
+        }
         function applyRoot(normVal) {
             currentRootNorm = normVal;
-            var pc = Math.round(normVal * 11);
-            keys.forEach(function(k) { k.el.classList.toggle('root', k.note % 12 === pc); });
+            hasRoot = true;
+            var midiNote = Math.round(normVal * 127);
+            keys.forEach(function(k) { k.el.classList.toggle('root', k.note === midiNote); });
         }
         var origRoot = knobUpdaters['root_note'];
         knobUpdaters['root_note'] = function(n) { if (origRoot) origRoot(n); applyRoot(n); };
@@ -3299,7 +3462,7 @@
         toggle.addEventListener('click', function() {
             visible = !visible;
             strip.classList.toggle('visible', visible);
-            if (visible) buildKeys(); // recompute key widths at actual rendered width
+            if (visible) { snapOctaveToRoot(); buildKeys(); }
             var stripH = strip.offsetHeight || 90;
             toggle.style.bottom = visible ? (stripH + 8) + 'px' : '8px';
         });
@@ -3353,7 +3516,7 @@
 
 <!-- On-screen piano keyboard -->
 <button id="piano-toggle" title="Toggle keyboard">
-  <svg width="22" height="14" viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 22 14" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="0.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
     <rect x="4.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
     <rect x="8.5"  y="0.5" width="3" height="13" rx="1" fill="#ccc" stroke="#555"/>
@@ -3364,6 +3527,12 @@
     <rect x="14"   y="0.5" width="3" height="8"  rx="1" fill="#1a1a1a" stroke="#555"/>
   </svg>
 </button>
-<div id="piano-strip"></div>
+<div id="piano-strip">
+  <div id="oct-btns">
+    <button id="oct-up" title="Octave up">▲</button>
+    <button id="oct-dn" title="Octave down">▼</button>
+  </div>
+  <span id="oct-label">C3</span>
+</div>
 </body>
 </html>

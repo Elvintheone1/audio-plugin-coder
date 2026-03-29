@@ -94,9 +94,12 @@ private:
 
     HeaderBar header;
 
-    // File chooser — stored as member to stay alive during async operation
+    // File choosers — stored as members to stay alive during async operation
     std::unique_ptr<juce::FileChooser> fileChooser;
+    std::unique_ptr<juce::FileChooser> presetChooser;
     void launchFileChooser();
+    void launchSavePreset();
+    void launchLoadPreset();
 
     //==========================================================================
     // 1. PARAMETER RELAYS (declared first → destroyed last)
@@ -213,7 +216,8 @@ private:
 
     SpliceAudioProcessor& audioProcessor;
 
-    bool startupDialogShown = false;
+    bool startupDialogShown  = false;
+    bool sliceSyncPending    = true;   // push C++ sliceActive → JS on first timer tick
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpliceAudioProcessorEditor)
 };
