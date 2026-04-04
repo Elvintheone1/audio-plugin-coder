@@ -1,0 +1,6 @@
+# MediaPipe model file (~8MB, download via curl on first run)
+hand_landmarker.task
+
+# Python cache
+__pycache__/
+*.pyc

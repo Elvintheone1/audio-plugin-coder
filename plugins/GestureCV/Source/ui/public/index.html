@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>GestureCV</title>
+<style>
+  body { margin:0; background:#0d0d0d; color:#ccc; font-family:monospace; padding:20px; }
+  h2 { color:#7fff7f; margin:0 0 16px; }
+  #status { font-size:12px; margin-bottom:16px; }
+  #lanes { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .lane { background:#1a1a1a; border-radius:6px; padding:10px; }
+  .lane-name { font-size:11px; color:#888; margin-bottom:6px; }
+  .bar-bg { background:#333; border-radius:3px; height:8px; }
+  .bar-fill { background:#7fff7f; border-radius:3px; height:8px; width:0%; transition:width 0.05s; }
+  .lane-val { font-size:13px; color:#fff; margin-top:4px; }
+</style>
+</head>
+<body>
+<h2>GestureCV</h2>
+<div id="status">⬤ waiting for OSC...</div>
+<div id="lanes"></div>
+
+<script>
+const LANE_NAMES = ["hand_x","hand_y","hand_z","spread","pinch","wrist_tilt","curl_index","curl_ring"];
+const lanesDiv = document.getElementById("lanes");
+const statusDiv = document.getElementById("status");
+
+// Build lane UI
+const bars = [];
+LANE_NAMES.forEach((name, i) => {
+  const div = document.createElement("div");
+  div.className = "lane";
+  div.innerHTML = `<div class="lane-name">${name}</div>
+    <div class="bar-bg"><div class="bar-fill" id="bar${i}"></div></div>
+    <div class="lane-val" id="val${i}">0.000</div>`;
+  lanesDiv.appendChild(div);
+  bars.push({ bar: document.getElementById("bar"+i), val: document.getElementById("val"+i) });
+});
+
+// Called by C++ editor at 30fps
+window.updateLanes = function(values, connected) {
+  statusDiv.textContent = connected ? "⬤ OSC connected" : "⬤ waiting for OSC...";
+  statusDiv.style.color = connected ? "#7fff7f" : "#888";
+  values.forEach((v, i) => {
+    if (bars[i]) {
+      bars[i].bar.style.width = (v * 100).toFixed(1) + "%";
+      bars[i].val.textContent = v.toFixed(3);
+    }
+  });
+};
+</script>
+</body>
+</html>

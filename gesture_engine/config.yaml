@@ -1,0 +1,8 @@
+camera_index: 0
+target_fps: 60
+one_euro_mincutoff: 1.5
+one_euro_beta: 0.1
+output_osc_host: "127.0.0.1"
+output_osc_port: 9000
+output_midi_port: "GestureCV"
+hand: "right"   # left / right / both

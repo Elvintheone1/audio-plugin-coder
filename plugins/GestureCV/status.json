@@ -1,0 +1,61 @@
+{
+  "plugin_name": "GestureCV",
+  "version": "v0.1.0",
+  "current_phase": "code_complete",
+  "ui_framework": "webview",
+  "complexity_score": 3,
+  "created_at": "2026-04-04T00:00:00Z",
+  "last_modified": "2026-04-04T00:00:00Z",
+  "phase_history": [
+    {
+      "phase": "ideation_complete",
+      "completed_at": "2026-04-04T00:00:00Z",
+      "notes": "Two-component architecture: Python gesture engine + JUCE MIDI router plugin."
+    },
+    {
+      "phase": "plan_complete",
+      "completed_at": "2026-04-04T00:00:00Z",
+      "notes": "Complexity 3/5. Phased implementation: Python engine first, JUCE plugin second."
+    },
+    {
+      "phase": "code_complete",
+      "completed_at": "2026-04-04T00:00:00Z",
+      "notes": "Python engine + JUCE plugin both working. Tested in Logic with hand_z controlling filter cutoff (CC74)."
+    }
+  ],
+  "architecture_notes": {
+    "component_1_python": "gesture_engine/ — OpenCV + MediaPipe Tasks API 0.10.33 + one-euro filter → OSC /gesture/lanes [f×8]",
+    "component_2_juce": "VST3/AU MIDI Effect — OSCReceiver + atomic lane buffer + per-lane curve/scale → MIDI CC out",
+    "ipc": "OSC UDP localhost:9000",
+    "camera_source": "Continuity Camera via USB-C (requires iPhone unlocked/trusted on first connect)",
+    "mediapipe_api": "Tasks API (mp.solutions removed in 0.10.18+), model: hand_landmarker.task",
+    "threading_model": "OSC writes std::atomic<float>[8]; processBlock reads atomics — lock-free",
+    "smoothing": "One-euro filter in Python only (plugin-side IIR removed — caused startup lag)"
+  },
+  "known_issues": {
+    "hand_z_range": "Tuned for Mac Mini + iPhone via USB at arm's length: (hand_size - 0.08) / 0.20. May need re-tuning for different distances.",
+    "continuity_camera": "Mac Mini has no built-in camera. iPhone connects via USB-C, must be unlocked and trusted. Continuity Camera toggle hidden on Mac Mini (no built-in cam).",
+    "python_version": "mediapipe/opencv installed on Python 3.12 (/Library/Frameworks/Python.framework/Versions/3.12/). Use that interpreter explicitly.",
+    "model_file": "hand_landmarker.task (~8MB) in gesture_engine/ — not committed to git (add to .gitignore)"
+  },
+  "validation": {
+    "creative_brief_exists": true,
+    "parameter_spec_exists": true,
+    "architecture_defined": true,
+    "ui_framework_selected": true,
+    "design_complete": true,
+    "code_complete": true,
+    "tests_passed": true,
+    "ship_ready": false
+  },
+  "framework_selection": {
+    "decision": "webview",
+    "rationale": "Live 8-lane meters, mapping matrix, curve editors — WebView strength.",
+    "implementation_strategy": "phased"
+  },
+  "error_recovery": {
+    "last_backup": null,
+    "rollback_available": false,
+    "error_log": []
+  }
+}
